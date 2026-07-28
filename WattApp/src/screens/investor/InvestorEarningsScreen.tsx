@@ -9,9 +9,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import { api } from '../../lib/api';
-import { COLORS } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, GRADIENTS } from '../../constants/colors';
+import { FONTS } from '../../constants/typography';
 import type { WalletTransaction, PayoutRequest } from '../../types';
 import { TrendingUpIcon, WalletIcon, XIcon } from '../../components/icons';
+import GradientButton from '../../components/GradientButton';
 import ErrorView from '../../components/ErrorView';
 import PayoutStatusBadge from '../../components/PayoutStatusBadge';
 
@@ -130,7 +133,7 @@ export default function InvestorEarningsScreen() {
         ListHeaderComponent={
           <>
             {/* Balance card */}
-            <View style={styles.balanceCard}>
+            <LinearGradient colors={GRADIENTS.greenDeep} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.balanceCard}>
               <View style={styles.balanceDeco1} />
               <View style={styles.balanceDeco2} />
               <Text style={styles.balanceLabel}>{t.inv_earnings_balance}</Text>
@@ -143,7 +146,7 @@ export default function InvestorEarningsScreen() {
               >
                 <Text style={styles.withdrawBtnText}>{t.inv_earnings_bank_btn}</Text>
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
             {/* Automatic payout info */}
             <View style={styles.autoInfo}>
@@ -245,13 +248,8 @@ export default function InvestorEarningsScreen() {
               <TextInput style={styles.input} value={iban} onChangeText={setIban}
                 placeholder={t.payout_iban} placeholderTextColor={COLORS.textTertiary} autoCapitalize="characters" />
 
-              <TouchableOpacity
-                style={[styles.primaryBtn, savingBank && { opacity: 0.55 }]}
-                onPress={saveBank} disabled={savingBank} activeOpacity={0.85}
-              >
-                {savingBank ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.primaryBtnText}>{t.payout_save_bank}</Text>}
-              </TouchableOpacity>
+              <GradientButton label={t.payout_save_bank} onPress={saveBank} loading={savingBank} />
+              <View style={{ height: 8 }} />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -277,7 +275,7 @@ const styles = StyleSheet.create({
   balanceDeco1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -40 },
   balanceDeco2: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -30, left: -20 },
   balanceLabel:  { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginBottom: 4 },
-  balanceAmount: { fontSize: 46, fontWeight: '900', color: '#fff' },
+  balanceAmount: { fontFamily: FONTS.extrabold, fontSize: 46, color: '#fff' },
   balanceCurrency: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
   withdrawBtn: { backgroundColor: COLORS.gold, paddingHorizontal: 28, paddingVertical: 11, borderRadius: 14 },
   withdrawBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },

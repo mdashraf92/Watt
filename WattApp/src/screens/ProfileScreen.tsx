@@ -5,6 +5,7 @@ import {
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,7 +14,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { api } from '../lib/api';
-import { COLORS } from '../constants/colors';
+import { COLORS, GRADIENTS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
 import type { ChargingSession, ChargerApplication, CustomerStackParamList } from '../types';
@@ -251,7 +253,12 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
 
         {/* ── Hero ──────────────────────────────────────────── */}
-        <View style={styles.hero}>
+        <LinearGradient
+          colors={GRADIENTS.greenDeep}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
           <View style={styles.heroDeco1} />
           <View style={styles.heroDeco2} />
 
@@ -276,7 +283,7 @@ export default function ProfileScreen() {
             {profile.full_name || t.profile_dev_name}
           </Text>
           <Text style={styles.heroPhone}>{profile.phone}</Text>
-        </View>
+        </LinearGradient>
 
         {/* ── Stats ─────────────────────────────────────────── */}
         <View style={styles.statsCard}>
@@ -884,8 +891,8 @@ const styles = StyleSheet.create({
   },
   memberDot: { position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: COLORS.primaryDark },
 
-  heroName:  { fontSize: 22, fontWeight: '800', color: '#fff' },
-  heroPhone: { fontSize: 14, color: 'rgba(255,255,255,0.65)' },
+  heroName:  { fontFamily: FONTS.bold, fontSize: 22, color: '#fff' },
+  heroPhone: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
   memberBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5 },
   memberEmoji: { fontSize: 13 },
   memberText:  { fontSize: 12, fontWeight: '700' },

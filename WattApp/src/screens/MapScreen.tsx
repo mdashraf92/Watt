@@ -16,10 +16,12 @@ import ErrorView from '../components/ErrorView';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Station, ChargerListing } from '../types';
 import { api } from '../lib/api';
 import { realtime } from '../lib/realtime';
-import { COLORS } from '../constants/colors';
+import { COLORS, GRADIENTS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
@@ -360,10 +362,12 @@ export default function MapScreen() {
       {/* Nearby stations pill */}
       {!showList && !selected && !selectedListing && (
         <View style={[styles.pillRow, { bottom: tabBarHeight + 12 }]}>
-          <TouchableOpacity style={styles.pill} onPress={toggleList} activeOpacity={0.85}>
-            <ZapIcon size={14} color="#fff" strokeWidth={2.5} />
-            <Text style={styles.pillText}>{t.map_nearby}</Text>
-            {loading && <ActivityIndicator size="small" color="#fff" style={{ marginLeft: 4 }} />}
+          <TouchableOpacity style={styles.pillShadow} onPress={toggleList} activeOpacity={0.85}>
+            <LinearGradient colors={GRADIENTS.green} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.pill}>
+              <ZapIcon size={14} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.pillText}>{t.map_nearby}</Text>
+              {loading && <ActivityIndicator size="small" color="#fff" style={{ marginLeft: 4 }} />}
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       )}
@@ -547,13 +551,16 @@ const styles = StyleSheet.create({
   },
 
   pillRow: { position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center' },
+  pillShadow: {
+    borderRadius: 24,
+    shadowColor: COLORS.primaryDark, shadowOpacity: 0.35, shadowOffset: { width: 0, height: 5 }, shadowRadius: 10, elevation: 7,
+  },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: COLORS.primary, borderRadius: 24,
+    borderRadius: 24,
     paddingHorizontal: 20, paddingVertical: 12,
-    shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
-  pillText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  pillText: { color: '#fff', fontFamily: FONTS.bold, fontSize: 14 },
 
   listSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

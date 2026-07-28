@@ -15,6 +15,7 @@ import { isCarProfileComplete } from '../lib/profileComplete';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
 import { ZapIcon, ArrowLeftIcon, MapPinIcon, CheckIcon, ClockIcon } from '../components/icons';
+import GradientButton from '../components/GradientButton';
 
 type Nav   = NativeStackNavigationProp<MainStackParamList, 'Booking'>;
 type Route = RouteProp<MainStackParamList, 'Booking'>;
@@ -616,25 +617,15 @@ export default function BookingScreen() {
       {/* Sticky footer: Next / Confirm */}
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         {step < 3 ? (
-          <TouchableOpacity
-            style={[s.primaryBtn, !canNext() && s.primaryBtnDisabled]}
-            onPress={next} disabled={!canNext()} activeOpacity={0.85}
-          >
-            <Text style={s.primaryBtnText}>{t.booking_next}</Text>
-          </TouchableOpacity>
+          <GradientButton label={t.booking_next} onPress={next} disabled={!canNext()} />
         ) : (
-          <TouchableOpacity
-            style={[s.primaryBtn, loading && s.primaryBtnDisabled]}
-            onPress={handleBook} disabled={loading} activeOpacity={0.85}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={s.primaryBtnText}>
-                  {durMode === 'full'
-                    ? t.booking_confirm_btn
-                    : `${t.booking_confirm_btn} · ${estimatedCost.toFixed(3)} OMR`}
-                </Text>}
-          </TouchableOpacity>
+          <GradientButton
+            label={durMode === 'full'
+              ? t.booking_confirm_btn
+              : `${t.booking_confirm_btn} · ${estimatedCost.toFixed(3)} OMR`}
+            onPress={handleBook}
+            loading={loading}
+          />
         )}
       </View>
     </SafeAreaView>
@@ -741,9 +732,6 @@ const s = StyleSheet.create({
   fullNote: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 17, marginTop: 8, fontStyle: 'italic' },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border },
-  primaryBtn: { backgroundColor: COLORS.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 5 },
-  primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });
 
 // Drum-column (spin wheel) styles

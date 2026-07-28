@@ -9,6 +9,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { CustomerStackParamList } from '../types';
 import { api } from '../lib/api';
 import { COLORS } from '../constants/colors';
+import GradientButton from '../components/GradientButton';
 import { useLang } from '../context/LanguageContext';
 import { CheckIcon, ZapIcon, LeafIcon, HomeIcon, StarIcon } from '../components/icons';
 
@@ -213,11 +214,9 @@ export default function SessionSummaryScreen() {
                       multiline
                       maxLength={280}
                     />
-                    <TouchableOpacity style={styles.rateBtn} onPress={submitRating} disabled={rating} activeOpacity={0.85}>
-                      {rating
-                        ? <ActivityIndicator color="#fff" size="small" />
-                        : <Text style={styles.rateBtnText}>{t.rate_submit}</Text>}
-                    </TouchableOpacity>
+                    <View style={{ width: '100%', marginTop: 12 }}>
+                      <GradientButton label={t.rate_submit} onPress={submitRating} loading={rating} />
+                    </View>
                   </>
                 )}
               </>
@@ -231,10 +230,12 @@ export default function SessionSummaryScreen() {
         </TouchableOpacity>
 
         {/* Bottom done button */}
-        <TouchableOpacity style={styles.doneBtn} onPress={goHome} activeOpacity={0.85}>
-          <HomeIcon size={18} color="#fff" strokeWidth={2.5} />
-          <Text style={styles.doneBtnText}>{rated || !sessionId ? t.session_summary_done : t.rate_skip}</Text>
-        </TouchableOpacity>
+        <GradientButton
+          label={rated || !sessionId ? t.session_summary_done : t.rate_skip}
+          onPress={goHome}
+          icon={<HomeIcon size={18} color="#fff" strokeWidth={2.5} />}
+        />
+        <View style={{ height: 12 }} />
 
         <View style={{ height: 24 }} />
       </ScrollView>

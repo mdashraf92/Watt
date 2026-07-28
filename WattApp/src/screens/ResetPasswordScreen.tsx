@@ -4,10 +4,14 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   Alert, ActivityIndicator,
 } from 'react-native';
-import { COLORS } from '../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, GRADIENTS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { ZapIcon, EyeIcon, EyeOffIcon } from '../components/icons';
+import { EyeIcon, EyeOffIcon } from '../components/icons';
+import { GoWattIcon } from '../components/Logo';
+import GradientButton from '../components/GradientButton';
 
 // Shown at the root (outside the normal navigator) whenever a
 // password-recovery deep link has established a recovery session.
@@ -41,18 +45,18 @@ export default function ResetPasswordScreen() {
 
   return (
     <View style={s.root}>
-      {/* ── Dark header ── */}
-      <View style={s.header}>
+      {/* ── Gradient header ── */}
+      <LinearGradient colors={GRADIENTS.greenDeep} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.header}>
         <View style={s.deco1} /><View style={s.deco2} />
         <View style={s.logoRow}>
           <View style={s.logoBadge}>
-            <ZapIcon size={24} color={COLORS.gold} strokeWidth={2} />
+            <GoWattIcon size={28} />
           </View>
           <Text style={s.logoText}>GO WATT</Text>
         </View>
         <Text style={s.title}>{t.reset_title}</Text>
         <Text style={s.subtitle}>{t.reset_subtitle}</Text>
-      </View>
+      </LinearGradient>
 
       <KeyboardAvoidingView
         style={s.body}
@@ -103,16 +107,9 @@ export default function ResetPasswordScreen() {
           </View>
 
           {/* Submit */}
-          <TouchableOpacity
-            style={[s.btn, loading && s.btnOff]}
-            onPress={handleSubmit}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={s.btnText}>{t.reset_submit_btn}</Text>}
-          </TouchableOpacity>
+          <View style={{ marginTop: 4 }}>
+            <GradientButton label={t.reset_submit_btn} onPress={handleSubmit} loading={loading} />
+          </View>
 
           {/* Cancel */}
           <TouchableOpacity style={s.cancelBtn} onPress={handleCancel} disabled={loading} activeOpacity={0.7}>
@@ -138,14 +135,13 @@ const s = StyleSheet.create({
 
   logoRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   logoBadge: {
-    width: 42, height: 42, borderRadius: 13,
-    backgroundColor: 'rgba(16,185,129,0.2)',
-    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.4)',
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center', justifyContent: 'center',
   },
-  logoText: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: 5 },
-  title:    { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 19 },
+  logoText: { fontFamily: FONTS.extrabold, fontSize: 22, color: '#fff', letterSpacing: 5 },
+  title:    { fontFamily: FONTS.bold, fontSize: 28, color: '#fff', marginBottom: 4 },
+  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 19 },
 
   body: { flex: 1, backgroundColor: COLORS.background },
   formPanel: { paddingHorizontal: 24, paddingTop: 28, gap: 14 },
@@ -162,15 +158,6 @@ const s = StyleSheet.create({
   inputBoxError: { borderColor: COLORS.error },
   inputRow:      { flexDirection: 'row', alignItems: 'center' },
   input:         { paddingVertical: 14, fontSize: 15, color: COLORS.text },
-
-  btn: {
-    backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15,
-    alignItems: 'center', marginTop: 4,
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-  },
-  btnOff:  { opacity: 0.55 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   cancelBtn:  { alignItems: 'center', paddingVertical: 10 },
   cancelText: { fontSize: 14, color: COLORS.textTertiary, fontWeight: '600' },

@@ -16,6 +16,7 @@ import {
   ChevronRightIcon, CheckIcon, ZapIcon, MapPinIcon,
   UserIcon, ShieldIcon, XIcon, LocateIcon,
 } from '../components/icons';
+import GradientButton from '../components/GradientButton';
 
 type Props = NativeStackScreenProps<CustomerStackParamList, 'InvestorApplication'>;
 
@@ -308,17 +309,15 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
           </View>
 
           {/* Submit */}
-          <TouchableOpacity
-            style={[styles.submitBtn, (!isValid || submitting) && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={!isValid || submitting}
-            activeOpacity={0.85}
-          >
-            {submitting
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={styles.submitBtnText}>{t.inv_app_submit}</Text>
-            }
-          </TouchableOpacity>
+          <View style={{ marginHorizontal: 16, marginTop: 24 }}>
+            <GradientButton
+              label={t.inv_app_submit}
+              variant="gold"
+              onPress={handleSubmit}
+              loading={submitting}
+              disabled={!isValid}
+            />
+          </View>
 
           <View style={{ height: 40 }} />
         </ScrollView>

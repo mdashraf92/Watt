@@ -11,12 +11,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import type { WalletTransaction } from '../types';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { COLORS } from '../constants/colors';
+import { COLORS, GRADIENTS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
 import {
@@ -24,6 +26,7 @@ import {
   ArrowUpIcon, ZapIcon, RotateCcwIcon, GiftIcon, CreditCardIcon,
 } from '../components/icons';
 import ErrorView from '../components/ErrorView';
+import GradientButton from '../components/GradientButton';
 
 const TOP_UP_AMOUNTS = [5, 10, 20, 50];
 
@@ -169,7 +172,12 @@ export default function WalletScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Balance card */}
-      <View style={styles.balanceCard}>
+      <LinearGradient
+        colors={GRADIENTS.greenDeep}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.balanceCard}
+      >
         {/* Decorative elements */}
         <View style={styles.balanceDeco1} />
         <View style={styles.balanceDeco2} />
@@ -197,10 +205,10 @@ export default function WalletScreen() {
         )}
 
         <TouchableOpacity style={styles.topUpBtn} onPress={() => setShowTopUp(true)} activeOpacity={0.85}>
-          <PlusIcon size={16} color="#0F172A" strokeWidth={2.5} />
+          <PlusIcon size={16} color={COLORS.textOnGold} strokeWidth={2.5} />
           <Text style={styles.topUpBtnText}>{t.wallet_top_up_clean}</Text>
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       {heldBalance > 0 && (
         <Text style={styles.holdHint}>{t.wallet_on_hold_hint}</Text>
@@ -327,17 +335,11 @@ export default function WalletScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[styles.confirmBtn, topUpLoading && styles.confirmBtnDisabled]}
+            <GradientButton
+              label={`${t.wallet_confirm_btn} · ${selectedAmount} OMR`}
               onPress={handleTopUp}
-              disabled={topUpLoading}
-              activeOpacity={0.85}
-            >
-              {topUpLoading
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.confirmBtnText}>{t.wallet_confirm_btn} · {selectedAmount} OMR</Text>
-              }
-            </TouchableOpacity>
+              loading={topUpLoading}
+            />
           </View>
         </TouchableOpacity>
       </Modal>
@@ -387,8 +389,8 @@ const styles = StyleSheet.create({
   },
   balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.75)' },
   balanceAmount: {
+    fontFamily: FONTS.extrabold,
     fontSize: 52,
-    fontWeight: '800',
     color: '#fff',
     lineHeight: 60,
     letterSpacing: -1,
@@ -593,18 +595,4 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   paymentText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
-
-  confirmBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  confirmBtnDisabled: { opacity: 0.55 },
-  confirmBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

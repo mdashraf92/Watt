@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -17,9 +18,11 @@ import { realtime } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
-import { COLORS } from '../constants/colors';
+import { COLORS, GRADIENTS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon, HeartIcon } from '../components/icons';
 import ErrorView from '../components/ErrorView';
+import GradientButton from '../components/GradientButton';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
 type Route = RouteProp<MainStackParamList, 'StationDetails'>;
@@ -147,24 +150,30 @@ export default function StationDetailsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero */}
-        <View style={styles.hero}>
-          <View style={[styles.heroIconWrap, { backgroundColor: STATUS_BG[station.status] }]}>
-            <ZapIcon size={32} color={STATUS_COLOR[station.status]} strokeWidth={2} />
+        <LinearGradient
+          colors={GRADIENTS.greenDeep}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <View style={styles.heroGlow} />
+          <View style={styles.heroIconWrap}>
+            <ZapIcon size={32} color={COLORS.gold} strokeWidth={2} />
           </View>
           <View style={styles.heroContent}>
             <Text style={styles.heroName}>{stationDisplayName(station, isRTL)}</Text>
             <View style={styles.heroLocRow}>
-              <MapPinIcon size={12} color={COLORS.textTertiary} strokeWidth={2} />
+              <MapPinIcon size={12} color="rgba(255,255,255,0.6)" strokeWidth={2} />
               <Text style={styles.heroAddress}>{stationDisplayAddress(station, isRTL)}</Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[station.status] }]}>
+            <View style={styles.statusBadge}>
               <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[station.status] }]} />
-              <Text style={[styles.statusText, { color: STATUS_COLOR[station.status] }]}>
+              <Text style={styles.statusText}>
                 {STATUS_LABEL[station.status]}
               </Text>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
@@ -254,16 +263,16 @@ export default function StationDetailsScreen() {
       <View style={styles.bookBar}>
         <View>
           <Text style={styles.bookPrice}>{station.price_per_kwh.toFixed(3)} OMR</Text>
-          <Text style={styles.bookPriceUnit}>لكل kWh</Text>
+          <Text style={styles.bookPriceUnit}>/kWh</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.bookBtn, !canBook && styles.bookBtnDisabled]}
-          onPress={() => canBook && navigation.navigate('Booking', { station })}
-          activeOpacity={0.85}
-        >
-          <ZapIcon size={18} color="#fff" strokeWidth={2.5} />
-          <Text style={styles.bookBtnText}>{canBook ? t.station_book : t.station_unavailable}</Text>
-        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <GradientButton
+            label={canBook ? t.station_book : t.station_unavailable}
+            onPress={() => canBook && navigation.navigate('Booking', { station })}
+            disabled={!canBook}
+            icon={<ZapIcon size={18} color="#fff" strokeWidth={2.5} />}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -318,25 +327,32 @@ const styles = StyleSheet.create({
   // Hero
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: COLORS.card,
-    padding: 20, margin: 16, borderRadius: 22,
-    shadowColor: '#000', shadowOpacity: 0.07, shadowOffset: { width: 0, height: 3 }, shadowRadius: 10,
-    elevation: 3, borderWidth: 1, borderColor: COLORS.border,
+    padding: 20, margin: 16, borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: COLORS.primaryDark, shadowOpacity: 0.28, shadowOffset: { width: 0, height: 8 }, shadowRadius: 16,
+    elevation: 6,
+  },
+  heroGlow: {
+    position: 'absolute', width: 150, height: 150, borderRadius: 75,
+    backgroundColor: 'rgba(244,165,60,0.18)', top: -50, right: -30,
   },
   heroIconWrap: {
     width: 64, height: 64, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   heroContent: { flex: 1 },
-  heroName: { fontSize: 17, fontWeight: '800', color: COLORS.text, textAlign: 'right', marginBottom: 5 },
-  heroLocRow: { flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginBottom: 8 },
-  heroAddress: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'right' },
+  heroName: { fontFamily: FONTS.bold, fontSize: 18, color: '#fff', textAlign: 'right', marginBottom: 5 },
+  heroLocRow: { flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginBottom: 10 },
+  heroAddress: { fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'right' },
   statusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    alignSelf: 'flex-end', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   statusDot: { width: 7, height: 7, borderRadius: 3.5 },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  statusText: { fontFamily: FONTS.bold, fontSize: 11, color: '#fff' },
 
   // Stats grid
   statsGrid: {
@@ -426,14 +442,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: COLORS.border,
     shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: -3 }, shadowRadius: 12, elevation: 8,
   },
-  bookPrice: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
+  bookPrice: { fontFamily: FONTS.extrabold, fontSize: 22, color: COLORS.primary },
   bookPriceUnit: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
-  bookBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: COLORS.primary, borderRadius: 16,
-    paddingVertical: 15,
-    shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 5,
-  },
-  bookBtnDisabled: { backgroundColor: COLORS.textTertiary, shadowOpacity: 0 },
-  bookBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

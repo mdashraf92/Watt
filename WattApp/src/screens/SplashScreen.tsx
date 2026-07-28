@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GuestStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
+import { GoWattIcon } from '../components/Logo';
 import { useLang } from '../context/LanguageContext';
 import {
   ZapIcon, MapPinIcon, WalletIcon, GlobeIcon,
@@ -179,7 +180,7 @@ export default function SplashScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
         <Animated.View entering={FadeIn.duration(600)} style={styles.logoRow}>
           <View style={styles.logoBadge}>
-            <ZapIcon size={18} color={COLORS.gold} strokeWidth={2} />
+            <GoWattIcon size={26} />
           </View>
           <Text style={styles.logoText}>GO WATT</Text>
         </Animated.View>
@@ -266,8 +267,8 @@ const styles = StyleSheet.create({
   },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   logoBadge: {
-    width: 34, height: 34, borderRadius: 11,
-    backgroundColor: 'rgba(16,185,129,0.2)', borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.4)',
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center', justifyContent: 'center',
   },
   logoText: { fontSize: 19, fontWeight: '800', color: '#fff', letterSpacing: 4 },

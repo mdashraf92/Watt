@@ -18,7 +18,7 @@
     "android": {
       "package": "com.watt.ev",
       "adaptiveIcon": {
-        "backgroundColor": "#14532D",
+        "backgroundColor": "#214A38",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -45,7 +45,18 @@
       [
         "expo-notifications",
         {
-          "color": "#10B981"
+          "color": "#378B5A"
+        }
+      ],
+      "expo-web-browser",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/gowatt-icon.png",
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 180,
+          "resizeMode": "contain"
         }
       ]
     ],

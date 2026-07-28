@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 import { ArrowLeftIcon, CheckIcon, ZapIcon, CreditCardIcon, WalletIcon } from '../components/icons';
+import GradientButton from '../components/GradientButton';
 
 type Nav   = NativeStackNavigationProp<CustomerStackParamList, 'CompleteProfile'>;
 type Route = RouteProp<CustomerStackParamList, 'CompleteProfile'>;
@@ -172,16 +173,13 @@ export default function CompleteProfileScreen() {
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         {subStep === 0 ? (
-          <TouchableOpacity style={[s.primaryBtn, !carValid && s.primaryBtnDisabled]} onPress={saveCar} disabled={!carValid || saving} activeOpacity={0.85}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryBtnText}>{t.cp_next}</Text>}
-          </TouchableOpacity>
+          <GradientButton label={t.cp_next} onPress={saveCar} loading={saving} disabled={!carValid} />
         ) : (
-          <TouchableOpacity style={s.primaryBtn} onPress={finish} activeOpacity={0.85}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <CheckIcon size={18} color="#fff" strokeWidth={2.5} />
-              <Text style={s.primaryBtnText}>{station ? t.cp_continue_booking : t.cp_done}</Text>
-            </View>
-          </TouchableOpacity>
+          <GradientButton
+            label={station ? t.cp_continue_booking : t.cp_done}
+            onPress={finish}
+            icon={<CheckIcon size={18} color="#fff" strokeWidth={2.5} />}
+          />
         )}
       </View>
     </SafeAreaView>

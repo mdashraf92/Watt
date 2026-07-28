@@ -9,9 +9,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GuestStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { ZapIcon, EyeIcon, EyeOffIcon, GlobeIcon, PhoneIcon } from '../components/icons';
+import { EyeIcon, EyeOffIcon, PhoneIcon } from '../components/icons';
+import AuthHeader from '../components/AuthHeader';
+import GradientButton from '../components/GradientButton';
 
 type Nav = NativeStackNavigationProp<GuestStackParamList, 'SignIn'>;
 
@@ -47,6 +50,7 @@ export default function SignInScreen() {
   const [loading,       setLoading]       = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [emailError,    setEmailError]    = useState<string | null>(null);
+  const [focus,         setFocus]         = useState<string | null>(null);
 
   // Phone (OTP) login
   const [phoneVisible, setPhoneVisible] = useState(false);
@@ -155,40 +159,28 @@ export default function SignInScreen() {
 
   return (
     <View style={s.root}>
-
-      {/* ── Dark header — always fixed, never moves ── */}
-      <View style={s.header}>
-        <View style={s.deco1} /><View style={s.deco2} />
-        {/* Language toggle — top corner (flips side in RTL) */}
-        <TouchableOpacity
-          style={[s.langBtn, isRTL ? s.langBtnRtl : s.langBtnLtr]}
-          onPress={toggleLanguage}
-          activeOpacity={0.8}
-        >
-          <GlobeIcon size={14} color="rgba(255,255,255,0.8)" strokeWidth={2} />
-          <Text style={s.langBtnText}>{t.profile_language_label}</Text>
-        </TouchableOpacity>
-        <View style={[s.logoRow, isRTL && s.rowReverse]}>
-          <View style={s.logoBadge}>
-            <ZapIcon size={24} color={COLORS.gold} strokeWidth={2} />
-          </View>
-          <Text style={s.logoText}>GO WATT</Text>
-        </View>
-        <Text style={[s.title, isRTL && s.rtlText]}>{t.auth_signin_title}</Text>
-        <Text style={[s.subtitle, isRTL && s.rtlText]}>{t.auth_signin_subtitle}</Text>
-      </View>
+      <AuthHeader
+        title={t.auth_signin_title}
+        subtitle={t.auth_signin_subtitle}
+        languageLabel={t.profile_language_label}
+        onToggleLanguage={toggleLanguage}
+        isRTL={isRTL}
+      />
 
       {/* ── KAV: shrinks on keyboard, no ScrollView ── */}
       <KeyboardAvoidingView
         style={s.body}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Form panel — always fully visible */}
+        {/* Form panel — always fully visible.
+            NOTE: must NOT be an Animated.View with an `entering` layout
+            animation — reanimated re-parents the view on mount, which blurs
+            the TextInputs inside and prevents typing. Keep it a plain View. */}
         <View style={s.formPanel}>
           {/* Email */}
           <View style={s.field}>
             <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_email_label}</Text>
-            <View style={[s.inputBox, emailError ? s.inputBoxError : null]}>
+            <View style={[s.inputBox, focus === 'email' && s.inputBoxFocus, emailError ? s.inputBoxError : null]}>
               <TextInput
                 style={[s.input, isRTL && s.rtlText]}
                 placeholder={t.auth_email_ph}
@@ -199,7 +191,8 @@ export default function SignInScreen() {
                 keyboardType="email-address"
                 autoCorrect={false}
                 returnKeyType="next"
-                onBlur={() => { if (email) validateEmail(email); }}
+                onFocus={() => setFocus('email')}
+                onBlur={() => { setFocus(null); if (email) validateEmail(email); }}
               />
             </View>
             {emailError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{emailError}</Text> : null}
@@ -208,7 +201,7 @@ export default function SignInScreen() {
           {/* Password */}
           <View style={s.field}>
             <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse]}>
+            <View style={[s.inputBox, s.inputRow, focus === 'password' && s.inputBoxFocus, isRTL && s.rowReverse]}>
               <TextInput
                 style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
                 placeholder={t.auth_password_ph}
@@ -218,6 +211,8 @@ export default function SignInScreen() {
                 onChangeText={setPassword}
                 autoCorrect={false}
                 returnKeyType="done"
+                onFocus={() => setFocus('password')}
+                onBlur={() => setFocus(null)}
                 onSubmitEditing={handleSignIn}
               />
               <TouchableOpacity onPress={() => setShowPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -232,16 +227,12 @@ export default function SignInScreen() {
           </View>
 
           {/* Sign In button */}
-          <TouchableOpacity
-            style={[s.btn, (loading || isSocialLoading) && s.btnOff]}
+          <GradientButton
+            label={t.auth_signin_btn}
             onPress={handleSignIn}
-            disabled={loading || isSocialLoading}
-            activeOpacity={0.85}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={s.btnText}>{t.auth_signin_btn}</Text>}
-          </TouchableOpacity>
+            loading={loading}
+            disabled={isSocialLoading}
+          />
 
           {/* Switch to Sign Up */}
           <View style={[s.switchRow, isRTL && s.rowReverse]}>
@@ -321,14 +312,7 @@ export default function SignInScreen() {
                     />
                   </View>
                   {phoneError ? <Text style={s.fieldErr}>{phoneError}</Text> : null}
-                  <TouchableOpacity
-                    style={[s.btn, phoneLoading && s.btnOff]}
-                    onPress={handleSendCode} disabled={phoneLoading} activeOpacity={0.85}
-                  >
-                    {phoneLoading
-                      ? <ActivityIndicator color="#fff" size="small" />
-                      : <Text style={s.btnText}>{t.phone_send_btn}</Text>}
-                  </TouchableOpacity>
+                  <GradientButton label={t.phone_send_btn} onPress={handleSendCode} loading={phoneLoading} />
                 </>
               ) : (
                 <>
@@ -349,14 +333,7 @@ export default function SignInScreen() {
                     />
                   </View>
                   {phoneError ? <Text style={s.fieldErr}>{phoneError}</Text> : null}
-                  <TouchableOpacity
-                    style={[s.btn, phoneLoading && s.btnOff]}
-                    onPress={handleVerifyOtp} disabled={phoneLoading} activeOpacity={0.85}
-                  >
-                    {phoneLoading
-                      ? <ActivityIndicator color="#fff" size="small" />
-                      : <Text style={s.btnText}>{t.otp_verify_btn}</Text>}
-                  </TouchableOpacity>
+                  <GradientButton label={t.otp_verify_btn} onPress={handleVerifyOtp} loading={phoneLoading} />
                   <TouchableOpacity onPress={handleSendCode} disabled={phoneLoading} style={{ alignSelf: 'center', padding: 6 }}>
                     <Text style={s.forgotLinkText}>{t.otp_resend}</Text>
                   </TouchableOpacity>
@@ -379,9 +356,7 @@ export default function SignInScreen() {
                   <View style={s.successIcon}><Text style={{ fontSize: 34 }}>✉️</Text></View>
                   <Text style={s.successTitle}>{t.forgot_success_title}</Text>
                   <Text style={s.successMsg}>{t.forgot_success_msg}</Text>
-                  <TouchableOpacity style={s.btn} onPress={() => setForgotVisible(false)} activeOpacity={0.85}>
-                    <Text style={s.btnText}>{t.forgot_done}</Text>
-                  </TouchableOpacity>
+                  <GradientButton label={t.forgot_done} onPress={() => setForgotVisible(false)} />
                 </View>
               ) : (
                 <>
@@ -402,14 +377,7 @@ export default function SignInScreen() {
                     />
                   </View>
                   {forgotError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{forgotError}</Text> : null}
-                  <TouchableOpacity
-                    style={[s.btn, forgotLoading && s.btnOff]}
-                    onPress={handleForgot} disabled={forgotLoading} activeOpacity={0.85}
-                  >
-                    {forgotLoading
-                      ? <ActivityIndicator color="#fff" size="small" />
-                      : <Text style={s.btnText}>{t.forgot_send_btn}</Text>}
-                  </TouchableOpacity>
+                  <GradientButton label={t.forgot_send_btn} onPress={handleForgot} loading={forgotLoading} />
                 </>
               )}
             </View>
@@ -421,39 +389,7 @@ export default function SignInScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.primaryDark },
-
-  // ── Header (dark, fixed) ──
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 44,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    overflow: 'hidden',
-  },
-  deco1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -50 },
-  deco2: { position: 'absolute', width: 140, height: 140, borderRadius: 70,  backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -30 },
-  langBtn: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 60 : 44,
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
-    zIndex: 10,
-  },
-  langBtnLtr: { right: 20 },
-  langBtnRtl: { left: 20 },
-  langBtnText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
-
-  logoRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
-  logoBadge:{
-    width: 42, height: 42, borderRadius: 13,
-    backgroundColor: 'rgba(16,185,129,0.2)',
-    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.4)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  logoText: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: 5 },
-  title:    { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.55)' },
+  root: { flex: 1, backgroundColor: COLORS.background },
 
   // ── Body (KAV — shrinks when keyboard appears) ──
   body: { flex: 1, backgroundColor: COLORS.background },
@@ -461,42 +397,41 @@ const s = StyleSheet.create({
   // ── Form panel (always visible above keyboard) ──
   formPanel: {
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingTop: 26,
     paddingBottom: 16,
     gap: 14,
   },
 
-  field:       { gap: 5 },
-  label:       { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
-  fieldErr:    { fontSize: 12, color: COLORS.error, marginTop: 2 },
+  field:       { gap: 6 },
+  label:       { fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.textSecondary },
+  fieldErr:    { fontFamily: FONTS.medium, fontSize: 12, color: COLORS.error, marginTop: 2 },
 
   inputBox: {
     backgroundColor: COLORS.card,
     borderWidth: 1.5, borderColor: COLORS.border,
     borderRadius: 14, paddingHorizontal: 14,
   },
+  inputBoxFocus: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryBg,
+    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 8, elevation: 2,
+  },
   inputBoxError: { borderColor: COLORS.error },
   inputRow:      { flexDirection: 'row', alignItems: 'center' },
-  input:         { paddingVertical: 14, fontSize: 15, color: COLORS.text },
+  input:         { paddingVertical: 14, fontSize: 15, color: COLORS.text, fontFamily: FONTS.medium },
 
-  phonePrefix: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginRight: 8 },
-  otpInput:    { textAlign: 'center', fontSize: 24, letterSpacing: 12, fontWeight: '700' },
+  phonePrefix: { fontFamily: FONTS.bold, fontSize: 15, color: COLORS.text, marginRight: 8 },
+  otpInput:    { textAlign: 'center', fontSize: 24, letterSpacing: 12, fontFamily: FONTS.bold },
 
   forgotLink:     { alignSelf: 'flex-end', marginTop: 5 },
-  forgotLinkText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  forgotLinkText: { fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.primary },
 
-  btn: {
-    backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15,
-    alignItems: 'center',
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-  },
   btnOff:  { opacity: 0.55 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-  switchRow:  { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  switchText: { color: COLORS.textSecondary, fontSize: 14 },
-  switchLink: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
+  switchRow:  { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 2 },
+  switchText: { color: COLORS.textSecondary, fontSize: 14, fontFamily: FONTS.regular },
+  switchLink: { color: COLORS.primary, fontSize: 14, fontFamily: FONTS.bold },
 
   // ── Social panel (can slide off when keyboard appears) ──
   socialPanel: {
@@ -507,21 +442,21 @@ const s = StyleSheet.create({
 
   divider:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
   divLine:  { flex: 1, height: 1, backgroundColor: COLORS.border },
-  divText:  { fontSize: 12, color: COLORS.textTertiary, fontWeight: '500' },
+  divText:  { fontSize: 12, color: COLORS.textTertiary, fontFamily: FONTS.medium },
 
   socialBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     borderWidth: 1.5, borderColor: COLORS.border,
-    borderRadius: 16, paddingVertical: 13,
+    borderRadius: 16, paddingVertical: 14,
     backgroundColor: COLORS.card,
   },
   socialApple: { backgroundColor: '#000', borderColor: '#000' },
-  socialText:  { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  socialText:  { fontSize: 15, fontFamily: FONTS.semibold, color: COLORS.text },
 
   guestBtn:  { alignItems: 'center', paddingVertical: 6 },
-  guestText: { fontSize: 14, color: COLORS.textTertiary },
+  guestText: { fontSize: 14, color: COLORS.textTertiary, fontFamily: FONTS.medium },
 
-  // ── Forgot modal ──
+  // ── Modals ──
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
     backgroundColor: COLORS.card,
@@ -530,13 +465,13 @@ const s = StyleSheet.create({
     gap: 14,
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.borderStrong, alignSelf: 'center', marginBottom: 4 },
-  sheetTitle:  { fontSize: 22, fontWeight: '800', color: COLORS.text },
-  sheetSub:    { fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
+  sheetTitle:  { fontFamily: FONTS.bold, fontSize: 22, color: COLORS.text },
+  sheetSub:    { fontFamily: FONTS.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
 
   successWrap:  { alignItems: 'center', gap: 12, paddingVertical: 8 },
   successIcon:  { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.successBg, alignItems: 'center', justifyContent: 'center' },
-  successTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
-  successMsg:   { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
+  successTitle: { fontFamily: FONTS.bold, fontSize: 22, color: COLORS.text },
+  successMsg:   { fontFamily: FONTS.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
 
   // ── RTL helpers ──
   rtlText:      { textAlign: 'right' },

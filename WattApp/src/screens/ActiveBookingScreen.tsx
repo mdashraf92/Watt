@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { stationDisplayName } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
+import GradientButton from '../components/GradientButton';
 import {
   ArrowLeftIcon, ZapIcon, CalendarIcon, ClockIcon,
   BatteryChargingIcon, WalletIcon, MapPinIcon,
@@ -276,29 +277,13 @@ export default function ActiveBookingScreen() {
           );
         })()}
 
-        <TouchableOpacity
-          style={[
-            styles.startBtn,
-            (startLoading || (booking && now < new Date(booking.booked_at).getTime())) && styles.btnDisabled,
-          ]}
+        <GradientButton
+          label={t.active_start_btn}
           onPress={handleStartCharging}
-          disabled={startLoading || (!!booking && now < new Date(booking.booked_at).getTime())}
-          activeOpacity={0.85}
-        >
-          {startLoading ? (
-            <>
-              <ActivityIndicator color="#fff" size="small" />
-              <Text style={styles.startBtnText}>
-                {booking?.listing_id ? t.active_activating : t.active_start_btn}
-              </Text>
-            </>
-          ) : (
-            <>
-              <ZapIcon size={20} color="#fff" strokeWidth={2.5} />
-              <Text style={styles.startBtnText}>{t.active_start_btn}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={startLoading}
+          disabled={!!booking && now < new Date(booking.booked_at).getTime()}
+          icon={<ZapIcon size={20} color="#fff" strokeWidth={2.5} />}
+        />
 
         <TouchableOpacity
           style={[styles.cancelBtn, cancelLoading && styles.btnDisabled]}

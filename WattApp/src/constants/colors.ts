@@ -1,48 +1,85 @@
+/**
+ * GO WATT — Brand color system
+ * Source of truth: "Gowatt Presentation.pdf" › COLOR DIRECTION
+ *   Primary Green  #378B5A   rgb(55,139,90)
+ *   Accent Orange  #F4A53C   rgb(244,165,60)
+ *   Dark Green     #214A38   rgb(33,74,56)
+ *   Light Gray     #DEDEDE   rgb(222,222,222)
+ *
+ * Existing token KEYS are preserved so every screen (34 importers) rebrands
+ * automatically. Values are retuned to the official palette + a coherent scale
+ * derived from it.
+ */
 export const COLORS = {
-  // ─── Brand ────────────────────────────────────────────────
-  primary: '#059669',       // Emerald 600 — vibrant electric green
-  primaryLight: '#10B981',  // Emerald 500
-  primaryMid: '#047857',    // Emerald 700
-  primaryDark: '#064E3B',   // Emerald 900 — deep header / bg
-  primaryBg: '#ECFDF5',     // Emerald 50
-  primaryTint: '#D1FAE5',   // Emerald 100
+  // ─── Brand · Green ────────────────────────────────────────
+  primary: '#378B5A',       // brand primary green
+  primaryLight: '#4FA974',  // lighter tint for hovers / active fills
+  primaryMid: '#2E7A4E',    // pressed / mid
+  primaryDark: '#214A38',   // brand dark green — headers / hero bg
+  primaryDeep: '#173528',   // deepest green for gradients
+  primaryBg: '#EAF4EE',     // 5% green wash — surfaces
+  primaryTint: '#D2E7DB',   // 15% green — chips / tints
 
-  // ─── Amber / Accent ───────────────────────────────────────
-  gold: '#F59E0B',           // Amber 500 — warm vibrant accent
-  goldLight: '#FBBF24',      // Amber 400
-  goldDark: '#D97706',       // Amber 600
-  goldBg: '#FFFBEB',         // Amber 50
-  goldTint: '#FEF3C7',       // Amber 100
+  // ─── Brand · Orange (accent) ──────────────────────────────
+  gold: '#F4A53C',           // brand accent orange (the lightning bolt)
+  goldLight: '#F8BC66',      // lighter accent
+  goldDark: '#DB8A20',       // pressed accent
+  goldBg: '#FEF6EA',         // orange wash
+  goldTint: '#FBE6C7',       // soft orange tint
 
   // ─── Text ─────────────────────────────────────────────────
-  text: '#111827',           // Gray 900
-  textSecondary: '#6B7280',  // Gray 500
-  textTertiary: '#9CA3AF',   // Gray 400
+  text: '#16241D',           // near-black, green-tinted (brand ink)
+  textSecondary: '#5A6B62',  // muted green-gray
+  textTertiary: '#95A29B',   // faint
+  textOnPrimary: '#FFFFFF',
+  textOnGold: '#3A2A08',     // legible ink on orange
 
   // ─── Surface ──────────────────────────────────────────────
-  background: '#F9FAFB',     // Gray 50
-  backgroundAlt: '#F3F4F6',  // Gray 100
+  background: '#F6F8F7',     // app background — soft green-gray
+  backgroundAlt: '#EEF2F0',  // alt sections
   card: '#FFFFFF',
-  overlay: 'rgba(17, 24, 39, 0.65)',
+  overlay: 'rgba(15, 33, 25, 0.60)',   // dark-green scrim over media
+  glass: 'rgba(255,255,255,0.10)',      // glass cards over photos
 
   // ─── Border ───────────────────────────────────────────────
-  border: '#E5E7EB',         // Gray 200
-  borderStrong: '#D1D5DB',   // Gray 300
+  border: '#E4E9E6',         // hairline
+  borderStrong: '#DEDEDE',   // brand light gray
+  borderOnDark: 'rgba(255,255,255,0.16)',
 
   // ─── Status Semantic ──────────────────────────────────────
-  success: '#10B981',
-  successBg: '#ECFDF5',
-  successDark: '#059669',
-  error: '#EF4444',
-  errorBg: '#FEF2F2',
-  warning: '#F59E0B',
-  warningBg: '#FFFBEB',
+  success: '#378B5A',
+  successBg: '#EAF4EE',
+  successDark: '#2E7A4E',
+  error: '#E5484D',
+  errorBg: '#FDECEC',
+  warning: '#F4A53C',
+  warningBg: '#FEF6EA',
   info: '#3B82F6',
   infoBg: '#EFF6FF',
 
   // ─── EV Charger Status ────────────────────────────────────
-  available: '#10B981',
-  busy: '#F59E0B',
-  fault: '#EF4444',
-  offline: '#9CA3AF',
+  available: '#378B5A',
+  busy: '#F4A53C',
+  fault: '#E5484D',
+  offline: '#95A29B',
 };
+
+/**
+ * Brand gradients (use with expo-linear-gradient).
+ * `brand` is the signature green→orange sweep from the deck's key art.
+ */
+export const GRADIENTS = {
+  green: ['#378B5A', '#214A38'] as const,          // primary → dark
+  greenDeep: ['#2E7A4E', '#173528'] as const,      // hero backgrounds
+  brand: ['#378B5A', '#F4A53C'] as const,          // signature green → orange
+  gold: ['#F8BC66', '#F4A53C'] as const,           // accent buttons
+  glass: ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.04)'] as const,
+};
+
+/** Raw brand values, for places that need the exact hex (icons, native config). */
+export const BRAND = {
+  green: '#378B5A',
+  orange: '#F4A53C',
+  darkGreen: '#214A38',
+  gray: '#DEDEDE',
+} as const;
