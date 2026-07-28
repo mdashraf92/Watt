@@ -50,7 +50,6 @@ export default function SignInScreen() {
   const [loading,       setLoading]       = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [emailError,    setEmailError]    = useState<string | null>(null);
-  const [focus,         setFocus]         = useState<string | null>(null);
 
   // Phone (OTP) login
   const [phoneVisible, setPhoneVisible] = useState(false);
@@ -180,7 +179,7 @@ export default function SignInScreen() {
           {/* Email */}
           <View style={s.field}>
             <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_email_label}</Text>
-            <View style={[s.inputBox, focus === 'email' && s.inputBoxFocus, emailError ? s.inputBoxError : null]}>
+            <View style={[s.inputBox, emailError ? s.inputBoxError : null]}>
               <TextInput
                 style={[s.input, isRTL && s.rtlText]}
                 placeholder={t.auth_email_ph}
@@ -189,10 +188,11 @@ export default function SignInScreen() {
                 onChangeText={v => { setEmail(v); if (emailError) validateEmail(v); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                autoComplete="email"
+                textContentType="emailAddress"
                 autoCorrect={false}
                 returnKeyType="next"
-                onFocus={() => setFocus('email')}
-                onBlur={() => { setFocus(null); if (email) validateEmail(email); }}
+                onBlur={() => { if (email) validateEmail(email); }}
               />
             </View>
             {emailError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{emailError}</Text> : null}
@@ -201,7 +201,7 @@ export default function SignInScreen() {
           {/* Password */}
           <View style={s.field}>
             <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow, focus === 'password' && s.inputBoxFocus, isRTL && s.rowReverse]}>
+            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse]}>
               <TextInput
                 style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
                 placeholder={t.auth_password_ph}
@@ -209,10 +209,10 @@ export default function SignInScreen() {
                 secureTextEntry={!showPass}
                 value={password}
                 onChangeText={setPassword}
+                autoComplete="password"
+                textContentType="password"
                 autoCorrect={false}
                 returnKeyType="done"
-                onFocus={() => setFocus('password')}
-                onBlur={() => setFocus(null)}
                 onSubmitEditing={handleSignIn}
               />
               <TouchableOpacity onPress={() => setShowPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
