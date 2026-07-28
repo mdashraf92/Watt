@@ -155,12 +155,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
   const signInWithGoogle = notAvailable('Google');
   const signInWithApple  = notAvailable('Apple');
-  const signInWithPhone  = async (_phone: string) => {
-    Alert.alert('Not available yet', 'Phone sign-in isn\'t enabled on this server yet.');
-    throw new Error('Phone sign-in not available');
+
+  // Phone / OTP: start sends a code by SMS; verify exchanges the code for a
+  // session (creating the account on first login for a new number).
+  const signInWithPhone = async (phone: string) => {
+    await api.auth.phoneStart(phone);
   };
-  const verifyPhoneOtp = async (_phone: string, _token: string) => {
-    throw new Error('Phone sign-in not available');
+  const verifyPhoneOtp = async (phone: string, token: string) => {
+    const r = await api.auth.phoneVerify(phone, token);
+    await afterAuth(r);
   };
 
   const sendPasswordReset = async (email: string) => {

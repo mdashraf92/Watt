@@ -19,6 +19,11 @@ const schema = z.object({
   // that hosted checkouts like Thawani require to be valid http(s) URLs).
   PUBLIC_URL: z.string().default('https://go-watt.com'),
 
+  // Base of the password-reset link emailed to users. The app deep-links on
+  // `watt://reset-password?token=…`. Swap to an https:// universal link once the
+  // domain + associated-domains are set up.
+  PASSWORD_RESET_URL: z.string().default('watt://reset-password'),
+
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
@@ -31,6 +36,11 @@ const schema = z.object({
   TUYA_BASE_URL: z.string().default('https://openapi.tuyaeu.com'),
   TUYA_CLIENT_ID: z.string().optional(),
   TUYA_CLIENT_SECRET: z.string().optional(),
+
+  // SMS / phone-OTP (Twilio). If unset, OTP codes are logged to the console.
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM: z.string().optional(),   // sender number (+968…) or Messaging Service SID (MG…)
 
   JOB_SECRET: z.string().min(8).default('change-me'),
 });

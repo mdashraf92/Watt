@@ -65,7 +65,7 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     if (!fullName.trim()) { Alert.alert(t.error, t.auth_error_name); return; }
     if (!validateEmail(email)) return;
-    if (password.length < 6) { Alert.alert(t.error, t.auth_error_password); return; }
+    if (password.length < 8) { Alert.alert(t.error, t.auth_error_password); return; }
     try {
       setLoading(true);
       await signUp(email.trim().toLowerCase(), password, fullName.trim());

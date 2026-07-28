@@ -74,7 +74,8 @@ const en: Translations = {
   auth_error_credentials: 'Invalid email or password',
   auth_error_email: 'Please enter a valid email address',
   auth_error_phone: 'Please enter a valid phone number',
-  auth_error_password: 'Password must be at least 6 characters',
+  auth_error_password: 'Password must be at least 8 characters',
+  auth_error_password_empty: 'Please enter your password',
 
   // Auth - Sign Up
   auth_signup_title: 'Create Account',

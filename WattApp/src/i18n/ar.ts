@@ -72,7 +72,8 @@ const ar = {
   auth_error_credentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
   auth_error_email: 'يرجى إدخال بريد إلكتروني صحيح',
   auth_error_phone: 'يرجى إدخال رقم هاتف صحيح',
-  auth_error_password: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
+  auth_error_password: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+  auth_error_password_empty: 'يرجى إدخال كلمة المرور',
 
   // Auth - Sign Up
   auth_signup_title: 'إنشاء حساب',

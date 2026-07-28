@@ -108,6 +108,10 @@ export const api = {
       request('POST', '/api/auth/change-password', { body: { current_password, new_password } }),
     checkEmail: (email: string) =>
       request<{ exists: boolean }>('POST', '/api/auth/check-email', { auth: false, body: { email } }),
+    phoneStart: (phone: string) =>
+      request('POST', '/api/auth/phone/start', { auth: false, body: { phone } }),
+    phoneVerify: (phone: string, code: string) =>
+      request('POST', '/api/auth/phone/verify', { auth: false, body: { phone, code } }),
   },
 
   profile: {

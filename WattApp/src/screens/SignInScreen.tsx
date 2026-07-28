@@ -78,7 +78,7 @@ export default function SignInScreen() {
 
   const handleSignIn = async () => {
     if (!validateEmail(email)) return;
-    if (password.length < 6) { Alert.alert(t.error, t.auth_error_password); return; }
+    if (!password) { Alert.alert(t.error, t.auth_error_password_empty); return; }
     try {
       setLoading(true);
       await signIn(email.trim().toLowerCase(), password);
