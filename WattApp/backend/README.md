@@ -87,7 +87,7 @@ psql "$DATABASE_URL" -f sql/backend-realtime.sql
 ```
 
 **The backend API is now feature-complete.** Next: the app-side — replace
-`@supabase/supabase-js` with an API client that calls these endpoints (see `../C-server.md` §9).
+`@supabase/supabase-js` with an API client that calls these endpoints (see `../docs/C-server.md` §9).
 
 ## Security notes
 - Never trust an id from the client — always use `req.user.id` from the verified JWT.

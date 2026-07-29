@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO WATT — Weekly Status Report · 19 July 2026</title>
+<style>
+  /* ============================================================
+     GO WATT WEEKLY STATUS REPORT
+     Edit progress by changing status classes on rows/badges:
+       .status-done | .status-progress | .status-planned | .status-blocked
+     ============================================================ */
+  :root{
+    --watt-green:#00c46a;
+    --watt-green-dark:#009250;
+    --ink:#15211c;
+    --ink-soft:#4a5a53;
+    --paper:#f6f8f7;
+    --card:#ffffff;
+    --line:#dfe7e3;
+    --amber:#e8a500;
+    --red:#d64545;
+    --blue:#2f6fd6;
+    --mono:"SF Mono",Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    background:var(--paper);color:var(--ink);
+    line-height:1.55;padding:32px 16px;
+  }
+  .report{max-width:960px;margin:0 auto}
+
+  /* ---------- Header ---------- */
+  header{
+    background:linear-gradient(120deg,#0b1f17 0%,#123528 60%,#0e5236 100%);
+    color:#fff;border-radius:14px;padding:32px 36px;
+    display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .bolt{
+    width:44px;height:44px;border-radius:10px;background:var(--watt-green);
+    display:flex;align-items:center;justify-content:center;font-size:24px;color:#0b1f17;font-weight:800;
+  }
+  .brand h1{font-size:26px;letter-spacing:1.5px}
+  .brand small{display:block;font-weight:400;font-size:13px;opacity:.75}
+  .meta{text-align:right;font-size:13px;line-height:1.7}
+  .meta .date{font-size:17px;font-weight:700;color:var(--watt-green)}
+  .meta .conf{opacity:.7}
+
+  .byline{
+    background:var(--card);border:1px solid var(--line);border-top:none;
+    border-radius:0 0 14px 14px;margin:-10px 12px 0;padding:20px 24px 14px;
+    font-size:13.5px;color:var(--ink-soft);
+    display:flex;gap:28px;flex-wrap:wrap;
+  }
+  .byline b{color:var(--ink)}
+
+  /* ---------- Sections ---------- */
+  section{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    margin-top:22px;padding:26px 30px;
+  }
+  h2{
+    font-size:15px;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--watt-green-dark);margin-bottom:16px;
+    display:flex;align-items:center;gap:10px;
+  }
+  h2 .num{
+    font-family:var(--mono);font-size:12px;background:var(--watt-green);
+    color:#0b1f17;border-radius:6px;padding:2px 8px;
+  }
+  h3{font-size:14px;margin:20px 0 10px;color:var(--ink)}
+  p{color:var(--ink-soft);font-size:14.5px}
+
+  /* ---------- Checklist ---------- */
+  ul.checklist{list-style:none;margin-top:14px;display:grid;gap:8px}
+  ul.checklist li{
+    display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink);
+    background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 14px;
+  }
+  ul.checklist li::before{content:"\2713";color:var(--watt-green-dark);font-weight:800}
+
+  /* ---------- KPI strip ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:6px}
+  .kpi{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi .v{font-size:22px;font-weight:800;color:var(--watt-green-dark)}
+  .kpi .l{font-size:12px;color:var(--ink-soft);margin-top:2px}
+
+  /* ---------- Tables ---------- */
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th{
+    text-align:left;font-size:12px;letter-spacing:.8px;text-transform:uppercase;
+    color:var(--ink-soft);border-bottom:2px solid var(--watt-green);padding:8px 12px;
+  }
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.n{font-family:var(--mono);color:var(--watt-green-dark);font-weight:700;width:36px}
+
+  /* ---------- Status badges ---------- */
+  .badge{
+    display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.5px;
+    border-radius:999px;padding:3px 12px;text-transform:uppercase;white-space:nowrap;
+  }
+  .status-done{background:#e2f7ec;color:var(--watt-green-dark)}
+  .status-progress{background:#fdf3d7;color:#8a6400}
+  .status-planned{background:#e9f0fb;color:var(--blue)}
+  .status-blocked{background:#fbe7e7;color:var(--red)}
+
+  /* ---------- Callout ---------- */
+  .callout{
+    margin-top:18px;border-left:4px solid var(--amber);
+    background:#fdf8ea;border-radius:0 10px 10px 0;padding:14px 18px;
+    font-size:13.5px;color:#5c4a12;
+  }
+  .callout b{color:#3f3208}
+  .callout.good{border-left-color:var(--watt-green);background:#eafaf1;color:#0d5a37}
+  .callout.good b{color:#083d25}
+
+  /* ---------- Risk likelihood ---------- */
+  .lk{font-weight:700;font-size:13px}
+  .lk.med{color:var(--amber)} .lk.low{color:var(--watt-green-dark)} .lk.high{color:var(--red)}
+
+  footer{
+    text-align:center;font-size:12px;color:var(--ink-soft);margin:26px 0 8px;
+  }
+
+  @media(max-width:640px){
+    header{padding:24px}
+    section{padding:20px 18px}
+    .meta{text-align:left}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+  }
+  @media print{
+    body{background:#fff;padding:0}
+    section,header{border-radius:0;break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="report">
+
+  <header>
+    <div class="brand">
+      <div class="bolt">&#9889;</div>
+      <div>
+        <h1>GO WATT</h1>
+        <small>EV Charging Platform &middot; Oman</small>
+      </div>
+    </div>
+    <div class="meta">
+      <div>Weekly Status Report</div>
+      <div class="date">19 July 2026</div>
+      <div class="conf">GO WATT App &middot; Confidential  Founder, C-Level &amp; Core Team</div>
+    </div>
+  </header>
+
+  <div class="byline">
+    <span><b>Prepared by:</b> Mohammed Ashraf Ali  Technical Lead</span>
+    <span>                                                       <br> </span>
+    <span><b>Reviewed with:</b> Mazin Al-Ambouri</span>
+  </div>
+
+  <!-- 1. EXECUTIVE SUMMARY -->
+  <section id="executive-summary">
+    <h2><span class="num">1</span> Executive Summary  Enhancement Sprint Delivered</h2>
+    <p>This week we completed the planned enhancement sprint and cleared a major engineering milestone: our two parallel development tracks  the UI/UX redesign and the technical/back-end platform  were successfully merged into a single, unified production codebase. On top of the previously feature-complete build, we shipped a full investor payout system, host earnings, and a significant security and performance hardening pass. The application now carries the finalized <b>GO WATT</b> brand identity. One recurring cost was also eliminated. The platform is on track to enter formal testing next week.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">1 codebase</div><div class="l">Two dev tracks merged &amp; verified</div></div>
+
+      <div class="kpi"><div class="v">0 blockers</div><div class="l">Type-check &amp; project health clean</div></div>
+    </div>
+
+    <ul class="checklist">
+      <li>UI redesign and technical platform merged into one codebase  verified building and type-safe</li>
+      <li>GO WATT brand identity applied across the entire app (English &amp; Arabic)</li>
+      <li>Investor payout system delivered  earnings, bank details, withdrawal requests, admin settlement</li>
+      <li>Host earnings live  charger owners are automatically credited their share of each session</li>
+      <li>Payment &amp; wallet security hardened  server-side billing, settlement and anti-abuse controls</li>
+      <li>Google Maps replaced with OpenStreetMap  recurring API cost removed entirely</li>
+    </ul>
+  </section>
+
+  <!-- 2. COMPLETED THIS SPRINT -->
+  <section id="completed">
+    <h2><span class="num">2</span> Completed This Sprint</h2>
+    <p>Delivered, merged, and verified in the current codebase.</p>
+    <table>
+      <thead><tr><th>#</th><th>Delivered</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>Merge of UI redesign track (animated navigation, redesigned onboarding, sign-in/up, and admin screens) with the technical platform into one production codebase</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">2</td><td>GO WATT rebrand applied everywhere the name is shown (app name, launch screen, receipts, legal &amp; bilingual content)</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">3</td><td>Investor payout system  earnings screen, bank-detail capture, withdrawal requests, and an admin review/settlement workflow</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">4</td><td>Host earnings  automatic, configurable revenue share credited to charger owners per charging session</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">5</td><td>Phone number sign-in (SMS one-time code) added to Google, Apple &amp; email options</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">6</td><td>Payment &amp; wallet integrity  server-side billing, pay-after-charging settlement, and controls that prevent unpaid sessions</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">7</td><td>Double-booking prevention  a charger can no longer be booked by two customers for the same time slot</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">8</td><td>App Store compliance  permanent self-service account deletion added</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">9</td><td>Reliability  offline/error states with retry across all main screens; live charging session survives an app restart</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">10</td><td>Performance  screens now load on demand; the live charging screen optimized to reduce battery use</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">11</td><td>Accessibility  screen-reader labels added to navigation and key controls</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td class="n">12</td><td>Cost reduction  migrated maps to OpenStreetMap, removing the Google Maps API subscription and its API key from the app</td><td><span class="badge status-done">Completed</span></td></tr>
+      </tbody>
+    </table>
+    <div class="callout good">
+      <b>Cost eliminated:</b> The Google Maps production API subscription previously identified as a recurring cost is no longer required  the app now uses OpenStreetMap, which is free and needs no API key or billing account. This removes one line item from the running-cost model.
+    </div>
+  </section>
+
+  <!-- 3. IN PROGRESS / REMAINING ENHANCEMENTS -->
+  <section id="remaining-enhancements">
+    <h2><span class="num">3</span> In Progress &amp; Remaining Enhancements</h2>
+    <p>Carried into the tail of the enhancement work and the start of testing.</p>
+    <table>
+      <thead><tr><th>#</th><th>Task</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>Finalize primary/secondary color tokens &amp; design-system pass on top of the new brand</td><td><span class="badge status-progress">In Progress</span></td></tr>
+        <tr><td class="n">2</td><td>Full RTL (Arabic) mirror audit across all screens (admin screens polished; customer &amp; investor sweep ongoing)</td><td><span class="badge status-progress">In Progress</span></td></tr>
+        <tr><td class="n">3</td><td>Pull-to-refresh &amp; date-grouped layouts for Home and History (started on Wallet, Earnings &amp; Bookings)</td><td><span class="badge status-progress">In Progress</span></td></tr>
+        <tr><td class="n">4</td><td>Evaluate &amp; integrate OMPay as an alternative/backup payment method to Thawani</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td class="n">5</td><td>Unify popup/message component (success, warning, error) into a single reusable pattern</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td class="n">6</td><td>Icon set upgrade for consistency &amp; accessibility; internal design walkthrough with the team</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td class="n">7</td><td>Activate phone sign-in in production (connect SMS provider  Twilio); enable Apple/Google store builds</td><td><span class="badge status-planned">Planned</span></td></tr>
+      </tbody>
+    </table>
+    
+  </section>
+
+  <!-- 4. TESTING PHASE -->
+  <section id="testing-phase">
+    <h2><span class="num">4</span> Testing Phase  Two Weeks</h2>
+    <p>Two full weeks dedicated to quality assurance before store submission  functional testing first, then user acceptance and final hardening.</p>
+
+    <h3>Week 4  Functional &amp; Regression QA</h3>
+    <table>
+      <thead><tr><th>Activity</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Full regression testing  customer, investor &amp; admin flows end-to-end</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Payment flow testing (Thawani + OMPay if adopted), wallet, top-up &amp; payout scenarios</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>RTL/LTR testing across all screens; bilingual content verification</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Device &amp; OS compatibility testing (iOS/Android, multiple screen sizes)</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Charger hardware integration testing (Tuya) under real conditions</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Bug triage &amp; fix cycle; re-test resolved issues</td><td><span class="badge status-planned">Planned</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Week 5  User Acceptance &amp; Final Hardening</h3>
+    <table>
+      <thead><tr><th>Activity</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>User Acceptance Testing (UAT) with a small group of real investors/customers</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Collect UAT feedback; prioritize final fixes</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Performance &amp; load testing; security review of payment &amp; auth flows</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Apply final fixes from UAT and security review</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Final signed build; full end-to-end smoke test</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td>Go/no-go review with leadership; prepare for submission</td><td><span class="badge status-planned">Planned</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5. UPDATED LAUNCH TIMELINE -->
+  <section id="launch-timeline">
+    <h2><span class="num">5</span> Updated Launch Timeline  At a Glance</h2>
+    <table>
+      <thead><tr><th>Week</th><th>Dates</th><th>Focus</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>Week 1&ndash;2</b></td><td>29 Jun &ndash; 11 Jul</td><td>Core build, payment/notification wiring</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td><b>Week 3</b></td><td>13 &ndash; 18 Jul</td><td>Enhancement sprint  payouts, phone auth, security, branch merge, GO WATT rebrand</td><td><span class="badge status-done">Completed</span></td></tr>
+        <tr><td><b>Week 4</b></td><td>20 &ndash; 24 Jul</td><td>Functional &amp; regression QA, hardware &amp; payment testing</td><td><span class="badge status-planned">Upcoming</span></td></tr>
+        <tr><td><b>Week 5</b></td><td>27 &ndash; 31 Jul</td><td>UAT, performance, security, final signed build</td><td><span class="badge status-planned">Planned</span></td></tr>
+        <tr><td><b>Week 6</b></td><td>3 &ndash; 7 Aug</td><td>App Store &amp; Google Play submission</td><td><span class="badge status-planned">Planned</span></td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <b>Schedule note:</b> The enhancement sprint expanded beyond the original UI polish to include the investor payout system, phone sign-in, and a security hardening pass  delivered within the same week. Testing begins on schedule; store submission now follows the two-week testing phase.
+    </div>
+  </section>
+
+  <!-- 6. RISKS -->
+  <section id="risks">
+    <h2><span class="num">6</span> Key Risks &amp; Mitigation</h2>
+    <table>
+      <thead><tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Thawani payment gateway instability</td><td><span class="lk med">Medium</span></td><td>Payment layer fully built; evaluate OMPay in parallel as a backup during Week 4 testing</td></tr>
+        <tr><td>Store account setup (Apple Developer, SMS provider, merchant keys) delays go-live</td><td><span class="lk med">Medium</span></td><td>All code is complete and awaits account/credential setup only; owners &amp; steps documented</td></tr>
+        <tr><td>UAT surfaces late-stage issues</td><td><span class="lk med">Medium</span></td><td>Buffer built into Week 5 for fixes before the final signed build</td></tr>
+        <tr><td>Automated investor disbursement not yet available from local providers</td><td><span class="lk low">Low</span></td><td>Interim admin-settled payout workflow is live; automated disbursement tracked for a post-launch update</td></tr>
+        <tr><td>Extended timeline delays market entry</td><td><span class="lk low">Low</span></td><td>Fixed testing scope, no open-ended additions; enhancement work already delivered</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>GO WATT App &middot; Confidential  Founder, C-Level &amp; Core Team &middot; Prepared by Mohammed Ashraf Ali &middot; 19 July 2026</footer>
+</div>
+</body>
+</html>

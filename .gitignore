@@ -1,27 +1,28 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# ── OS / editor ────────────────────────────────────────────────────────────
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-
-# Personal / sensitive documents — never commit
-Bills/
-hardware.pdf
-lastupdate.md
-index.html
-
-# Local tooling / IDE / temp — not part of the app
+*.iml
+.idea/
 .idea_backup/
+.vscode/*
+!.vscode/settings.json
+
+# ── Local tooling — not part of the product ────────────────────────────────
 .mcp.json
 .claude/
 WattApp/supabase/.temp/
+
+# ── Personal / sensitive — never commit ────────────────────────────────────
+# (kept from the original ignore list; paths updated after the 2026-07 tidy-up)
+Bills/
+docs/reports/hardware.pdf
+docs/planning/lastupdate.md
+marketing/index.html
+
+# ── Database dumps ─────────────────────────────────────────────────────────
+# ~19MB of restored-from-cloud data. Kept locally for the dev DB, never in git.
+WattApp/db/dumps/
+*.dump
+
+# ── Build output ───────────────────────────────────────────────────────────
+build/
+dist/
