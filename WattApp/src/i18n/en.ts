@@ -94,6 +94,19 @@ const en: Translations = {
   notif_empty_sub: 'Booking updates, charging reminders and wallet activity will appear here.',
   a11y_notifications: 'Notifications',
 
+  // Map directions + station status
+  map_directions: 'Directions',
+  map_directions_min: 'min',
+  map_directions_tap_clear: 'Tap the X to clear the route',
+  map_directions_need_location: 'Location permission is needed to show directions.',
+  map_directions_no_location: 'Could not determine your location.',
+  map_directions_unavailable: 'Directions are not available yet. Please try again later.',
+  map_directions_failed: 'Could not find a route to this station.',
+  status_under_maintenance: 'Under Maintenance',
+  status_out_of_service: 'Out of Service',
+  station_status_change: 'Change status',
+  station_status_changed: 'Status updated',
+
   // Auth - Sign Up
   auth_signup_title: 'Create Account',
   auth_signup_subtitle: 'Join the Go Watt network',

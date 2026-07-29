@@ -23,6 +23,8 @@ import paymentsRoutes from './modules/payments/payments.routes';
 import paymentReturnRoutes from './modules/payments/return.routes';
 import devicesRoutes from './modules/devices/devices.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
+import routingRoutes from './modules/routing/routing.routes';
+import statusRoutes from './modules/stations/status.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
 
 export function createApp() {
@@ -56,6 +58,8 @@ export function createApp() {
   app.use('/pay', paymentReturnRoutes);   // public — payment redirect bounce pages
   app.use('/api/devices', devicesRoutes);
   app.use('/api/notifications', notificationsRoutes);
+  app.use('/api/routing', routingRoutes);
+  app.use('/api', statusRoutes);   // /api/stations/:id/status, /api/listings/:id/status
   app.use('/api/jobs', jobsRoutes);   // cron-only (x-job-secret)
 
   app.use(notFoundHandler);

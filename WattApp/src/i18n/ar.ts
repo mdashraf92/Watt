@@ -92,6 +92,19 @@ const ar = {
   notif_empty_sub: 'ستظهر هنا تحديثات الحجوزات وتذكيرات الشحن وحركة المحفظة.',
   a11y_notifications: 'الإشعارات',
 
+  // Map directions + station status
+  map_directions: 'الاتجاهات',
+  map_directions_min: 'دقيقة',
+  map_directions_tap_clear: 'اضغط ✕ لمسح المسار',
+  map_directions_need_location: 'نحتاج إذن الموقع لعرض الاتجاهات.',
+  map_directions_no_location: 'تعذّر تحديد موقعك.',
+  map_directions_unavailable: 'الاتجاهات غير متاحة حالياً. حاول لاحقاً.',
+  map_directions_failed: 'تعذّر إيجاد مسار إلى هذه المحطة.',
+  status_under_maintenance: 'تحت الصيانة',
+  status_out_of_service: 'خارج الخدمة',
+  station_status_change: 'تغيير الحالة',
+  station_status_changed: 'تم تحديث الحالة',
+
   // Auth - Sign Up
   auth_signup_title: 'إنشاء حساب',
   auth_signup_subtitle: 'انضم إلى شبكة جو واط',

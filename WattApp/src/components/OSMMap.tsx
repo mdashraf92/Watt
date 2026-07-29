@@ -4,6 +4,10 @@ import React, {
 import { StyleProp, View, ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import {
+  BRAND_MARKERS, MARKER_SIZE, MARKER_ANCHOR,
+  USER_MARKER_SIZE, USER_MARKER_ANCHOR,
+} from '../constants/mapMarkers';
 
 // Free OpenStreetMap map rendered with Leaflet inside a WebView.
 // No API key, no billing, works in Expo Go. Mirrors the small slice of the
@@ -21,12 +25,21 @@ export interface OSMMarkerSpec {
   id: string;
   latitude: number;
   longitude: number;
-  color: string;                    // pin background color
+  color: string;                    // pin background color (legacy circular pin)
   icon?: 'zap' | 'home' | 'star';  // glyph inside the pin
+  /**
+   * Brand teardrop marker key — 'station' | 'outOfService' | 'maintenance'.
+   * When set, the full-colour brand artwork replaces the coloured circle, so
+   * `color` and `icon` are ignored. Derive it with markerForStatus().
+   */
+  brand?: string;
 }
 
 export interface OSMMapHandle {
   animateToRegion(region: OSMRegion, durationMs?: number): void;
+  /** Draw a route and fit the map to it. Pass [] or call clearRoute to remove. */
+  setRoute(coords: Array<[number, number]>): void;
+  clearRoute(): void;
 }
 
 interface OSMMapProps {
@@ -64,6 +77,11 @@ function buildHtml(region: OSMRegion, interactive: boolean): string {
     box-shadow:0 3px 8px rgba(0,0,0,0.35); }
   .watt-user-dot { width:16px; height:16px; border-radius:8px; background:#3B82F6;
     border:3px solid #fff; box-shadow:0 0 0 6px rgba(59,130,246,0.25); }
+  /* Brand artwork sits unclipped; the drop-shadow follows the teardrop outline
+     rather than a bounding box, which a box-shadow would not do. */
+  .watt-brand-pin svg, .watt-person svg { width:100%; height:100%; display:block;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+  .watt-brand-pin, .watt-person { width:100%; height:100%; }
   .leaflet-control-attribution { font-size:9px; }
 </style>
 </head>
@@ -71,6 +89,12 @@ function buildHtml(region: OSMRegion, interactive: boolean): string {
 <div id="map"></div>
 <script>
   var GLYPHS = ${JSON.stringify(GLYPHS)};
+  var BRAND  = ${JSON.stringify(BRAND_MARKERS)};
+  var BRAND_SIZE   = ${JSON.stringify(MARKER_SIZE)};
+  var BRAND_ANCHOR = ${JSON.stringify(MARKER_ANCHOR)};
+  var USER_SIZE    = ${JSON.stringify(USER_MARKER_SIZE)};
+  var USER_ANCHOR  = ${JSON.stringify(USER_MARKER_ANCHOR)};
+  var routeLine = null;
   var map = L.map('map', {
     zoomControl: false,
     attributionControl: true,
@@ -94,12 +118,22 @@ function buildHtml(region: OSMRegion, interactive: boolean): string {
   window.__setMarkers = function (list) {
     markerLayer.clearLayers();
     list.forEach(function (m) {
-      var glyph = GLYPHS[m.icon || 'zap'] || GLYPHS.zap;
-      var icon = L.divIcon({
-        className: '',
-        html: '<div class="watt-pin" style="background:' + m.color + '">' + glyph + '</div>',
-        iconSize: [32, 32], iconAnchor: [16, 16],
-      });
+      var icon;
+      if (m.brand && BRAND[m.brand]) {
+        // Brand teardrop: anchor at the tip, which is what points at the coord.
+        icon = L.divIcon({
+          className: '',
+          html: '<div class="watt-brand-pin">' + BRAND[m.brand] + '</div>',
+          iconSize: BRAND_SIZE, iconAnchor: BRAND_ANCHOR,
+        });
+      } else {
+        var glyph = GLYPHS[m.icon || 'zap'] || GLYPHS.zap;
+        icon = L.divIcon({
+          className: '',
+          html: '<div class="watt-pin" style="background:' + m.color + '">' + glyph + '</div>',
+          iconSize: [32, 32], iconAnchor: [16, 16],
+        });
+      }
       L.marker([m.latitude, m.longitude], { icon: icon })
         .on('click', function () { post({ type: 'markerPress', id: m.id }); })
         .addTo(markerLayer);
@@ -108,8 +142,29 @@ function buildHtml(region: OSMRegion, interactive: boolean): string {
 
   window.__setUserLocation = function (lat, lng) {
     if (userMarker) { userMarker.setLatLng([lat, lng]); return; }
-    var icon = L.divIcon({ className: '', html: '<div class="watt-user-dot"></div>', iconSize: [16,16], iconAnchor: [8,8] });
-    userMarker = L.marker([lat, lng], { icon: icon, interactive: false }).addTo(map);
+    var icon = L.divIcon({
+      className: '',
+      html: '<div class="watt-person">' + BRAND.person + '</div>',
+      iconSize: USER_SIZE, iconAnchor: USER_ANCHOR,
+    });
+    userMarker = L.marker([lat, lng], { icon: icon, interactive: false, zIndexOffset: 1000 }).addTo(map);
+  };
+
+  // ── Route overlay (in-app directions) ────────────────────────────────────
+  window.__setRoute = function (coords) {
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    if (!coords || !coords.length) return;
+    // Drawn twice: a wide pale casing under a solid line, so the route stays
+    // legible over both light roads and dark satellite-ish tiles.
+    routeLine = L.layerGroup([
+      L.polyline(coords, { color: '#ffffff', weight: 9, opacity: 0.9, lineJoin: 'round' }),
+      L.polyline(coords, { color: '#378B5A', weight: 5, opacity: 1,   lineJoin: 'round' }),
+    ]).addTo(map);
+    map.fitBounds(L.polyline(coords).getBounds(), { padding: [50, 90] });
+  };
+
+  window.__clearRoute = function () {
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
   };
 
   window.__animateTo = function (lat, lng, zoom, durationMs) {
@@ -171,6 +226,14 @@ const OSMMap = forwardRef<OSMMapHandle, OSMMapProps>(function OSMMap(
       webRef.current?.injectJavaScript(
         `window.__animateTo(${region.latitude}, ${region.longitude}, ${deltaToZoom(region.latitudeDelta)}, ${durationMs}); true;`,
       );
+    },
+    setRoute(coords: Array<[number, number]>) {
+      webRef.current?.injectJavaScript(
+        `window.__setRoute(${JSON.stringify(coords)}); true;`,
+      );
+    },
+    clearRoute() {
+      webRef.current?.injectJavaScript(`window.__clearRoute(); true;`);
     },
   }));
 

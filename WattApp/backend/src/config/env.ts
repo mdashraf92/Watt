@@ -30,6 +30,11 @@ const schema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().default('no-reply@gowatt.om'),
 
+  // Self-hosted OSRM for in-app driving directions (see docs/SELF_HOSTING.md).
+  // Unset → /api/routing/route returns 503 and the app falls back to a straight
+  // line, so directions degrade rather than break.
+  OSRM_URL: z.string().optional(),
+
   THAWANI_BASE_URL: z.string().default('https://checkout.thawani.om'),
   THAWANI_SECRET_KEY: z.string().optional(),
   THAWANI_PUBLISHABLE_KEY: z.string().optional(),

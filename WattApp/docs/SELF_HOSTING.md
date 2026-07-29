@@ -263,3 +263,65 @@ Ask and I'll prepare any of these.
   Since you have SELF_HOSTING.md open, want me to add this exact "migrate auth users" section into it (with the two-dump +
   restore-order steps) so the server admin has it in one place? I can also generate the two split dumps for you right now via the same
   pooler connection if you'd like them ready to hand over.
+
+---
+
+## In-app directions — self-hosted OSRM
+
+The app draws driving routes on its own map rather than handing users off to
+Google Maps. Road geometry comes from [OSRM](https://project-osrm.org/), which
+we self-host: no per-request cost, no API key, and no third party seeing where
+our customers drive.
+
+> The public `router.project-osrm.org` demo server must **not** be used — its
+> terms forbid production traffic and it has no availability guarantee.
+
+### One-off setup
+
+Needs roughly 2GB RAM and 2GB disk for Oman. Run on the same server as the API.
+
+```bash
+mkdir -p /srv/osrm && cd /srv/osrm
+
+# 1. Oman extract from Geofabrik (~90MB)
+wget https://download.geofabrik.de/asia/oman-latest.osm.pbf
+
+# 2. Pre-process for car routing. The third step is the slow one (~10 min).
+docker run -t -v "${PWD}:/data" osrm/osrm-backend \
+  osrm-extract -p /opt/car.lua /data/oman-latest.osm.pbf
+docker run -t -v "${PWD}:/data" osrm/osrm-backend \
+  osrm-partition /data/oman-latest.osrm
+docker run -t -v "${PWD}:/data" osrm/osrm-backend \
+  osrm-customize /data/oman-latest.osrm
+
+# 3. Serve it, bound to localhost only — the API proxies to it, so it must not
+#    be reachable from the internet.
+docker run -d --name osrm --restart unless-stopped \
+  -p 127.0.0.1:5000:5000 -v "${PWD}:/data" osrm/osrm-backend \
+  osrm-routed --algorithm mld /data/oman-latest.osrm
+```
+
+Then point the backend at it and restart:
+
+```
+OSRM_URL=http://127.0.0.1:5000
+```
+
+Verify — Muscat to Nizwa should return a route:
+
+```bash
+curl "http://127.0.0.1:5000/route/v1/driving/58.38,23.58;57.53,22.93?overview=false"
+```
+
+### Keeping the map data current
+
+Oman's road network changes slowly; refreshing every few months is plenty.
+Re-run the three pre-processing steps against a fresh `.osm.pbf` and restart the
+container.
+
+### If OSRM is down
+
+`OSRM_URL` unset or unreachable makes `/api/routing/route` return `503`, and the
+app shows "directions are not available yet" instead of failing silently. The
+proxy also aborts after 8 seconds so a wedged routing box can never hang an app
+request.

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   PanResponder,
@@ -27,7 +28,8 @@ import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon } from '../components/icons';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon } from '../components/icons';
+import { markerForStatus } from '../constants/mapMarkers';
 
 function listingToStation(l: ChargerListing): Station {
   return {
@@ -90,6 +92,45 @@ export default function MapScreen() {
   const [showList, setShowList]         = useState(false);
   const [favStationIds, setFavStationIds] = useState<Set<string>>(new Set());
   const [unreadCount, setUnreadCount]   = useState(0);
+  const [routing,     setRouting]       = useState(false);
+  const [routeInfo,   setRouteInfo]     = useState<{ distance_m: number; duration_s: number } | null>(null);
+
+  // In-app directions: fetch road geometry from the backend's OSRM proxy and
+  // draw it on the map, instead of handing the user off to Google Maps.
+  const showDirections = useCallback(async (destLat: number, destLng: number) => {
+    setRouting(true);
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        if (req.status !== 'granted') { Alert.alert(t.error, t.map_directions_need_location); return; }
+      }
+      const loc = await Location.getLastKnownPositionAsync() ?? await Location.getCurrentPositionAsync({});
+      if (!loc) { Alert.alert(t.error, t.map_directions_no_location); return; }
+
+      const res: any = await api.routing.route(
+        { latitude: loc.coords.latitude, longitude: loc.coords.longitude },
+        { latitude: destLat, longitude: destLng },
+      );
+      if (!res?.coordinates?.length) throw new Error('no route');
+
+      mapRef.current?.setRoute(res.coordinates);
+      setRouteInfo({ distance_m: res.distance_m, duration_s: res.duration_s });
+      setSelected(null);
+    } catch (e: any) {
+      // Routing not configured yet (503) is expected until OSRM is deployed —
+      // say so plainly rather than showing a generic failure.
+      const notConfigured = e?.status === 503 || /not configured/i.test(e?.message ?? '');
+      Alert.alert(t.error, notConfigured ? t.map_directions_unavailable : t.map_directions_failed);
+    } finally {
+      setRouting(false);
+    }
+  }, [t]);
+
+  const clearRoute = useCallback(() => {
+    mapRef.current?.clearRoute();
+    setRouteInfo(null);
+  }, []);
 
   // Unread badge. Refreshed on focus so it clears after the inbox is opened and
   // picks up anything that arrived while the app was backgrounded. Guests have
@@ -278,11 +319,14 @@ export default function MapScreen() {
 
   // Pins for the OSM map: official stations, other home chargers, own charger
   const mapMarkers = React.useMemo<OSMMarkerSpec[]>(() => [
+    // Brand teardrop artwork, picked by service status: in service / out of
+    // service / under maintenance.
     ...stations.map(s => ({
       id: `station:${s.id}`,
       latitude: s.latitude, longitude: s.longitude,
       color: STATUS_COLOR[s.status] ?? COLORS.offline,
       icon: 'zap' as const,
+      brand: markerForStatus(s.status),
     })),
     ...listings
       .filter(l => !myListing || l.id !== myListing.id)
@@ -291,6 +335,9 @@ export default function MapScreen() {
         latitude: l.latitude, longitude: l.longitude,
         color: '#3B82F6',
         icon: 'home' as const,
+        // Listings carry their own status column now; is_available is the
+        // fallback for rows written before that column existed.
+        brand: markerForStatus((l as any).status ?? (l.is_available ? 'available' : 'offline')),
       })),
     ...(myListing ? [{
       id: `listing:${myListing.id}`,
@@ -393,6 +440,22 @@ export default function MapScreen() {
           </TouchableOpacity>
         )}
       </SafeAreaView>
+
+      {/* Active route summary — also the way to dismiss the drawn route */}
+      {routeInfo && (
+        <View style={[styles.routeBanner, isRTL && styles.rowRev]}>
+          <NavigationIcon size={18} color="#fff" strokeWidth={2.5} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.routeBannerTitle}>
+              {(routeInfo.distance_m / 1000).toFixed(1)} km · {Math.max(1, Math.round(routeInfo.duration_s / 60))} {t.map_directions_min}
+            </Text>
+            <Text style={styles.routeBannerSub}>{t.map_directions_tap_clear}</Text>
+          </View>
+          <TouchableOpacity onPress={clearRoute} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <CloseIcon size={18} color="#fff" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Nearby stations pill */}
       {!showList && !selected && !selectedListing && (
@@ -503,6 +566,18 @@ export default function MapScreen() {
           </View>
           <View style={styles.selectedBtnRow}>
             <TouchableOpacity
+              style={styles.directionsBtn}
+              onPress={() => showDirections(selected.latitude, selected.longitude)}
+              disabled={routing}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t.map_directions}
+            >
+              {routing
+                ? <ActivityIndicator size="small" color={COLORS.primary} />
+                : <NavigationIcon size={18} color={COLORS.primary} strokeWidth={2} />}
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.detailsBtn}
               onPress={() => { setSelected(null); navigation.navigate('StationDetails', { stationId: selected.id }); }}
               activeOpacity={0.85}
@@ -561,6 +636,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: COLORS.card,
   },
   bellBadgeText: { fontFamily: FONTS.bold, fontSize: 9, color: '#fff', lineHeight: 12 },
+  rowRev: { flexDirection: 'row-reverse' },
+  routeBanner: {
+    position: 'absolute', top: 110, left: 16, right: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: COLORS.primaryDark, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 11,
+    shadowColor: COLORS.primaryDark, shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 3 }, elevation: 6,
+  },
+  routeBannerTitle: { fontFamily: FONTS.bold, fontSize: 14, color: '#fff' },
+  routeBannerSub:   { fontFamily: FONTS.regular, fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 1 },
+  directionsBtn: {
+    width: 46, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 14, backgroundColor: COLORS.primaryBg,
+    borderWidth: 1.5, borderColor: COLORS.primaryTint,
+  },
   searchInput: { flex: 1, fontSize: 15, color: COLORS.text, marginLeft: 2 },
   myLocationBtn: {
     alignSelf: 'flex-end',

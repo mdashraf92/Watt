@@ -231,6 +231,28 @@ export const api = {
       request('POST', '/api/devices/energy', { body: target }),
   },
 
+  routing: {
+    // Driving route between two points, drawn in-app rather than handing the
+    // user off to an external maps app.
+    route: (from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) =>
+      request<{
+        success: boolean;
+        distance_m: number;
+        duration_s: number;
+        coordinates: Array<[number, number]>;
+        steps: Array<{ instruction: string; modifier: string | null; name: string; distance_m: number }>;
+      }>('POST', '/api/routing/route', { body: { from, to } }),
+  },
+
+  stationStatus: {
+    // Company network station — admin / superadmin only.
+    setStation: (id: string, status: string, reason?: string) =>
+      request('PATCH', `/api/stations/${id}/status`, { body: { status, reason } }),
+    // Private charger — the owning host/investor, or admin / superadmin.
+    setListing: (id: string, status: string, reason?: string) =>
+      request('PATCH', `/api/listings/${id}/status`, { body: { status, reason } }),
+  },
+
   notifications: {
     // `before` is a created_at cursor from the previous page's next_before.
     list: (opts: { limit?: number; before?: string | null } = {}) => {
