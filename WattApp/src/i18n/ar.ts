@@ -75,6 +75,23 @@ const ar = {
   auth_error_password: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
   auth_error_password_empty: 'يرجى إدخال كلمة المرور',
 
+  // ── قريباً (ميزات تشويقية) ──
+  coming_soon_section: 'قريباً',
+  coming_badge: 'قريباً',
+  coming_notify: 'أبلغني',
+  coming_notified: 'سنُعلمك ✓',
+  coming_mobile_title: 'الشحن المتنقل — إنقاذ على الطريق',
+  coming_mobile_sub: 'بطاريتك توشك على النفاد وأنت على الطريق؟ اطلب الشحن ونأتي إليك أينما كنت في عُمان.',
+  coming_trip_title: 'مخطِّط الرحلات',
+  coming_trip_sub: 'خطّط أي رحلة في جميع أنحاء عُمان باطمئنان. نُحدّد لك محطات الشحن على طول طريقك لتعرف دائماً أين تتوقف.',
+  coming_dismiss: 'إخفاء',
+
+  // صندوق الإشعارات
+  notif_inbox_title: 'الإشعارات',
+  notif_empty_title: 'لا توجد إشعارات بعد',
+  notif_empty_sub: 'ستظهر هنا تحديثات الحجوزات وتذكيرات الشحن وحركة المحفظة.',
+  a11y_notifications: 'الإشعارات',
+
   // Auth - Sign Up
   auth_signup_title: 'إنشاء حساب',
   auth_signup_subtitle: 'انضم إلى شبكة جو واط',

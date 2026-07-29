@@ -14,7 +14,7 @@ import {
 import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../components/OSMMap';
 import ErrorView from '../components/ErrorView';
 import * as Location from 'expo-location';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Station, ChargerListing } from '../types';
@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon } from '../components/icons';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon } from '../components/icons';
 
 function listingToStation(l: ChargerListing): Station {
   return {
@@ -89,6 +89,21 @@ export default function MapScreen() {
   const [selectedListing, setSelectedListing] = useState<ChargerListing | null>(null);
   const [showList, setShowList]         = useState(false);
   const [favStationIds, setFavStationIds] = useState<Set<string>>(new Set());
+  const [unreadCount, setUnreadCount]   = useState(0);
+
+  // Unread badge. Refreshed on focus so it clears after the inbox is opened and
+  // picks up anything that arrived while the app was backgrounded. Guests have
+  // no account, so the bell is hidden and this never fires for them.
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthenticated) { setUnreadCount(0); return; }
+      let active = true;
+      api.notifications.unreadCount()
+        .then((r: any) => { if (active) setUnreadCount(r?.count ?? 0); })
+        .catch(() => { /* badge is non-critical — leave the last known value */ });
+      return () => { active = false; };
+    }, [isAuthenticated]),
+  );
 
   const listAnim       = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
@@ -317,21 +332,41 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Search bar */}
+      {/* Search bar + notification bell */}
       <SafeAreaView edges={['top']} style={styles.topOverlay}>
-        <View style={styles.searchBar}>
-          <SearchIcon size={17} color={COLORS.textSecondary} strokeWidth={2} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t.map_search}
-            placeholderTextColor={COLORS.textSecondary}
-            value={search}
-            onChangeText={setSearch}
-            onFocus={() => setShowList(true)}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <CloseIcon size={16} color={COLORS.textSecondary} strokeWidth={2.5} />
+        <View style={[styles.searchRow, isRTL && styles.searchRowRtl]}>
+          <View style={[styles.searchBar, { flex: 1 }]}>
+            <SearchIcon size={17} color={COLORS.textSecondary} strokeWidth={2} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t.map_search}
+              placeholderTextColor={COLORS.textSecondary}
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setShowList(true)}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <CloseIcon size={16} color={COLORS.textSecondary} strokeWidth={2.5} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Guests have no inbox — hidden rather than shown-and-inert. */}
+          {isAuthenticated && (
+            <TouchableOpacity
+              style={styles.bellBtn}
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t.a11y_notifications}
+            >
+              <BellIcon size={20} color={COLORS.text} strokeWidth={2} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -506,12 +541,26 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0,
     paddingHorizontal: 16, paddingBottom: 8, gap: 8,
   },
+  searchRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchRowRtl: { flexDirection: 'row-reverse' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.card, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 10, gap: 8,
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },
+  bellBtn: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 3 }, elevation: 4,
+  },
+  bellBadge: {
+    position: 'absolute', top: 6, right: 6,
+    minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4,
+    backgroundColor: COLORS.error, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: COLORS.card,
+  },
+  bellBadgeText: { fontFamily: FONTS.bold, fontSize: 9, color: '#fff', lineHeight: 12 },
   searchInput: { flex: 1, fontSize: 15, color: COLORS.text, marginLeft: 2 },
   myLocationBtn: {
     alignSelf: 'flex-end',

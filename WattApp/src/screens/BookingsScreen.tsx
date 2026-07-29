@@ -12,6 +12,7 @@ import type { Booking, CustomerStackParamList, CustomerTabParamList } from '../t
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
+import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
@@ -80,7 +81,7 @@ export default function BookingsScreen() {
     t.bookings_cancel_reason_other,
   ];
 
-  const FILTER_TABS = [
+  const FILTER_KEYS = [
     { key: 'all',       label: t.bookings_filter_all },
     { key: 'active',    label: t.bookings_filter_active },
     { key: 'confirmed', label: t.bookings_filter_confirmed },
@@ -126,6 +127,15 @@ export default function BookingsScreen() {
 
   const activeCount   = bookings.filter(b => b.status === 'active').length;
   const upcomingCount = bookings.filter(b => b.status === 'confirmed' || b.status === 'pending').length;
+
+  // Per-filter counts, so an empty tab is visible before it's tapped.
+  const FILTER_TABS = useMemo(
+    () => FILTER_KEYS.map(f => ({
+      ...f,
+      count: f.key === 'all' ? bookings.length : bookings.filter(b => b.status === f.key).length,
+    })),
+    [bookings, t],   // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const listItems = useMemo((): ListItem[] => {
     if (filter !== 'all') {
@@ -302,20 +312,41 @@ export default function BookingsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
+        // row-reverse (not the FlatList-only `inverted` prop) puts the first
+        // filter on the right for Arabic.
+        contentContainerStyle={[styles.filterRow, isRTL && styles.filterRowRtl]}
         style={styles.filterScroll}
       >
-        {FILTER_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.filterTab, filter === tab.key && styles.filterTabActive]}
-            onPress={() => setFilter(tab.key)}
-          >
-            <Text style={[styles.filterText, filter === tab.key && styles.filterTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {FILTER_TABS.map(tab => {
+          const on = filter === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.filterTab, on && styles.filterTabActive]}
+              onPress={() => setFilter(tab.key)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`${tab.label} (${tab.count})`}
+            >
+              {/* numberOfLines + shrink:0 keep the label on one line and let the
+                  pill size to its text instead of the text being clipped. */}
+              <Text
+                numberOfLines={1}
+                style={[styles.filterText, on && styles.filterTextActive]}
+              >
+                {tab.label}
+              </Text>
+              {tab.count > 0 && (
+                <View style={[styles.filterCount, on && styles.filterCountActive]}>
+                  <Text style={[styles.filterCountText, on && styles.filterCountTextActive]}>
+                    {tab.count}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* ── Content ──────────────────────────────────────── */}
@@ -482,12 +513,36 @@ const styles = StyleSheet.create({
   summaryDivider:{ width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
 
   // Filter
-  filterScroll: { maxHeight: 50, marginBottom: 4 },
-  filterRow:    { paddingHorizontal: 16, gap: 8, paddingBottom: 4, paddingTop: 2 },
-  filterTab:    { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 22, backgroundColor: COLORS.card, borderWidth: 1.5, borderColor: COLORS.border },
-  filterTabActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterText:      { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  // No maxHeight: it clipped the row. The content defines the height instead.
+  filterScroll: { flexGrow: 0, marginBottom: 6 },
+  filterRow:    { paddingHorizontal: 16, gap: 8, paddingVertical: 4, alignItems: 'center' },
+  filterRowRtl: { flexDirection: 'row-reverse' },
+  filterTab: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    // flexShrink:0 stops the pill being compressed below its text width, which
+    // is what cut labels mid-word. Explicit fontFamily (not fontWeight) keeps
+    // measurement and rendering on the same font — see constants/typography.
+    flexShrink: 0,
+    // Short labels ("All") would otherwise render as a tiny pill next to
+    // "Completed". minWidth evens them out without forcing equal widths.
+    minWidth: 92,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22,
+    backgroundColor: COLORS.card, borderWidth: 1.5, borderColor: COLORS.border,
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.primary, borderColor: COLORS.primary,
+    shadowColor: COLORS.primary, shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 3,
+  },
+  filterText:      { fontFamily: FONTS.semibold, fontSize: 14, color: COLORS.textSecondary },
   filterTextActive:{ color: '#fff' },
+  filterCount: {
+    minWidth: 20, paddingHorizontal: 6, paddingVertical: 1,
+    borderRadius: 10, backgroundColor: COLORS.backgroundAlt, alignItems: 'center',
+  },
+  filterCountActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  filterCountText:   { fontFamily: FONTS.bold, fontSize: 11, color: COLORS.textSecondary },
+  filterCountTextActive: { color: '#fff' },
 
   // Section header
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 8 },

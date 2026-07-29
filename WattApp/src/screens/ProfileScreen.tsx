@@ -16,6 +16,7 @@ import { useLang } from '../context/LanguageContext';
 import { api } from '../lib/api';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
+import ComingSoonCard from '../components/ComingSoonCard';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
 import type { ChargingSession, ChargerApplication, CustomerStackParamList } from '../types';
@@ -52,12 +53,16 @@ function serializeVehicle(v: VehicleData): string {
 // ── Screen ─────────────────────────────────────────────────────
 
 const AVATAR_KEY = (id: string) => `watt_avatar_${id}`;
+// Per-user keys: these are device-local, but two accounts on the same phone must
+// not inherit each other's waitlist opt-ins or dismissed teasers.
+const COMING_KEY        = (id: string) => `watt_coming_soon_notified_${id}`; // {featureId: true} waitlist opt-ins
+const COMING_HIDDEN_KEY = (id: string) => `watt_coming_soon_hidden_${id}`;   // {featureId: true} dismissed teasers
 
 type NavProp = NativeStackNavigationProp<CustomerStackParamList>;
 
 export default function ProfileScreen() {
   const { profile, session, signOut, updateProfile, deleteAccount } = useAuth();
-  const { t, toggleLanguage } = useLang();
+  const { t, toggleLanguage, isRTL } = useLang();
   const tabBarHeight = useTabBarHeight();
   const navigation = useNavigation<NavProp>();
 
@@ -74,6 +79,43 @@ export default function ProfileScreen() {
   // Local avatar URI (stored in AsyncStorage, never uploaded)
   const [localAvatar,   setLocalAvatar]   = useState<string | null>(null);
   const [avatarLoading, setAvatarLoading] = useState(false);
+
+  // Coming-soon "Notify me" opt-ins + dismissed teasers (persisted locally, per user)
+  const userId = profile?.id ?? null;
+  const [comingNotified, setComingNotified] = useState<Record<string, boolean>>({});
+  const [comingHidden,   setComingHidden]   = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    // Clear first so the previous account's state never flashes on the new one
+    // while the reads are in flight.
+    setComingNotified({});
+    setComingHidden({});
+    if (!userId) return;
+    let active = true;   // ignore a slow read that resolves after another switch
+    AsyncStorage.getItem(COMING_KEY(userId)).then(v => {
+      if (active && v) { try { setComingNotified(JSON.parse(v)); } catch {} }
+    });
+    AsyncStorage.getItem(COMING_HIDDEN_KEY(userId)).then(v => {
+      if (active && v) { try { setComingHidden(JSON.parse(v)); } catch {} }
+    });
+    return () => { active = false; };
+  }, [userId]);
+  const notifyComing = (id: string) => {
+    if (!userId) return;
+    setComingNotified(prev => {
+      const next = { ...prev, [id]: true };
+      AsyncStorage.setItem(COMING_KEY(userId), JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
+  const hideComing = (id: string) => {
+    if (!userId) return;
+    setComingHidden(prev => {
+      const next = { ...prev, [id]: true };
+      AsyncStorage.setItem(COMING_HIDDEN_KEY(userId), JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
+  const allComingHidden = comingHidden.mobile_charging && comingHidden.trip_planner;
 
   // Edit form state
   const [editName,      setEditName]      = useState(profile?.full_name ?? '');
@@ -299,6 +341,47 @@ export default function ProfileScreen() {
           onApply={() => navigation.navigate('InvestorApplication', {})}
           onReapply={() => navigation.navigate('InvestorApplication', { reapply: true })}
         />
+
+        {/* ── Coming Soon (teasers) — hidden once the user dismisses both ── */}
+        {!allComingHidden && (
+        <View style={{ marginHorizontal: 16, marginTop: 14 }}>
+          <Text style={[styles.sectionTitle, { marginLeft: 4 }, isRTL && { textAlign: 'right', marginLeft: 0, marginRight: 4 }]}>
+            {t.coming_soon_section}
+          </Text>
+          <View style={{ gap: 12 }}>
+            {!comingHidden.mobile_charging && (
+            <ComingSoonCard
+              emoji="⚡"
+              title={t.coming_mobile_title}
+              subtitle={t.coming_mobile_sub}
+              badge={t.coming_badge}
+              notifyLabel={t.coming_notify}
+              notifiedLabel={t.coming_notified}
+              joined={!!comingNotified.mobile_charging}
+              onNotify={() => notifyComing('mobile_charging')}
+              onDismiss={() => hideComing('mobile_charging')}
+              dismissLabel={t.coming_dismiss}
+              isRTL={isRTL}
+            />
+            )}
+            {!comingHidden.trip_planner && (
+            <ComingSoonCard
+              emoji="🗺️"
+              title={t.coming_trip_title}
+              subtitle={t.coming_trip_sub}
+              badge={t.coming_badge}
+              notifyLabel={t.coming_notify}
+              notifiedLabel={t.coming_notified}
+              joined={!!comingNotified.trip_planner}
+              onNotify={() => notifyComing('trip_planner')}
+              onDismiss={() => hideComing('trip_planner')}
+              dismissLabel={t.coming_dismiss}
+              isRTL={isRTL}
+            />
+            )}
+          </View>
+        </View>
+        )}
 
         {/* ── My Info ───────────────────────────────────────── */}
         <View style={styles.section}>

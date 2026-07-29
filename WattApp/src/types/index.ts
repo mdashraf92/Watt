@@ -188,6 +188,7 @@ export type CustomerStackParamList = {
   Charging: { sessionId: string; stationName: string };
   SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string; sessionId?: string };
   InvestorApplication: { reapply?: boolean };
+  Notifications: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -228,6 +229,7 @@ export type AdminStackParamList = {
   AdminAnalytics: undefined;
   AdminFlagged: undefined;
   SuperAdmin: undefined;
+  Notifications: undefined;
 };
 
 export type InvestorTabParamList = {
@@ -247,6 +249,7 @@ export type InvestorStackParamList = {
   Charging: { sessionId: string; stationName: string };
   SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string; sessionId?: string };
   InvestorApplication: { reapply?: boolean };
+  Notifications: undefined;
 };
 
 export interface ChargerApplication {

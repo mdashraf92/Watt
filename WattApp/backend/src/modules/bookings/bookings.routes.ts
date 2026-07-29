@@ -4,7 +4,7 @@ import { asyncHandler } from '../../middleware/error';
 import { requireAuth } from '../../middleware/auth';
 import { validateBody } from '../../middleware/validate';
 import { query, callFn } from '../../db/pool';
-import { sendPush } from '../../integrations/push';
+import { notify } from '../../integrations/notify';
 
 const router = Router();
 
@@ -43,15 +43,33 @@ router.post('/',
       [req.user!.id, b.station_id ?? null, b.listing_id ?? null, b.booked_at,
        b.duration_minutes, b.estimated_kwh ?? null, b.estimated_cost ?? null],
     );
-    // Heads-up push to the host when their private charger is booked (best-effort).
+    const booking = rows[0];
+
+    // Confirmation to the customer (best-effort — never block the booking).
+    notify({
+      userIds: [req.user!.id],
+      category: 'booking',
+      kind: 'booking_confirmed',
+      title: 'Booking confirmed',
+      body: `Your charging slot is booked for ${new Date(booking.booked_at).toLocaleString()}.`,
+      data: { booking_id: booking.id },
+    }).catch(() => {});
+
+    // Heads-up to the host when their private charger is booked.
     if (b.listing_id) {
       const { rows: h } = await query(`select host_id from public.charger_listings where id = $1`, [b.listing_id]);
       if (h[0]?.host_id) {
-        sendPush([h[0].host_id], 'booking', 'New booking on your charger',
-          'A customer just booked your charger.').catch(() => {});
+        notify({
+          userIds: [h[0].host_id],
+          category: 'booking',
+          kind: 'host_new_booking',
+          title: 'New booking on your charger',
+          body: 'A customer just booked your charger.',
+          data: { booking_id: booking.id, listing_id: b.listing_id },
+        }).catch(() => {});
       }
     }
-    res.status(201).json(rows[0]);
+    res.status(201).json(booking);
   }),
 );
 

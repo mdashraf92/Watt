@@ -230,4 +230,33 @@ export const api = {
     energy: (target: { booking_id?: string; listing_id?: string }) =>
       request('POST', '/api/devices/energy', { body: target }),
   },
+
+  notifications: {
+    // `before` is a created_at cursor from the previous page's next_before.
+    list: (opts: { limit?: number; before?: string | null } = {}) => {
+      const q = new URLSearchParams();
+      if (opts.limit) q.set('limit', String(opts.limit));
+      if (opts.before) q.set('before', opts.before);
+      const qs = q.toString();
+      return request<{
+        success: boolean;
+        notifications: AppNotification[];
+        next_before: string | null;
+      }>('GET', `/api/notifications${qs ? `?${qs}` : ''}`);
+    },
+    unreadCount: () => request<{ success: boolean; count: number }>('GET', '/api/notifications/unread-count'),
+    markRead:    (ids: string[]) => request('POST', '/api/notifications/read', { body: { ids } }),
+    markAllRead: () => request('POST', '/api/notifications/read-all'),
+  },
+};
+
+export type AppNotification = {
+  id: string;
+  category: 'booking' | 'charging' | 'promo';
+  kind: string;
+  title: string;
+  body: string;
+  data: Record<string, any>;
+  read_at: string | null;
+  created_at: string;
 };

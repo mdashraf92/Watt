@@ -77,6 +77,23 @@ const en: Translations = {
   auth_error_password: 'Password must be at least 8 characters',
   auth_error_password_empty: 'Please enter your password',
 
+  // ── Coming Soon (teaser features) ──
+  coming_soon_section: 'Coming Soon',
+  coming_badge: 'Coming Soon',
+  coming_notify: 'Notify me',
+  coming_notified: 'We will notify you ✓',
+  coming_mobile_title: 'Mobile Charging — Roadside Rescue',
+  coming_mobile_sub: 'Low battery on the road? Request a charge and we come to you — anywhere in Oman.',
+  coming_trip_title: 'Trip Planner',
+  coming_trip_sub: 'Plan any journey across Oman with confidence. We map the charging stops along your route so you always know where to top up.',
+  coming_dismiss: 'Dismiss',
+
+  // Notification inbox
+  notif_inbox_title: 'Notifications',
+  notif_empty_title: 'No notifications yet',
+  notif_empty_sub: 'Booking updates, charging reminders and wallet activity will appear here.',
+  a11y_notifications: 'Notifications',
+
   // Auth - Sign Up
   auth_signup_title: 'Create Account',
   auth_signup_subtitle: 'Join the Go Watt network',

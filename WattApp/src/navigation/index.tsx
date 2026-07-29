@@ -74,6 +74,7 @@ const BookingsScreen            = lazyScreen(() => import('../screens/BookingsSc
 const WalletScreen              = lazyScreen(() => import('../screens/WalletScreen'));
 const ProfileScreen             = lazyScreen(() => import('../screens/ProfileScreen'));
 const InvestorApplicationScreen = lazyScreen(() => import('../screens/InvestorApplicationScreen'));
+const NotificationsScreen       = lazyScreen(() => import('../screens/NotificationsScreen'));
 const CompleteProfileScreen     = lazyScreen(() => import('../screens/CompleteProfileScreen'));
 
 const AdminMapScreen               = lazyScreen(() => import('../screens/admin/AdminMapScreen'));
@@ -426,6 +427,7 @@ function CustomerNavigator() {
       <CustomerStack.Screen name="Charging" component={ChargingScreen} />
       <CustomerStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
       <CustomerStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
+      <CustomerStack.Screen name="Notifications" component={NotificationsScreen} />
     </CustomerStack.Navigator>
   );
 }
@@ -607,6 +609,7 @@ function InvestorNavigator() {
       <InvestorStack.Screen name="Charging" component={ChargingScreen} />
       <InvestorStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
       <InvestorStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
+      <InvestorStack.Screen name="Notifications" component={NotificationsScreen} />
     </InvestorStack.Navigator>
   );
 }
@@ -674,6 +677,7 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
       <AdminStack.Screen name="AdminFlagged" component={AdminFlaggedScreen} />
       <AdminStack.Screen name="SuperAdmin" component={SuperAdminScreen} />
+      <AdminStack.Screen name="Notifications" component={NotificationsScreen} />
     </AdminStack.Navigator>
   );
 }
