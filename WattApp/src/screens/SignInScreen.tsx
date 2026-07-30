@@ -4,7 +4,6 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   Alert, ActivityIndicator, Modal,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GuestStackParamList } from '../types';
@@ -20,35 +19,16 @@ type Nav = NativeStackNavigationProp<GuestStackParamList, 'SignIn'>;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-function GoogleLogo({ size = 20 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 48 48">
-      <Path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-      <Path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
-      <Path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-      <Path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-    </Svg>
-  );
-}
-
-function AppleLogo({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <Path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11"/>
-    </Svg>
-  );
-}
-
 export default function SignInScreen() {
   const navigation = useNavigation<Nav>();
   const { t, toggleLanguage, isRTL } = useLang();
-  const { signIn, signInWithGoogle, signInWithApple, sendPasswordReset, signInWithPhone, verifyPhoneOtp } = useAuth();
+  const { signIn, sendPasswordReset, signInWithPhone, verifyPhoneOtp } = useAuth();
 
   const [email,         setEmail]         = useState('');
   const [password,      setPassword]      = useState('');
   const [showPass,      setShowPass]      = useState(false);
   const [loading,       setLoading]       = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
+  const [socialLoading, setSocialLoading] = useState<'phone' | null>(null);
   const [emailError,    setEmailError]    = useState<string | null>(null);
 
   // Phone (OTP) login
@@ -86,18 +66,6 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogle = async () => {
-    try { setSocialLoading('google'); await signInWithGoogle(); }
-    catch (e: any) { Alert.alert(t.error, e.message ?? t.auth_error_credentials); }
-    finally { setSocialLoading(null); }
-  };
-
-  const handleApple = async () => {
-    try { setSocialLoading('apple'); await signInWithApple(); }
-    catch (e: any) { Alert.alert(t.error, e.message ?? t.auth_error_credentials); }
-    finally { setSocialLoading(null); }
   };
 
   // ── Phone OTP flow ──
@@ -250,26 +218,6 @@ export default function SignInScreen() {
             <Text style={s.divText}>{t.auth_or_divider}</Text>
             <View style={s.divLine} />
           </View>
-
-          <TouchableOpacity
-            style={[s.socialBtn, isSocialLoading && s.btnOff]}
-            onPress={handleGoogle} disabled={isSocialLoading} activeOpacity={0.85}
-          >
-            {socialLoading === 'google'
-              ? <ActivityIndicator color={COLORS.text} size="small" />
-              : <><GoogleLogo size={20} /><Text style={s.socialText}>{t.auth_google}</Text></>}
-          </TouchableOpacity>
-
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={[s.socialBtn, s.socialApple, isSocialLoading && s.btnOff]}
-              onPress={handleApple} disabled={isSocialLoading} activeOpacity={0.85}
-            >
-              {socialLoading === 'apple'
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <><AppleLogo size={20} color="#fff" /><Text style={[s.socialText, { color: '#fff' }]}>{t.auth_apple}</Text></>}
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
             style={[s.socialBtn, isSocialLoading && s.btnOff]}
@@ -450,7 +398,6 @@ const s = StyleSheet.create({
     borderRadius: 16, paddingVertical: 14,
     backgroundColor: COLORS.card,
   },
-  socialApple: { backgroundColor: '#000', borderColor: '#000' },
   socialText:  { fontSize: 15, fontFamily: FONTS.semibold, color: COLORS.text },
 
   guestBtn:  { alignItems: 'center', paddingVertical: 6 },

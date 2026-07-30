@@ -1,133 +1,129 @@
 <div align="center">
-  <img src="brand/logo/gowatt-logo.svg" alt="GO WATT" width="280" />
-  <p><strong>EV charging network for the Sultanate of Oman</strong></p>
+  <img src="brand/logo/gowatt-logo-full.png" alt="GO WATT" width="260" />
+  <p><strong>How to run GO WATT</strong></p>
 </div>
+
+This file is the single source for **running the project**. There are three runnable
+parts: the **website** (static landing page), the **mobile app** (`WattApp/`, Expo),
+and the **backend API** (`WattApp/backend/`, Node + Postgres).
 
 ---
 
-GO WATT connects drivers looking for a charge with public stations and private
-home chargers. Customers find and book a charger, hosts earn by sharing theirs,
-investors fund new sites, and admins run the network — all from one app.
+## Prerequisites
 
-## Repository layout
+- **Node.js 18+** and npm
+- **Expo Go** app (or a dev build) on your phone — for the mobile app
+- **Docker** — for the local Postgres database
+- A phone and PC on the **same Wi‑Fi network**
 
-```
-Watt/
-├── WattApp/          The product — Expo mobile app + Node/Express backend
-├── brand/            Logos, icons and editable source art
-├── docs/             Reports and planning documents
-├── marketing/        Public landing page
-└── Bills/            Financial records (git-ignored)
-```
+---
 
-### `WattApp/` in detail
+## 1) Website (landing page)
 
-```
-WattApp/
-├── src/              Mobile app — screens, components, i18n, navigation
-├── backend/          Node/Express API + Postgres
-│   ├── src/modules/  One folder per API area (auth, bookings, payments, …)
-│   └── sql/          Schema and migration files, applied in order
-├── db/dumps/         Local Postgres dumps (git-ignored, ~19MB)
-├── assets/           App icons, splash screens, fonts
-├── deploy/           Server deployment configuration
-└── docs/             Architecture, roadmap, user flows, go-live checklist
-```
-
-## Tech stack
-
-| Layer | Built with |
-|---|---|
-| Mobile | Expo SDK 56, React Native 0.85, React 19, React Navigation 6 |
-| Backend | Node + Express 4, TypeScript, Zod validation |
-| Database | PostgreSQL — business logic lives in SQL functions |
-| Realtime | Socket.IO over Postgres `LISTEN`/`NOTIFY` |
-| Auth | JWT access/refresh tokens, email + password or phone OTP |
-| Payments | Thawani (Oman) hosted checkout, wallet with pre-session holds |
-| Languages | English and Arabic, full RTL support |
-
-## Roles
-
-The app presents a different navigator per role:
-
-- **Customer** — find, book and pay for charging
-- **Host** — share a private charger and earn
-- **Investor** — fund charger installations and track returns
-- **Admin / Superadmin** — approve applications, manage payouts, monitor sessions
-
-## Running locally
-
-**Prerequisites:** Node 20+, Docker, and the Expo Go app on your phone.
-
-**1 — Database**
+The site is a single static file at the repo root — no build step.
 
 ```bash
-docker run -d --name gowatt-db \
-  -e POSTGRES_PASSWORD=<your-password> \
-  -p 55432:5432 postgres:15
+# Just open it:
+#   double-click index.html
+# …or serve it locally:
+npx serve .
 ```
 
-Port 55432 avoids clashing with any Postgres already on 5432. Apply the SQL in
-`WattApp/backend/sql/` in filename order, starting with `backend-compat.sql`.
+It uses `brand/` (logos, icons) and `assets/` (app screenshots + splash video),
+both relative to the repo root — keep `index.html` at the root so those paths work.
+Arabic (RTL) / English (LTR) toggle is built in.
 
-**2 — Backend**
+---
 
-```bash
-cd WattApp/backend
-cp .env.example .env      # then fill in DATABASE_URL and the JWT secrets
-npm install
-npm run dev               # http://localhost:8090/health
-```
-
-**3 — Mobile app**
+## 2) Mobile app — `WattApp/`
 
 ```bash
 cd WattApp
 npm install
-npx expo start --port 8082
+npx expo start -c        # -c clears the Metro cache
 ```
 
-Set `EXPO_PUBLIC_API_URL` in `WattApp/.env` to your machine's **LAN IP** (not
-`localhost`) so a physical phone can reach the backend:
+Then on your phone: open **Expo Go**, **scan the QR code** that Metro prints, and the
+app loads over Wi‑Fi.
 
+**Point the app at the backend.** Edit `WattApp/.env`:
+
+```env
+# Use your PC's LAN IP (find it with `ipconfig`) so the phone can reach the backend.
+EXPO_PUBLIC_API_URL=http://<YOUR-PC-LAN-IP>:8090
 ```
-EXPO_PUBLIC_API_URL=http://192.168.1.50:8090
+
+After any `.env` change, restart with `npx expo start -c`.
+
+> **"Cannot connect to Expo CLI"** → your PC's IP changed or an old Metro session is
+> stale. Stop old Metro, run `npx expo start -c`, and **re-scan the fresh QR**. If your
+> Wi‑Fi blocks phone↔PC traffic, use `npx expo start -c --tunnel`.
+
+---
+
+## 3) Backend API — `WattApp/backend/`
+
+Node + TypeScript + Express in front of Postgres. The app talks only to this API.
+
+```bash
+cd WattApp/backend
+cp .env.example .env      # fill DATABASE_URL, JWT secrets, SMTP, Thawani, Tuya
+npm install
+
+# One-time DB prep (adds compat functions + backend tables):
+psql "$DATABASE_URL" -f sql/backend-compat.sql
+psql "$DATABASE_URL" -f sql/backend-tables.sql
+
+npm run dev               # dev with auto-reload
+# or for a production-style run:
+npm run build && npm start
 ```
 
-> If the app shows `Host unreachable`, this value is almost always stale — most
-> routers hand out a new IP periodically. Check yours and restart Expo with
-> `-c`, since environment variables are inlined at bundle time.
+Local port is **8090** (port 8080 is taken by Apache on the dev machine). Health check:
 
-## Scheduled jobs
+```bash
+curl http://localhost:8090/health
+```
 
-The backend exposes cron endpoints under `/api/jobs`, each guarded by the
-`x-job-secret` header. Add them to the server's crontab:
+---
 
-| Endpoint | Frequency | Purpose |
-|---|---|---|
-| `/api/jobs/reminders` | every minute | "Charging starts soon" / "ends soon" notifications |
-| `/api/jobs/auto-shutoff` | every minute | Stop and bill sessions past their booked window |
-| `/api/jobs/reconcile-payments` | every 5 min | Credit top-ups the app never confirmed |
-| `/api/jobs/no-show` | every 10 min | Release unclaimed bookings |
-| `/api/jobs/disburse` | daily | Pay out investor earnings |
+## 4) Local database (Docker Postgres)
 
-## Documentation
+Run Postgres locally on port **55432** and restore the dumps from `WattApp/db/dumps/`.
 
-| Document | Contents |
-|---|---|
-| [`WattApp/docs/C-server.md`](WattApp/docs/C-server.md) | Backend architecture and API reference |
-| [`WattApp/docs/SELF_HOSTING.md`](WattApp/docs/SELF_HOSTING.md) | Deploying to your own server |
-| [`WattApp/docs/GO_LIVE.md`](WattApp/docs/GO_LIVE.md) | Pre-launch checklist |
-| [`WattApp/docs/ROADMAP.md`](WattApp/docs/ROADMAP.md) | Planned work |
-| [`WattApp/docs/USER_FLOWS_EN.md`](WattApp/docs/USER_FLOWS_EN.md) | Screen-by-screen user journeys (also in Arabic) |
-| [`WattApp/docs/DOCUMENTATION_EN.md`](WattApp/docs/DOCUMENTATION_EN.md) | Full product documentation (also in Arabic) |
+```bash
+# Start a local Postgres 15
+docker run -d --name gowatt-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 55432:5432 postgres:15
 
-## A note on secrets
+# Restore data (auth users first, then app data)
+psql "postgresql://postgres:postgres@localhost:55432/postgres" -f WattApp/db/dumps/gowatt_auth_users.sql
+psql "postgresql://postgres:postgres@localhost:55432/postgres" -f WattApp/db/dumps/gowatt_public.sql
+```
 
-`.env` files are git-ignored everywhere and must stay that way — they hold
-database credentials, JWT signing secrets, SMTP passwords and payment keys. Use
-the `.env.example` files as templates. Never commit a real key.
+Then set the backend's connection string in `WattApp/backend/.env`:
 
-## Licence
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:55432/postgres
+```
 
-See [`WattApp/LICENSE`](WattApp/LICENSE).
+> For deploying the full stack on a real server, see `WattApp/deploy/README.md`.
+
+---
+
+## Typical local run order
+
+```bash
+# 1. database
+docker start gowatt-db                     # (first time: the docker run above)
+
+# 2. backend  (terminal A)
+cd WattApp/backend && npm run dev           # → http://localhost:8090
+
+# 3. mobile app (terminal B)
+cd WattApp && npx expo start -c             # scan the QR on your phone
+
+# 4. website (optional)
+npx serve .                                 # or just open index.html
+```

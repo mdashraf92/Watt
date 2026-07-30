@@ -22,7 +22,7 @@ const en: Translations = {
   otp_verify_btn: 'Verify & Sign In',
   otp_resend: 'Resend code',
   otp_error_invalid: 'That code isn\'t right. Check the SMS and try again.',
-  phone_not_configured: 'Phone sign-in isn\'t available yet. Please use email, Google, or Apple.',
+  phone_not_configured: 'Phone sign-in isn\'t available yet. Please sign in with your email and password.',
   error_load_title: 'Couldn\'t load data',
   error_load_msg: 'Check your internet connection and try again.',
   retry: 'Retry',
