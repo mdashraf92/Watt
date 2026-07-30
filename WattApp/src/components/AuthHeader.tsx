@@ -47,9 +47,8 @@ export default function AuthHeader({
 
       <Animated.View entering={FadeIn.duration(500)} style={[styles.logoRow, isRTL && styles.rowReverse]}>
         <View style={styles.logoBadge}>
-          <GoWattIcon size={30} />
+          <GoWattIcon size={38} />
         </View>
-        <Text style={styles.logoText}>GO WATT</Text>
       </Animated.View>
 
       <Animated.Text
@@ -95,12 +94,11 @@ const styles = StyleSheet.create({
 
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 16 },
   logoBadge: {
-    width: 46, height: 46, borderRadius: 14,
+    width: 58, height: 58, borderRadius: 17,
     backgroundColor: '#FFFFFF',
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
-  logoText: { fontFamily: FONTS.extrabold, fontSize: 22, color: '#fff', letterSpacing: 5 },
   title: { fontFamily: FONTS.bold, fontSize: 28, color: '#fff', marginBottom: 5 },
   subtitle: { fontFamily: FONTS.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 20 },
 
