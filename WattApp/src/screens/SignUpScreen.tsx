@@ -18,6 +18,8 @@ import GradientButton from '../components/GradientButton';
 type Nav = NativeStackNavigationProp<GuestStackParamList, 'SignUp'>;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// At least 8 chars, with at least one letter and one number.
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 export default function SignUpScreen() {
   const navigation = useNavigation<Nav>();
@@ -30,6 +32,7 @@ export default function SignUpScreen() {
   const [showPass,      setShowPass]      = useState(false);
   const [loading,       setLoading]       = useState(false);
   const [emailError,    setEmailError]    = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const validateEmail = (value: string) => {
     if (!value.trim() || !EMAIL_REGEX.test(value.trim())) {
@@ -40,10 +43,19 @@ export default function SignUpScreen() {
     return true;
   };
 
+  const validatePassword = (value: string) => {
+    if (!PASSWORD_REGEX.test(value)) {
+      setPasswordError(t.auth_error_password);
+      return false;
+    }
+    setPasswordError(null);
+    return true;
+  };
+
   const handleSignUp = async () => {
     if (!fullName.trim()) { Alert.alert(t.error, t.auth_error_name); return; }
     if (!validateEmail(email)) return;
-    if (password.length < 8) { Alert.alert(t.error, t.auth_error_password); return; }
+    if (!validatePassword(password)) return;
     try {
       setLoading(true);
       await signUp(email.trim().toLowerCase(), password, fullName.trim());
@@ -118,19 +130,20 @@ export default function SignUpScreen() {
           {/* Password */}
           <View style={s.field}>
             <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse]}>
+            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse, passwordError ? s.inputBoxError : null]}>
               <TextInput
                 style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
                 placeholder={t.auth_password_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry={!showPass}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={v => { setPassword(v); if (passwordError) validatePassword(v); }}
                 autoComplete="new-password"
                 textContentType="newPassword"
                 autoCorrect={false}
                 returnKeyType="done"
                 onSubmitEditing={handleSignUp}
+                onBlur={() => { if (password) validatePassword(password); }}
               />
               <TouchableOpacity onPress={() => setShowPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 {showPass
@@ -138,6 +151,7 @@ export default function SignUpScreen() {
                   : <EyeIcon    size={20} color={COLORS.textTertiary} strokeWidth={2} />}
               </TouchableOpacity>
             </View>
+            {passwordError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{passwordError}</Text> : null}
           </View>
 
           {/* Create Account */}

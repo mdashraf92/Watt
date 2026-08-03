@@ -42,10 +42,23 @@ const schema = z.object({
   TUYA_CLIENT_ID: z.string().optional(),
   TUYA_CLIENT_SECRET: z.string().optional(),
 
-  // SMS / phone-OTP (Twilio). If unset, OTP codes are logged to the console.
-  TWILIO_ACCOUNT_SID: z.string().optional(),
-  TWILIO_AUTH_TOKEN: z.string().optional(),
-  TWILIO_FROM: z.string().optional(),   // sender number (+968…) or Messaging Service SID (MG…)
+  // SMS / phone-OTP (iSmartSMS by Infocomm, Oman). If the three required creds
+  // are unset, OTP codes are logged to the console instead of being texted.
+  // Infocomm ship several endpoints and an account is provisioned for one of
+  // them. Ours authenticates on SMSDynamicAPI; the SMSDynamicRefIntlAPI variant
+  // in their PDF rejects the same credentials with code 3 (user/password wrong),
+  // which reads as a bad password rather than the wrong URL. If a new account
+  // returns 3 with credentials you know are right, probe the other endpoints —
+  // code 9 (invalid mobile) on a junk number means auth passed.
+  ISMARTSMS_URL: z.string().default('https://www.ismartsms.net/iBulkSMS/HttpWS/SMSDynamicAPI.aspx'),
+  ISMARTSMS_USER_ID: z.string().optional(),
+  ISMARTSMS_PASSWORD: z.string().optional(),
+  ISMARTSMS_HEADER: z.string().optional(),   // registered sender ID (≤11 chars), provided by Infocomm
+
+  // Internal-testing ONLY: a master phone-OTP code accepted for any number when
+  // NODE_ENV !== 'production'. Lets QA/testers complete phone login while the SMS
+  // provider is unavailable. IGNORED in production — never a bypass for real users.
+  DEV_OTP_CODE: z.string().default('000000'),
 
   JOB_SECRET: z.string().min(8).default('change-me'),
 });

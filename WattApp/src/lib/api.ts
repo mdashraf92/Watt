@@ -14,6 +14,22 @@ export class ApiError extends Error {
 
 const BASE = () => ENV.apiUrl; // e.g. https://api.gowatt.om
 
+export type SavedCard = {
+  card_token: string;
+  brand: string | null;
+  last4: string | null;
+  expiry: string | null;
+  is_default: boolean;
+};
+export type CardChargeResult =
+  | { status: 'paid'; balance: number; reference: string }
+  | { status: 'action_required'; reference: string; redirect_url: string | null };
+export type PaymentMethods = {
+  method: 'wallet' | 'card';
+  cards: SavedCard[];
+  available: boolean;   // false when the gateway isn't configured on the server
+};
+
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 interface Opts { auth?: boolean; body?: any; query?: Record<string, any>; }
 
@@ -220,8 +236,21 @@ export const api = {
   },
 
   payments: {
-    create: (amount: number) => request('POST', '/api/payments/create', { body: { amount } }),
+    create: (amount: number, save_card = false) =>
+      request('POST', '/api/payments/create', { body: { amount, save_card } }),
     verify: (session_id: string) => request('POST', '/api/payments/verify', { body: { session_id } }),
+
+    // Saved credit / debit cards (Thawani tokens — the app never sees a PAN).
+    methods: () => request<PaymentMethods>('GET', '/api/payments/methods'),
+    addCard: () => request<{ pay_url: string; session_id: string; amount: number }>('POST', '/api/payments/cards/add'),
+    setDefaultCard: (token: string) => request('POST', `/api/payments/cards/${encodeURIComponent(token)}/default`),
+    removeCard: (token: string) => request('DELETE', `/api/payments/cards/${encodeURIComponent(token)}`),
+    setMethod: (method: 'wallet' | 'card') => request('POST', '/api/payments/method', { body: { method } }),
+    chargeCard: (amount: number) =>
+      request<CardChargeResult>('POST', '/api/payments/cards/charge', { body: { amount } }),
+    verifyCardCharge: (reference: string) =>
+      request<{ status: 'paid' | 'pending' | 'failed'; balance?: number }>(
+        'POST', '/api/payments/cards/charge/verify', { body: { reference } }),
   },
 
   devices: {

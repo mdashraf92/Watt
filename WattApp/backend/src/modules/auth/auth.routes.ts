@@ -34,12 +34,20 @@ function resetEmailHtml(link: string): string {
   </table></body></html>`;
 }
 
-// Registration enforces the password POLICY (min 8). Login only needs the
-// field present — it verifies credentials, so it must not reject a legacy /
-// migrated user whose stored password happens to be shorter than 8.
+// Password POLICY (new passwords only): at least 8 chars, with a letter and a
+// number. Reused by register / change-password / reset-password so the rule is
+// enforced identically everywhere and matches the app's client-side check.
+const strongPassword = z.string()
+  .min(8, 'Password must be at least 8 characters and include a letter and a number')
+  .regex(/[A-Za-z]/, 'Password must be at least 8 characters and include a letter and a number')
+  .regex(/\d/, 'Password must be at least 8 characters and include a letter and a number');
+
+// Registration enforces the password POLICY. Login only needs the field present
+// — it verifies credentials, so it must not reject a legacy / migrated user
+// whose stored password happens to be shorter or weaker than the current policy.
 const emailPw = z.object({
   email: z.string().email(),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: strongPassword,
 });
 const loginBody = z.object({
   email: z.string().email(),
@@ -71,7 +79,7 @@ router.post('/logout',
 
 router.post('/change-password',
   requireAuth,
-  validateBody(z.object({ current_password: z.string(), new_password: z.string().min(8) })),
+  validateBody(z.object({ current_password: z.string(), new_password: strongPassword })),
   asyncHandler(async (req, res) => {
     await svc.changePassword(req.user!.id, req.body.current_password, req.body.new_password);
     res.status(204).end();
@@ -95,7 +103,7 @@ router.post('/forgot-password',
 );
 
 router.post('/reset-password',
-  validateBody(z.object({ token: z.string(), new_password: z.string().min(8) })),
+  validateBody(z.object({ token: z.string(), new_password: strongPassword })),
   asyncHandler(async (req, res) => {
     await svc.resetPassword(req.body.token, req.body.new_password);
     res.status(204).end();

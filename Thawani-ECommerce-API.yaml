@@ -1,0 +1,2005 @@
+openapi: 3.0.0
+info:
+  title: Thawani ECommerce API
+  version: '1.0'
+  description: |
+    ## Introduction
+    Congratulation on considering Thawani Checkout as one of your Payment Service Providers. Thawani Checkout is a payment gateway that allows you to collect payments from your customers.
+    ## Roles and Responsibilities
+    Merchant
+    Prepare a valid JSON request as per the integration documentation.
+    Sending request to the proper endpoint server that is mentioned in the integration documentation.
+    Redirect user to the provided payment link upon the successful generation of the link.
+    Update Merchant invoices and/or payment system.
+    Check periodically/once for changes on payment status.
+
+    Thawani
+    Return back the payment link to the merchant.
+    Process user’s card payment or in-app payment.
+    Send OTP through the user bank card’s phone number that is registered in the bank.
+    Send payment result response bank.
+    Once the integration is completed, a test entry will be made and we will print the receipt for checking and verification – to be signed be the merchant before sending the production API and public key.
+
+    Important Notes
+    The code sample is for demonstration purposes only. It should NOT be used as a base to develop the integration.
+    Thawani does NOT supply any plugin for any eCommerce platform.
+    All communication MUST be through emails ONLY.
+    Please provide an email that will direct all automatic communications and notifications.
+    Secret and Publishable keys are only for your company/organization purposes, NOT to be shared.
+    We do our level best to serve as much merchants as possible from Sunday to Thursday between 9:00AM until 3:00PM and in working days only.
+    ## Checklist
+    In order to move your system to production environment, you need to meet the following requirements:
+
+    - SSL Certificate.
+    - Customer information passed on metadata (Name, Contact number, & Email address).
+    - Payment display dialogue box should contain message that indicates accepts card payments
+
+    ## Merchant Portal Configuration
+    Before using the eCommerce, you must make sure that configuration in the Merchant portal is set properly. There are 3 main functions:
+    - Integration Keys: generate integration keys (secret and publishable key)
+    - Webhook URL: Set the webhook URL to receive the payment notification
+    - Payment Methods: Set what payments can be received in Thawani Checkout.
+
+    ## Secret and Publishable Keys
+
+    You MUST provide Secret and Publishable Keys in order to call any request in Thawani Checkout. Each merchant will have his unique keys which he can generate from the merchant portal directly. For testing purposes, below is the keys that will help you while integrating. Note that this is in UAT ONLY. If you need to move to production, then contact A [Thawani Sales](mailto:sales@thawani.om "Thawani Sales") to register with Thawani as a merchant and get your own keys.
+
+    `Secret Key: rRQ26GcsZzoEhbrP2HZvLYDbn9C9et`
+
+    `Publishable Key: HGvTMLDssJghr9tlN9gr4DVYt0qyBy`
+
+    ## Webhook verification
+    ```javascript
+    //These values are returned as part of header in webhook
+    thawani-timestamp = 1733807121;
+    thawani-signature = aa454c8f8170145b78f2747763f38aec44c91d1bb455558fdf78d76bde920747;
+
+
+    function getHmacSignature(body, key) {
+        const crypto = require('crypto');
+
+        const textBytes = Buffer.from(body, 'ascii'); // or 'utf8' if needed
+        const keyBytes = Buffer.from(key, 'ascii'); // or 'utf8' if needed
+
+        const hmac = crypto.createHmac('sha256', keyBytes);
+
+        hmac.update(textBytes);
+
+        return hmac.digest('hex');
+    }
+
+    // Example usage
+    const body = 'example_body_text';
+    const key = 'example_secret_key'; //The webhook secret key set at portal.
+    const signature = getHmacSignature(body + '-' + thawani-timestamp, key);
+    console.log('HMAC Signature:', signature);
+    ```
+
+    Where the `body` will be the response body sent by webhook concatinated with `-`+`timestamp`. `timestamp` is part of the header.
+    Verify the signature from the header with the generated one from above method.
+
+    Recommended website for testing webhooks:
+    1. https://webhook-test.com/
+    2. https://webhook.site
+
+    ## Webhook Data Samples
+    Below is a sample documentation for a webhook bodies.
+    The difference for the webhooks can be identified using the `event_type` field.
+
+    ### Checkout Session Created
+    ```json
+    {
+      "data": {
+        "session_id": "checkout_randomsessionidgoeshere",
+        "client_reference_id": "123412",
+        "customer": null,
+        "card": null,
+        "invoice": "123456",
+        "products": [
+          {
+            "name": "product 1",
+            "unit_amount": 100,
+            "quantity": 1
+          }
+        ],
+        "total_amount": 100,
+        "currency": "OMR",
+        "payment_status": "unpaid",
+        "save_card_on_success": false,
+        "metadata": {
+          "Customer name": "somename",
+          "order id": "0"
+        },
+        "created_at": "2024-11-19T09:26:40.7131505Z",
+        "expire_at": "2024-11-20T09:26:40.6107875Z"
+      },
+      "event_type": "checkout.created"
+    }
+    ```
+    ### Checkout Session Completed and Successful
+    ```json
+    {
+      "data": {
+        "session_id": "checkout_randomsessionidgoeshere",
+        "client_reference_id": "123412",
+        "customer": null,
+        "card": null,
+        "invoice": "123456",
+        "products": [
+          {
+            "name": "product 1",
+            "unit_amount": 100,
+            "quantity": 1
+          }
+        ],
+        "total_amount": 100,
+        "currency": "OMR",
+        "payment_status": "paid",
+        "save_card_on_success": false,
+        "metadata": {
+          "Customer name": "somename",
+          "order id": "0"
+        },
+        "created_at": "2024-11-19T09:26:40.7131505",
+        "expire_at": "2024-11-20T09:26:40.6107875"
+      },
+      "event_type": "checkout.completed"
+    }
+    ```
+
+    ### Payment Initialized
+    ```json
+    {
+      "data": {
+        "activity": "Car Washing",
+        "payment_id": "123456",
+        "masked_card": "4242 42XX XXXX 4242",
+        "card_type": "Debit",
+        "status": "InProccess",
+        "reason": null,
+        "amount": 100,
+        "fee": 0,
+        "refunded": false,
+        "refunds": null,
+        "checkout_invoice": "123456",
+        "created_at": "2024-11-19T09:27:14.179289Z"
+      },
+      "event_type": "payment.pending"
+    }
+    ```
+    ### Payment Completed and Successful
+    ```json
+    {
+      "data": {
+        "activity": "Car Washing",
+        "payment_id": "123456",
+        "masked_card": "4242 42XX XXXX 4242",
+        "card_type": "Debit",
+        "status": "Successful",
+        "reason": null,
+        "amount": 100,
+        "fee": 0,
+        "refunded": false,
+        "refunds": null,
+        "checkout_invoice": "123456",
+        "created_at": "2024-11-19T09:27:14.179289"
+      },
+      "event_type": "payment.succeeded"
+    }
+    ```
+
+    ### Payment Failed
+    ```json
+    {
+      "data": {
+        "activity": "Car Washing",
+        "payment_id": "123456",
+        "masked_card": "4000 00XX XXXX 0002",
+        "card_type": "Debit",
+        "status": "Failed",
+        "reason": null,
+        "amount": 100,
+        "fee": 0,
+        "refunded": false,
+        "refunds": null,
+        "checkout_invoice": "123456",
+        "created_at": "2024-11-19T09:30:26.6758281Z"
+      },
+      "event_type": "payment.failed"
+    }
+    ```
+    ## Google Pay: Merchant Integration Guide
+
+    > **Requirement:** Android API 26+ (Android 8.0) and an HTTPS checkout URL.
+
+    ---
+
+    ### Option A: Flutter
+
+    #### 1. Add dependency (`pubspec.yaml`)
+
+    ```yaml
+    dependencies:
+      webview_flutter: ^4.13.0
+    ```
+
+    ```bash
+    flutter pub get
+    ```
+
+    #### 2. Configure WebView & enable Google Pay
+
+    ```dart
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+
+    if (platformController is AndroidWebViewController) {
+      final supported = await androidController.isWebViewFeatureSupported(
+        WebViewFeatureType.paymentRequest,
+      );
+      if (supported) {
+        await androidController.setPaymentRequestEnabled(true);
+      }
+    }
+
+    _controller.loadRequest(Uri.parse('https://your-checkout-url'));
+    ```
+
+    #### 3. Navigate to payment page
+
+    ```dart
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentWebViewPage(url: 'https://uatcheckout.thawani.om/pay/<session_id>?key=<public_key>'),
+      ),
+    );
+    ```
+
+    ---
+
+    ### Option B: Native Android (Kotlin)
+
+    ### 1. Add dependency (`app/build.gradle.kts`)
+
+    ```kotlin
+    dependencies {
+        implementation("androidx.webkit:webkit:1.14.0")
+    }
+
+    android {
+        defaultConfig { minSdk = 26 }
+        compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_11
+            targetCompatibility = JavaVersion.VERSION_11
+        }
+        kotlinOptions { jvmTarget = "11" }
+    }
+    ```
+
+    #### 2. Update `AndroidManifest.xml`
+
+    ```xml
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Required for Android 11+ to communicate with Google Pay -->
+    <queries>
+        <intent><action android:name="org.chromium.intent.action.PAY" /></intent>
+        <intent><action android:name="org.chromium.intent.action.IS_READY_TO_PAY" /></intent>
+        <intent><action android:name="org.chromium.intent.action.UPDATE_PAYMENT_DETAILS" /></intent>
+    </queries>
+    ```
+
+    #### 3. Configure WebView in your Activity
+
+    ```kotlin
+    val settings = webView.settings
+
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.PAYMENT_REQUEST)) {
+        WebSettingsCompat.setPaymentRequestEnabled(settings, true)
+    }
+
+    webView.webViewClient = WebViewClient()
+    webView.loadUrl("https://your-checkout-url")
+    ```
+
+    ---
+
+    ### Checklist
+
+    - [ ] Android API **26+**
+    - [ ] Checkout URL is **HTTPS**
+    - [ ] Google Pay app is **installed and configured** on device
+    - [ ] JavaScript **enabled**
+    - [ ] DOM Storage **enabled**
+    - [ ] `PaymentRequest` API **enabled** via WebViewFeature
+
+    ---
+
+    ### Troubleshooting
+
+    | Symptom | Fix |
+    |---|---|
+    | PaymentRequest not available | Set `minSdk = 26` in Gradle |
+    | Google Pay button not showing | Use HTTPS; ensure Google Pay is set up on device |
+    | Payment opens external browser | Add `webView.webViewClient = WebViewClient()` |
+    | App can't reach Google Pay | Add the three `<queries>` intents to `AndroidManifest.xml` |
+  contact:
+    name: Thawani sales
+    url: 'https://thawani.om/support/'
+    email: sales@thawani.om
+  termsOfService: 'https://thawani.om/terms/'
+servers:
+  - url: 'https://uatcheckout.thawani.om/api/v1'
+    description: Testing
+  - description: Production
+    url: 'https://checkout.thawani.om/api/v1'
+tags:
+  - name: Checkout
+  - name: Customers
+  - name: Invoice
+  - name: Payment Intents
+  - name: Payment Methods
+  - name: Payments
+  - name: Plans
+  - name: Refunds
+  - name: Subscriptions
+paths:
+  /checkout/session:
+    get:
+      summary: List Sessions
+      tags:
+        - Checkout
+      responses:
+        '200':
+          $ref: '#/components/responses/checkout_list'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-checkout-session
+      description: Get a list of sessions.
+      parameters:
+        - schema:
+            type: number
+          in: query
+          name: limit
+          description: To limit the lists.
+          required: true
+        - schema:
+            type: number
+          in: query
+          name: skip
+          description: To paginate between lists.
+          required: true
+    parameters: []
+    post:
+      summary: Create Session
+      operationId: post-checkout-session
+      responses:
+        '200':
+          $ref: '#/components/responses/checkout'
+        '400':
+          $ref: '#/components/responses/BadRequst'
+      description: |-
+        Create a checkout session. After the session has been created, use the `session_id` to redirect the user to the Thawani payment hosted page.
+
+        url format: `https://[uat]checkout.thawani.om/pay/{session_id}?key=publishable_key`.
+      tags:
+        - Checkout
+      parameters:
+        - schema:
+            type: string
+            default: application/json
+          in: header
+          name: Content-Type
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - client_reference_id
+                - mode
+                - success_url
+                - cancel_url
+                - metadata
+              properties:
+                client_reference_id:
+                  type: string
+                  minLength: 1
+                  description: '`client_reference_id` to be generated by merchant to identify the session.'
+                mode:
+                  type: string
+                  minLength: 1
+                  enum:
+                    - payment
+                  description: 'The mode of the checkout session, the default value is `payment` for a one-time payment.'
+                products:
+                  type: array
+                  minItems: 1
+                  description: |-
+                    A list of `products` the customer is purchasing.
+                    For `payment` mode, maximum of 100 products.
+                    For `subscription` mode, not needed.
+                  items:
+                    type: object
+                    minProperties: 1
+                    maxProperties: 100
+                    required:
+                      - name
+                      - unit_amount
+                      - quantity
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                        description: The name of the product.
+                        maxLength: 40
+                      unit_amount:
+                        type: number
+                        default: 100
+                        minimum: 1
+                        maximum: 5000000000
+                        description: integer in baisa represeting how much to charge per line product.
+                      quantity:
+                        type: number
+                        minimum: 1
+                        maximum: 100
+                        description: the quantity of the line product.
+                customer_id:
+                  type: string
+                  minLength: 1
+                  description: Provide `customer_id` to allow the customer to save his/her card.
+                success_url:
+                  type: string
+                  minLength: 1
+                  description: The customer would be redirected to `success_url` if payment processed successfully.
+                cancel_url:
+                  type: string
+                  minLength: 1
+                  description: The customer will be redirected to `cancel_url` if he decides to cancel the payment.
+                save_card_on_success:
+                  type: boolean
+                  default: false
+                  description: Allowing `save_card_on_success=true` will automatically save the customer's card on success. Customer is optional to choose from your application or on the checkout page.
+                expire_in_minutes:
+                  type: integer
+                  minimum: 30
+                  maximum: 10080
+                  description: '`expire_in_minutes` to set custom expiry for a session. Default is 24 hours. Minimum 30 minutes and maximum 7 days (10080 minutes).'
+                plan_id:
+                  type: string
+                  minLength: 1
+                  description: required only if `mode=subscription`.
+                metadata:
+                  type: object
+                  description: 'Set of key-value pairs. Useful for storing additional information about your products, customers.'
+                  properties:
+                    '':
+                      type: string
+            examples:
+              payment-example:
+                value:
+                  client_reference_id: '123412'
+                  mode: payment
+                  products:
+                    - name: product 1
+                      quantity: 1
+                      unit_amount: 100
+                  success_url: 'https://thw.om/success'
+                  cancel_url: 'https://thw.om/cancel'
+                  metadata:
+                    Customer name: somename
+                    order id: 0
+        description: |-
+          Hover on the most right to know about each property.
+          For more details, please check on the examples provided below.
+          Please note that the minimum unit amount is 1 baisa however the sum of the order should always be greater than or equals to 100 baisas.
+  '/checkout/session/{session_id}':
+    parameters:
+      - schema:
+          type: string
+        name: session_id
+        in: path
+        description: Unique identifier of the session.
+        required: true
+    get:
+      summary: Retrieve Session
+      tags:
+        - Checkout
+      responses:
+        '200':
+          $ref: '#/components/responses/checkout'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-checkout-session-session_id
+      description: Get checkout session by `session_id`.
+  '/checkout/reference/{client_reference_id}':
+    get:
+      summary: Retrieve Session by Client Reference
+      tags:
+        - Checkout
+      responses:
+        '200':
+          $ref: '#/components/responses/checkout'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-checkout-reference
+      description: Get checkout session by `client_reference_id`.
+    parameters:
+      - schema:
+          type: string
+        name: client_reference_id
+        in: path
+        required: true
+        description: Client generated id to identify the checkout session.
+  '/checkout/invoice/{checkout_invoice}':
+    parameters:
+      - schema:
+          type: string
+        name: checkout_invoice
+        in: path
+        required: true
+        description: Unique invoice generated once checkout session created.
+    get:
+      summary: Retrieve Session by invoice
+      tags:
+        - Checkout
+      responses:
+        '200':
+          $ref: '#/components/responses/checkout'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-checkout-invoice-checkout_invoice
+      description: Get checkout session by `checkout_invoice`.
+  '/checkout/{session_id}/cancel':
+    parameters:
+      - schema:
+          type: string
+        name: session_id
+        in: path
+        required: true
+        description: Unique identifier of the checkout session.
+    post:
+      summary: Cancel Session
+      operationId: post-checkout-session_id-cancel
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                x-examples:
+                  Example 1:
+                    success: true
+                    code: 2105
+                    description: Checkout session cancelled successfully
+                properties:
+                  success:
+                    type: boolean
+                  code:
+                    type: integer
+                  description:
+                    type: string
+                    minLength: 1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                x-examples:
+                  Example 1:
+                    success: false
+                    code: 4003
+                    description: Checkout session not found
+                properties:
+                  success:
+                    type: boolean
+                  code:
+                    type: integer
+                  description:
+                    type: string
+                    minLength: 1
+      requestBody:
+        content: {}
+        description: ''
+      description: 'Cancel Checkout Session, by providing `session_id`.'
+      parameters: []
+      tags:
+        - Checkout
+  /payment_intents:
+    get:
+      summary: List Payment Intents
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_Intent_list'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-payment_intents
+      description: Get list of Payment Intents.
+      parameters:
+        - schema:
+            type: number
+          in: query
+          name: limit
+          required: true
+          description: To limit the lists.
+        - schema:
+            type: number
+          in: query
+          name: skip
+          required: true
+          description: To paginate between lists.
+      tags:
+        - Payment Intents
+    post:
+      summary: Create Payment Intent
+      operationId: post-payment_intents
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_intent'
+        '400':
+          $ref: '#/components/responses/BadRequst'
+      description: |-
+        Create Payment Intent. Payment intent used once the card of your customer saved, and you want to charge your customer off-session. Once Payment intent has been created use the `payment_intent.id` to confirm the payment intent and proceed with processing the payment.
+
+        `payment_method_id` is optional here, but mandatory at payment intent confirmation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - client_reference_id
+                - return_url
+                - metadata
+              properties:
+                payment_method_id:
+                  type: string
+                  minLength: 1
+                  description: customer's card id to charge.
+                amount:
+                  type: number
+                  description: should be in integer.
+                client_reference_id:
+                  type: string
+                  minLength: 1
+                  description: '`client_reference_id` to be generated by merchant to identify the session.'
+                return_url:
+                  type: string
+                  minLength: 1
+                  description: 'The URL `return_url` used once 3DSecure or otp is required to authorize the request. After authorizing done, the user redirected to `return_url`.'
+                metadata:
+                  type: object
+                  description: 'Set of key-value pairs. Useful for storing additional information about your products, customers.'
+                expire_in_minutes:
+                  type: integer
+                  x-stoplight:
+                    id: mv95n4fkuekvv
+                  default: 30
+                  minimum: 30
+                  maximum: 1440
+                  description: '`expire_in_minutes` to set custom expiry for a payment intent. Default is 24 hours. Minimum 30 minutes and maximum 24 hours (1440 minutes).'
+            examples:
+              payment-with-card-example:
+                value:
+                  payment_method_id: card_zK5a7sd98wdwe78TbiSUyLUjann6xFx
+                  amount: 100
+                  client_reference_id: '12345'
+                  return_url: 'https://thw.om/success'
+                  metadata:
+                    customer: thawani developers
+              payment-with-no-card-example:
+                value:
+                  amount: 100
+                  client_reference_id: '12345'
+                  return_url: 'https://thw.om/success'
+                  metadata:
+                    customer: thawani developers
+        description: |-
+          `payment_method_id` is not mandatory here; it can be supplied later during confirmation. It is OK to provide it anyway.
+
+          Hover on the most right to know about each property.
+          For more details, please check on the examples provided below.
+      tags:
+        - Payment Intents
+      parameters:
+        - schema:
+            type: string
+            default: application/json
+          in: header
+          name: Content-Type
+  '/payment_intents/{payment_intent_id}/confirm':
+    parameters:
+      - schema:
+          type: string
+        name: payment_intent_id
+        in: path
+        description: Unique identifier of the payment intent.
+        required: true
+    post:
+      summary: Confirm Payment Intent
+      operationId: post-payment_intents-payment_intent_id-confirm
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_intent'
+        '400':
+          $ref: '#/components/responses/BadRequst'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              description: ''
+              type: object
+              properties:
+                payment_method_id:
+                  type: string
+                  minLength: 1
+                  description: customer's card id to charge.
+                amount:
+                  type: number
+                  description: 'should be in integer, it will override the amount provided before.'
+            examples:
+              just-confirm:
+                value:
+                  // send empty request to confirm the payment intent: null
+              confirm-with-card:
+                value:
+                  payment_method_id: card_zK5a7sd98wdwe78TbiSUyLUjann6xFx
+                  amount: 100
+        description: |-
+          Hover on the most right to know about each property.
+          For more details, please check on the examples provided below.
+      description: Payment Intent confirmation. `payment_method_id` should be provided here if it didn't happen at creating Payment Intent.
+      tags:
+        - Payment Intents
+      parameters:
+        - schema:
+            type: string
+            default: application/json
+          in: header
+          name: Content-Type
+  '/payment_intents/{payment_intent_id}/cancel':
+    parameters:
+      - schema:
+          type: string
+        name: payment_intent_id
+        in: path
+        description: Unique identifier of the payment intent.
+        required: true
+    post:
+      summary: Cancel Payment Intent
+      operationId: post-payment_intents-payment_intent_id-cancel
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_intent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      description: 'Cancel Payment Intent, by providing `payment_intent_id`.'
+      tags:
+        - Payment Intents
+  '/payment_intents/{payment_intent_id}':
+    parameters:
+      - schema:
+          type: string
+        name: payment_intent_id
+        in: path
+        required: true
+        description: Unique identifier of the payment intent.
+    get:
+      summary: Retrieve Payment Intent
+      tags:
+        - Payment Intents
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_intent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-payment_intents-payment_intent_id
+      description: Get Payment Intent by `payment_intent_id`.
+  '/payment_intents/{client_reference_id}/reference':
+    parameters:
+      - schema:
+          type: string
+        name: client_reference_id
+        in: path
+        required: true
+        description: Client generated id to identify the Payment Intent.
+    get:
+      summary: Retrieve PaymentIntent by Client Reference
+      tags:
+        - Payment Intents
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_intent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-payment_intents-payment_intent_id-reference
+      description: Get Payment Intent by `client_reference_id`.
+  /refunds:
+    get:
+      summary: List Refunds
+      tags:
+        - Refunds
+      responses:
+        '200':
+          $ref: '#/components/responses/refund_list'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-refunds
+      description: Get a list of Refunds.
+      parameters:
+        - schema:
+            type: number
+          in: query
+          name: limit
+          description: To limit the lists.
+          required: true
+        - schema:
+            type: number
+          in: query
+          name: skip
+          description: To paginate between lists.
+          required: true
+    post:
+      summary: ''
+      operationId: post-refunds
+      responses:
+        '200':
+          $ref: '#/components/responses/refund'
+        '400':
+          $ref: '#/components/responses/BadRequst'
+      description: Provide `refund_id` to refund the payment request done by Checkout or Payment Intent.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              x-examples:
+                example-1:
+                  payment_id: '20210502135227'
+                  reason: Check moto
+                  metadata: {}
+              properties:
+                payment_id:
+                  type: string
+                  minLength: 1
+                  description: Id of the payment to refund.
+                reason:
+                  type: string
+                  minLength: 1
+                  description: The reason of refund.
+                metadata:
+                  type: object
+                  description: 'Set of key-value pairs. Useful for storing additional information about your products, customers.'
+                amount:
+                  type: integer
+                  x-stoplight:
+                    id: c5j048nycvm0i
+                  minimum: 1
+                  description: "Amount to be refunded.\r\nIt is required if the refund is requested 1 or more days later than the transaction itself.\r\nIt can also be used for partial refunds."
+              required:
+                - payment_id
+                - reason
+                - metadata
+            examples:
+              refund-example:
+                value:
+                  payment_id: '20210502135227'
+                  reason: Paid twice
+                  metadata:
+                    customer: Jone Doe
+        description: |-
+          Hover on the most right to know about each property.
+          For more details, please check on the examples provided below.
+      parameters:
+        - schema:
+            type: string
+            default: application/json
+          in: header
+          name: Content-type
+      tags:
+        - Refunds
+  '/refunds/{refund_id}':
+    parameters:
+      - schema:
+          type: string
+        name: refund_id
+        in: path
+        required: true
+        description: Unique identifier of the Refund.
+    get:
+      summary: Retrieve Refund
+      tags:
+        - Refunds
+      responses:
+        '200':
+          $ref: '#/components/responses/refund'
+        '400':
+          $ref: '#/components/responses/BadRequst'
+      operationId: get-refunds-refund_id
+      description: Get Subscription by `refund_id`.
+  /payment_methods:
+    get:
+      summary: List a Customer's Payment Method
+      tags:
+        - Payment Methods
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_method'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-payment_methods
+      description: Get payment methods related to customer using `customer_id`
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: customer_id
+          required: true
+          description: Unique identifier of the customer.
+  '/payment_methods/{card_id}':
+    parameters:
+      - schema:
+          type: string
+        name: card_id
+        in: path
+        required: true
+        description: Unique identifier of the payment method.
+    delete:
+      summary: Delete Payment Method
+      operationId: delete-payment_methods-card_id
+      responses:
+        '200':
+          description: OK 200
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  code:
+                    type: number
+                  description:
+                    type: string
+                    minLength: 1
+                required:
+                  - success
+                  - code
+                  - description
+                x-examples:
+                  example-1:
+                    success: true
+                    code: 2003
+                    description: Payment method deleted successfully
+              examples:
+                success-example:
+                  value:
+                    success: true
+                    code: 2003
+                    description: Payment method deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequst'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      description: Remove payment method by `card_id`.
+      tags:
+        - Payment Methods
+  /payments:
+    get:
+      summary: List Payments
+      tags:
+        - Payments
+      responses:
+        '200':
+          $ref: '#/components/responses/payment_list'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-payments
+      description: Get a list of Payments.
+      parameters:
+        - schema:
+            type: number
+          in: query
+          name: limit
+          description: To limit the lists.
+          required: true
+        - schema:
+            type: number
+          in: query
+          name: skip
+          description: To paginate between lists.
+          required: true
+        - schema:
+            type: string
+          in: query
+          name: checkout_invoice
+          description: 'Invoice id of the checkout session associated with this charge, if one exists.'
+        - schema:
+            type: string
+          in: query
+          name: payment_intent
+          description: 'Id of the payment intent associated with this charge, if one exists.'
+  '/payments/{payment_id}':
+    parameters:
+      - schema:
+          type: string
+        name: payment_id
+        in: path
+        required: true
+        description: Unique identifier of the Payment.
+    get:
+      summary: Retrieve Payment
+      tags:
+        - Payments
+      responses:
+        '200':
+          $ref: '#/components/responses/payment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-payments-payment_id
+      description: Get Payment by `payment_id`.
+  /customers:
+    get:
+      summary: List customers
+      tags:
+        - Customers
+      responses:
+        '200':
+          $ref: '#/components/responses/customer_list'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-customers
+      parameters:
+        - schema:
+            type: number
+          in: query
+          name: skip
+          required: true
+          description: To limit the lists.
+        - schema:
+            type: number
+          in: query
+          name: limit
+          required: true
+          description: To paginate between lists.
+      description: Get a list of customers.
+    parameters: []
+    post:
+      summary: Create Customer
+      operationId: post-customers
+      responses:
+        '200':
+          $ref: '#/components/responses/customer'
+        '400':
+          $ref: '#/components/responses/BadRequst'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              description: ''
+              type: object
+              x-examples:
+                example-1:
+                  client_customer_id: falah@developer.com
+              properties:
+                client_customer_id:
+                  type: string
+                  minLength: 1
+                  description: 'A Unique string to reference your customers. It can be user_id, user_email to identify your customers with your internal system.'
+              required:
+                - client_customer_id
+            examples:
+              create-customer-example:
+                value:
+                  client_customer_id: customer@example.com
+        description: |-
+          Hover on the most right to know about each property.
+          For more details, please check on the examples provided below.
+      parameters:
+        - schema:
+            type: string
+            default: application/json
+          in: header
+          name: Content-Type
+      description: Create customers to allow them to save cards for later payment since some Thawani services mandate the use of `customer_id`.
+      tags:
+        - Customers
+  '/customers/{customer_id}':
+    parameters:
+      - schema:
+          type: string
+        name: customer_id
+        in: path
+        required: true
+        description: Unique identifier of the customer.
+    get:
+      summary: Retrieve customer
+      responses:
+        '200':
+          $ref: '#/components/responses/customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      operationId: get-customers-customer_id
+      description: Get Customer by `customer_id`.
+      tags:
+        - Customers
+    delete:
+      summary: Delete customer
+      operationId: delete-customers-customer_id
+      responses:
+        '200':
+          description: OK 200
+          content:
+            application/json:
+              schema:
+                description: ''
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  code:
+                    type: number
+                  description:
+                    type: string
+                    minLength: 1
+                required:
+                  - success
+                  - code
+                  - description
+                x-examples:
+                  example-1:
+                    success: true
+                    code: 2003
+                    description: Customer deleted successfully
+              examples:
+                success-example:
+                  value:
+                    success: true
+                    code: 2003
+                    description: Customer deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequst'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      description: Remove customer by `customer_id`.
+      tags:
+        - Customers
+components:
+  schemas:
+    Checkout_Model:
+      title: Checkout_Model
+      type: object
+      x-tags:
+        - Checkout
+      description: |-
+        Checkout Model.
+
+        Hover on the most right to know about each property.
+      properties:
+        session_id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the session. It is used to redirect the customer to the Thawani payment hosted page.
+          readOnly: true
+        client_reference_id:
+          type: string
+          minLength: 1
+          description: '`client_reference_id` to be generated by merchant to identify the session.'
+          readOnly: true
+        customer_id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the customer purchasing.
+          readOnly: true
+        products:
+          type: array
+          description: A list of products the customer is purchasing.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: The name of the product.
+                readOnly: true
+              quantity:
+                type: number
+                description: the quantity of the line product.
+                readOnly: true
+              unit_amount:
+                type: number
+                description: integer in biz represeting how much to charge per line product.
+                readOnly: true
+            readOnly: true
+          readOnly: true
+        total_amount:
+          type: number
+          description: The total amount of the products or plan to pay/subscribe. It could be the product's total amount or plan price.
+          readOnly: true
+        currency:
+          type: string
+          minLength: 1
+          description: 'Currency, default is OMR.'
+          readOnly: true
+        success_url:
+          type: string
+          minLength: 1
+          description: The customer would be redirected to `success_url` if payment processed successfully.
+          readOnly: true
+        cancel_url:
+          type: string
+          minLength: 1
+          description: The customer will be redirected to `cancel_url` if he decides to cancel the payment.
+          readOnly: true
+        payment_status:
+          type: string
+          minLength: 1
+          enum:
+            - unpaid
+            - paid
+            - cancelled
+          description: 'The payment status of the Checkout Session, one of `paid`, `unpaid`, or `cancelled`. You can use this value to decide when to fulfill your customer’s order.'
+          readOnly: true
+        mode:
+          type: string
+          minLength: 1
+          description: 'The mode of the checkout session, the default value is payment, for one-time payment. Subscription for a recurring payment.'
+          readOnly: true
+        invoice:
+          type: string
+          minLength: 1
+          description: Checkout unique invoice.
+          readOnly: true
+        metadata:
+          type: object
+          description: 'Set of key-value pairs. Useful for storing additional information about your products, customers.'
+          readOnly: true
+        created_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: Time at which the object was created.
+          readOnly: true
+        expire_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: The time is remaining for object to expire.
+          readOnly: true
+        subscription:
+          type: object
+          x-sl-internally-excluded: true
+          x-sl-error-message: You do not have permission to view this reference
+      readOnly: true
+    Payment_Method_Model:
+      title: Payment_Method_Model
+      type: object
+      description: |-
+        Payment Method Model.
+
+        Hover on the most right to know about each property.
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the payment method.
+          readOnly: true
+        bin:
+          type: number
+          description: First six digits of the customer's card.
+          readOnly: true
+        masked_card:
+          type: string
+          description: Last four digit of customer's card is only displayed. `XXXX XXXX XXXX 4242`
+          readOnly: true
+        expiry_month:
+          type: number
+          description: The customer's card expiry month.
+          readOnly: true
+        expiry_year:
+          type: number
+          description: The customer's card expiry year.
+          readOnly: true
+        nickname:
+          type: string
+          description: The customer's card nickname
+          readOnly: true
+        brand:
+          type: string
+          enum:
+            - Visa
+            - MasterCard
+          description: The customer's card brand could be Visa or MasterCard.
+          readOnly: true
+        card_type:
+          type: string
+          enum:
+            - Debit
+            - Credit
+          description: It Identifies the card type; is it debit or credit.
+          readOnly: true
+      readOnly: true
+      x-tags:
+        - Payment Methods
+    Payment_Intent_Model:
+      title: Payment_Intent_Model
+      type: object
+      x-tags:
+        - Payment Intents
+      description: |-
+        Payment Intent Model.
+
+        Hover on the most right to know about each property.
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the payment intent.
+        client_reference_id:
+          type: string
+          minLength: 1
+          description: '`client_reference_id` to be generated by merchant to identify the session.'
+        amount:
+          type: number
+          description: Amount intended to be collected by this payment intent.
+          readOnly: true
+        currency:
+          type: string
+          minLength: 1
+          description: 'Currency, default is OMR.'
+        payment_method:
+          type: string
+          description: Id of the payment method used in this charge.
+          readOnly: true
+        next_action:
+          type: object
+          description: Contains instructions for authenticating a payment by redirecting your customer to a hosted page by Thawani pay.
+          properties:
+            url:
+              type: string
+              description: The URL you must redirect your customer to authenticate the payment.
+            return_url:
+              type: string
+              description: 'After authenticating the payment request, the customer will be redirected to this specified URL.'
+          readOnly: true
+        status:
+          type: string
+          minLength: 1
+          enum:
+            - requires_payment_method
+            - requires_action
+            - requires_confirmation
+            - succeeded
+            - cancelled
+          description: 'Status of this PaymentIntent, one of `requires_payment_method`, `requires_confirmation`, `requires_action`, `cancelled`, or `succeeded`'
+        metadata:
+          type: object
+          description: 'Set of key-value pairs. Useful for storing additional information about your products, customers.'
+          readOnly: true
+        created_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: Time at which the object was created.
+        expire_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: The time is remaining for object to expire.
+      readOnly: true
+    Invoice_Model:
+      title: Invoice_Model
+      type: object
+      description: |-
+        Invoice Model.
+
+        Hover on the most right to know about each property.
+      x-tags:
+        - Invoice
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the subscription invoice.
+        amount_due:
+          type: number
+          description: Amount due by the customer.
+          readOnly: true
+        amount_paid:
+          type: number
+          description: Amount paid by the customer.
+          readOnly: true
+        attempt_count:
+          type: number
+          description: Attempted performed to pay the current invoice.
+          readOnly: true
+        next_payment_attempt:
+          type: string
+          format: date-time
+          description: 'Usually `next_payment_attempt` is null, but if the recurring payment failed, A date will be set for the next payment attempt'
+        created_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: Time at which the object was created.
+        payment_intent:
+          $ref: '#/components/schemas/Payment_Intent_Model'
+      readOnly: true
+    Refund_Model:
+      description: |-
+        Refund Model.
+
+        Hover on the most right to know about each property.
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Amount refunded.
+        refund_id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the refund.
+          readOnly: true
+        payment_id:
+          type: string
+          minLength: 1
+          description: Id of the payment that was refunded.
+          readOnly: true
+        status:
+          type: string
+          minLength: 1
+          description: 'Status of this refund, one of `successful`, `failed`.'
+          readOnly: true
+        reason:
+          type: string
+          minLength: 1
+          description: The reason of refund.
+          readOnly: true
+        metadata:
+          type: object
+          description: 'Set of key-value pairs. Useful for storing additional information about your products, customers.'
+          readOnly: true
+        created_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: Time at which the object was created.
+          readOnly: true
+      title: Refund_Model
+      x-tags:
+        - Refunds
+    Payment_Model:
+      description: |-
+        Payment Model.
+
+        Hover on the most right to know about each property.
+      type: object
+      x-tags:
+        - Payments
+      title: Payment_Model
+      properties:
+        activity:
+          type: string
+          minLength: 1
+          description: Your business activity name.
+          readOnly: true
+        payment_id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the payment. It is used to identify the paid charges.
+          readOnly: true
+        masked_card:
+          type: string
+          minLength: 1
+          description: Last four digit of customer's card is only displayed. `XXXX XXXX XXXX 4242`
+          readOnly: true
+        card_type:
+          type: string
+          minLength: 1
+          description: It Identifies the card type; is it debit or credit.
+          readOnly: true
+        status:
+          type: string
+          minLength: 1
+          description: 'The status of the payment, one of `inProccess`, `successful`, or `failed`. You can use this value to decide when to fulfill your customer’s order.'
+          readOnly: true
+        amount:
+          type: number
+          description: Amount intended to be collected by this payment.
+          readOnly: true
+        fee:
+          type: number
+          description: Fee intended to be collected by this payment.
+          readOnly: true
+        refunded:
+          type: boolean
+          description: Boolean indicates if this payment is refunded.
+        refunds:
+          type: array
+          uniqueItems: true
+          minItems: 1
+          description: Refunds array
+          items:
+            $ref: '#/components/schemas/Refund_Model'
+        payment_intent:
+          type: string
+          minLength: 1
+          description: 'Id of the payment intent associated with this charge, if one exists.'
+          readOnly: true
+        checkout_invoice:
+          type: string
+          description: 'Invoice id of the checkout session associated with this charge, if one exists.'
+          readOnly: true
+        created_at:
+          type: string
+          minLength: 1
+          format: date-time
+          description: Time at which the object was created.
+          readOnly: true
+        reason:
+          type: string
+          description: '`Reason` to know more about the transaction'
+    Customer_Model:
+      description: |-
+        Customer Model.
+
+        Hover on the most right to know about each property.
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Unique identifier of the customer. It is used to identify the customer when dealing with checkout or payment intents.
+          readOnly: true
+        customer_client_id:
+          type: string
+          minLength: 1
+          description: 'A Unique string to reference your customers. It can be user_id, user_email to identify your customers with your internal system.'
+          readOnly: true
+      x-tags:
+        - Customers
+      title: Customer_Model
+      x-internal: false
+  securitySchemes:
+    Thawani api key:
+      name: thawani-api-key
+      type: apiKey
+      in: header
+      description: ''
+  responses:
+    NotFound:
+      description: Not found 404
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+          examples:
+            object not found:
+              value:
+                success: false
+                code: 4003
+                description: object not found
+    BadRequst:
+      description: Bad request 400
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: object
+                description: Contains invaild input errors
+          examples:
+            Id sent mismatch:
+              value:
+                success: false
+                code: 4003
+                description: object not found
+            invalid informations:
+              value:
+                success: false
+                code: 4000
+                description: Invalid information
+                data:
+                  error:
+                    - field: products
+                      message: 'At least 1 product is required, Max is 30'
+    checkout:
+      description: |-
+        Checkout response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+                readOnly: true
+              description:
+                type: string
+                minLength: 1
+              data:
+                $ref: '#/components/schemas/Checkout_Model'
+          examples: {}
+      headers: {}
+    customer:
+      description: |-
+        Customer response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            type: object
+            description: ''
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+                readOnly: true
+              description:
+                type: string
+                minLength: 1
+              data:
+                $ref: '#/components/schemas/Customer_Model'
+            readOnly: true
+    payment:
+      description: |-
+        Payment response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                $ref: '#/components/schemas/Payment_Model'
+    payment_method:
+      description: |-
+        Payment methods list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                description: null if http 400
+                items:
+                  $ref: '#/components/schemas/Payment_Method_Model'
+    refund:
+      description: |-
+        Refund response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                $ref: '#/components/schemas/Refund_Model'
+    payment_Intent_list:
+      description: |-
+        Payment intent list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                description: null if http 400
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment_Intent_Model'
+    plan_list:
+      description: |-
+        Plan list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                description: null if http 400
+                type: array
+                items:
+                  type: object
+                  x-sl-internally-excluded: true
+                  x-sl-error-message: You do not have permission to view this reference
+    subscription:
+      description: |-
+        Subscription response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: object
+                x-sl-internally-excluded: true
+                x-sl-error-message: You do not have permission to view this reference
+    invoice:
+      description: |-
+        Invoice response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                $ref: '#/components/schemas/Invoice_Model'
+    checkout_list:
+      description: |-
+        Checkout list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkout_Model'
+    customer_list:
+      description: |-
+        Customer list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Customer_Model'
+    invoice_list:
+      description: |-
+        Invoice list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice_Model'
+    payment_list:
+      description: |-
+        Payment list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment_Model'
+    payment_intent:
+      description: |-
+        Payment intent response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                $ref: '#/components/schemas/Payment_Intent_Model'
+    plan:
+      description: |-
+        Plan response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: object
+                x-sl-internally-excluded: true
+                x-sl-error-message: You do not have permission to view this reference
+    refund_list:
+      description: |-
+        Refund list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Refund_Model'
+    subscription_list:
+      description: |-
+        Subscription list response schema.
+
+        Hover on the most right to know about each property.
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            properties:
+              success:
+                type: boolean
+              code:
+                type: number
+              description:
+                type: string
+                minLength: 1
+              data:
+                type: array
+                items:
+                  type: object
+                  x-sl-internally-excluded: true
+                  x-sl-error-message: You do not have permission to view this reference
+  examples: {}
+security:
+  - Thawani api key: []

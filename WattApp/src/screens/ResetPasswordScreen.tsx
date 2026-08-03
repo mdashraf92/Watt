@@ -13,6 +13,10 @@ import { EyeIcon, EyeOffIcon } from '../components/icons';
 import { GoWattIcon } from '../components/Logo';
 import GradientButton from '../components/GradientButton';
 
+// At least 8 chars, with at least one letter and one number (matches sign-up
+// and the backend password policy).
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+
 // Shown at the root (outside the normal navigator) whenever a
 // password-recovery deep link has established a recovery session.
 export default function ResetPasswordScreen() {
@@ -26,7 +30,7 @@ export default function ResetPasswordScreen() {
   const [error,    setError]    = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (password.length < 6) { setError(t.auth_error_password); return; }
+    if (!PASSWORD_REGEX.test(password)) { setError(t.auth_error_password); return; }
     if (password !== confirm) { setError(t.reset_mismatch); return; }
     setError(null);
     setLoading(true);
@@ -50,9 +54,8 @@ export default function ResetPasswordScreen() {
         <View style={s.deco1} /><View style={s.deco2} />
         <View style={s.logoRow}>
           <View style={s.logoBadge}>
-            <GoWattIcon size={28} />
+            <GoWattIcon size={32} />
           </View>
-          <Text style={s.logoText}>GO WATT</Text>
         </View>
         <Text style={s.title}>{t.reset_title}</Text>
         <Text style={s.subtitle}>{t.reset_subtitle}</Text>
@@ -135,11 +138,10 @@ const s = StyleSheet.create({
 
   logoRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   logoBadge: {
-    width: 44, height: 44, borderRadius: 14,
+    width: 50, height: 50, borderRadius: 15,
     backgroundColor: '#FFFFFF',
     alignItems: 'center', justifyContent: 'center',
   },
-  logoText: { fontFamily: FONTS.extrabold, fontSize: 22, color: '#fff', letterSpacing: 5 },
   title:    { fontFamily: FONTS.bold, fontSize: 28, color: '#fff', marginBottom: 4 },
   subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 19 },
 

@@ -179,10 +179,10 @@ export default function SplashScreen() {
       {/* ── Fixed header ── */}
       <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
         <Animated.View entering={FadeIn.duration(600)} style={styles.logoRow}>
+          {/* Mark only — the wordmark is dropped so the logo carries the brand. */}
           <View style={styles.logoBadge}>
-            <GoWattIcon size={26} />
+            <GoWattIcon size={30} />
           </View>
-          <Text style={styles.logoText}>GO WATT</Text>
         </Animated.View>
 
         <TouchableOpacity
@@ -267,11 +267,10 @@ const styles = StyleSheet.create({
   },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   logoBadge: {
-    width: 40, height: 40, borderRadius: 12,
+    width: 46, height: 46, borderRadius: 14,
     backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center', justifyContent: 'center',
   },
-  logoText: { fontSize: 19, fontWeight: '800', color: '#fff', letterSpacing: 4 },
   langBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(255,255,255,0.12)',

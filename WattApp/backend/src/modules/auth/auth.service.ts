@@ -2,8 +2,9 @@ import { randomBytes, randomUUID } from 'crypto';
 import { pool, withUser } from '../../db/pool';
 import { hashPassword, verifyPassword, hashToken } from '../../lib/password';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
-import { badRequest, conflict, unauthorized } from '../../lib/errors';
+import { AppError, badRequest, conflict, unauthorized } from '../../lib/errors';
 import { sendSms } from '../../integrations/sms';
+import { env, isProd } from '../../config/env';
 
 const REFRESH_DAYS = 30;
 
@@ -173,7 +174,19 @@ export async function startPhoneAuth(rawPhone: string) {
     [phone, hashToken(code)],
   );
 
-  await sendSms(phone, `Your GO WATT verification code is ${code}. It expires in ${OTP_TTL_MIN} minutes.`);
+  try {
+    await sendSms(phone, `Your GO WATT verification code is ${code}. It expires in ${OTP_TTL_MIN} minutes.`);
+  } catch (e: any) {
+    // The provider's wording ("user or password is wrong") is for us, not the
+    // customer — keep the detail in the server log and show something useful.
+    // eslint-disable-next-line no-console
+    console.error('[sms] OTP send failed:', e?.message ?? e);
+    // Outside production (internal test), don't block the flow — testers verify
+    // with DEV_OTP_CODE. In production a send failure is surfaced to the caller.
+    if (isProd) throw new AppError(502, 'sms_failed', 'We could not send the code right now. Please try again shortly.');
+    // eslint-disable-next-line no-console
+    console.warn(`[otp] non-prod: SMS unavailable — use DEV_OTP_CODE "${env.DEV_OTP_CODE}" for ${phone}`);
+  }
   return { ok: true };
 }
 
@@ -207,6 +220,18 @@ async function findOrCreateUserByPhone(phone: string) {
 
 export async function verifyPhoneAuth(rawPhone: string, code: string) {
   const phone = normalizePhone(rawPhone);
+
+  // Internal-testing bypass: outside production, a master code logs in any
+  // number so QA can test phone login while SMS is unavailable. Never in prod.
+  if (!isProd && code.trim() === env.DEV_OTP_CODE) {
+    // eslint-disable-next-line no-console
+    console.warn(`[otp] non-prod DEV_OTP_CODE accepted for ${phone}`);
+    await pool.query(`update public.phone_otps set consumed = true where phone = $1 and consumed = false`, [phone]);
+    const user = await findOrCreateUserByPhone(phone);
+    const tokens = await issueTokens(user.id, user.role);
+    return { user: { id: user.id, phone, role: user.role }, ...tokens };
+  }
+
   const { rows } = await pool.query(
     `select id, code_hash, expires_at, attempts from public.phone_otps
      where phone = $1 and consumed = false order by created_at desc limit 1`,

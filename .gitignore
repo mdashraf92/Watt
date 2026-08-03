@@ -26,3 +26,9 @@ WattApp/db/dumps/
 # ── Build output ───────────────────────────────────────────────────────────
 build/
 dist/
+
+# ── Vendor documents ───────────────────────────────────────────────────────
+# Integration specs supplied by providers under confidentiality. This repo is
+# public, so keep them local — Infocomm's SMS spec is marked "Company
+# Confidential". Thawani's OpenAPI file is published by Thawani and may stay.
+iSmartSMS*.pdf

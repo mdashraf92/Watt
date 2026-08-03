@@ -72,11 +72,12 @@ Integrations + realtime + cron — **now implemented**:
 - ✅ **Realtime** — Socket.IO over Postgres LISTEN/NOTIFY (`sql/backend-realtime.sql`)
 - ✅ **Cron jobs** (`/api/jobs/*`, x-job-secret) — auto-shutoff, no-show, disburse
 
-### One-time DB prep (all three)
+### One-time DB prep
 ```bash
 psql "$DATABASE_URL" -f sql/backend-compat.sql
 psql "$DATABASE_URL" -f sql/backend-tables.sql
 psql "$DATABASE_URL" -f sql/backend-realtime.sql
+psql "$DATABASE_URL" -f sql/backend-saved-cards.sql   # saved credit/debit cards
 ```
 
 ### Scheduling the cron jobs (server crontab)
