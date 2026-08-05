@@ -10,68 +10,164 @@
 <link rel="apple-touch-icon" href="brand/icon/gowatt-icon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<!-- Brand typefaces (docs/reports/gowatt-presentation.pdf, TYPOGRAPHY pages).
+     English is Montserrat, exactly as specified.
+     Arabic is specified as Helvetica Neue LT Arabic, which is a licensed
+     Monotype family with no free webfont — it cannot be served from here
+     without buying a web licence. IBM Plex Sans Arabic is the closest
+     open substitute: same neo-grotesque skeleton, open counters, and a
+     matching 300/400/500/700 range. Swap it for the licensed family when
+     the licence is in place; only the two @font-face names below change. -->
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script>
-tailwind.config={theme:{extend:{colors:{primary:'#10B981','primary-dark':'#065F46','primary-mid':'#059669',gold:'#F59E0B','gold-light':'#FCD34D','gold-dark':'#D97706',watt:{dark:'#0A0F0D',card:'#0F1A11',border:'#1A2E1F',surface:'#162019'}},fontFamily:{tajawal:['Tajawal','sans-serif'],inter:['Inter','sans-serif']}}}}
+tailwind.config={theme:{extend:{colors:{primary:'#378B5A','primary-light':'#57A87A','primary-dark':'#214A38','primary-mid':'#2F7A4E',gold:'#F4A53C','gold-light':'#F8C87A','gold-dark':'#D4881F',grey:'#DEDEDE',watt:{dark:'#0B1710',card:'#11251A',border:'#1D3D2C',surface:'#153020'}},fontFamily:{arabic:['"IBM Plex Sans Arabic"','sans-serif'],display:['Montserrat','sans-serif']}}}}
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:#0A0F0D;color:#F0FDF4;font-family:'Tajawal',sans-serif;overflow-x:hidden}
-html[lang="en"] body{font-family:'Inter',sans-serif}
+/* ── Brand typography ──────────────────────────────────────────────────────
+   Scale from the brand deck (digital column): titles 24-36pt, subtitles
+   18-24pt, body 12-16pt, line spacing 1.2x on display type. Expressed in rem
+   with clamp() so it holds from 360px to desktop.
+
+   The deck lists "Montserrat Bold" for body paragraphs. Taken literally that
+   sets every paragraph at 700, which is hard to read at body size and leaves
+   no weight left for emphasis — so body runs at 400 and 700 is kept for
+   emphasis, which is what the deck's own body copy actually does. */
+body{background:#0B1710;color:#EDF3EE;font-family:'IBM Plex Sans Arabic',sans-serif;overflow-x:hidden;
+     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html[lang="en"] body{font-family:'Montserrat',sans-serif}
+
+/* Display and body roles from the deck. Weight is left to the existing utility
+   classes so headings keep their intended emphasis; these carry the leading and
+   tracking, which is what differs between the two scripts. */
+.t-title{line-height:1.2;letter-spacing:-0.01em}
+.t-body{font-weight:400;line-height:1.7}
+
+/* Arabic sets differently from Latin: negative tracking pulls joined letter-
+   forms into each other, and the taller glyphs plus diacritics need more
+   leading. Reset both whenever Arabic is active. */
+html[lang="ar"] .t-title{letter-spacing:0;line-height:1.35}
+html[lang="ar"] .t-body{line-height:1.9}
+/* uppercase has no meaning in Arabic script and breaks shaping */
+html[lang="ar"] .uppercase{text-transform:none}
+/* Arabic numerals stay Latin for prices/stats so they read consistently */
+html[lang="ar"] .nums{font-family:'Montserrat',sans-serif;font-variant-numeric:tabular-nums}
+
+/* IBM Plex Sans Arabic ships 300-700. Anything asking for 800/900 would be
+   synthetically smeared by the browser, which looks broken on Arabic joins —
+   so cap Arabic display weight at the real 700. */
+html[lang="ar"] .font-black,
+html[lang="ar"] [style*="font-weight:900"],
+html[lang="ar"] [style*="font-weight:800"]{font-weight:700 !important}
 
 /* Glass */
-.glass{background:rgba(15,26,17,0.75);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(16,185,129,0.12)}
-.glass-gold{background:rgba(10,15,13,0.8);backdrop-filter:blur(20px);border:1px solid rgba(245,158,11,0.2)}
+.glass{background:rgba(17,37,26,0.75);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(55,139,90,0.12)}
+.glass-gold{background:rgba(11,23,16,0.8);backdrop-filter:blur(20px);border:1px solid rgba(244,165,60,0.2)}
 
-/* Grid bg */
-.grid-bg{background-image:linear-gradient(rgba(16,185,129,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,0.04) 1px,transparent 1px);background-size:44px 44px}
+/* Topographic contour motif — the texture running behind every slide in the
+   brand deck. Concentric offset ellipses read as contour lines; kept at 3-4%
+   opacity so it is felt rather than seen. */
+.grid-bg{
+  background-image:
+    repeating-radial-gradient(ellipse 62% 44% at 22% 28%,
+      transparent 0 38px, rgba(55,139,90,0.055) 38px 39px, transparent 39px 78px),
+    repeating-radial-gradient(ellipse 54% 68% at 82% 72%,
+      transparent 0 46px, rgba(55,139,90,0.04) 46px 47px, transparent 47px 94px);
+  background-size:1100px 880px, 1300px 1000px;
+}
+/* Warmer variant for amber sections */
+.contour-gold{
+  background-image:repeating-radial-gradient(ellipse 58% 46% at 70% 34%,
+    transparent 0 42px, rgba(244,165,60,0.05) 42px 43px, transparent 43px 86px);
+  background-size:1200px 900px;
+}
+
+/* Hero gradient mesh — the cover slide: deep green through amber into cream.
+   Four soft radial lobes over the dark base, blurred into each other. */
+.mesh-hero{position:relative;isolation:isolate;overflow:hidden;
+  /* Lobe positions flip with reading direction so the warm amber always falls
+     on the empty side of the hero rather than under the text and its scrim.
+     Defaults are for RTL (Arabic, copy on the right). */
+  --amber-x:24%; --cream-x:38%; --deep-x:86%; --green-x:70%;
+}
+html[dir="ltr"] .mesh-hero{--amber-x:76%; --cream-x:62%; --deep-x:14%; --green-x:30%}
+.mesh-hero::before{
+  content:'';position:absolute;inset:-18%;z-index:-1;
+  background:
+    radial-gradient(38% 46% at var(--deep-x) 74%,  rgba(33,74,56,0.95) 0%, transparent 68%),
+    radial-gradient(42% 40% at var(--green-x) 30%, rgba(55,139,90,0.60) 0%, transparent 70%),
+    radial-gradient(48% 52% at var(--amber-x) 60%, rgba(244,165,60,0.72) 0%, transparent 72%),
+    radial-gradient(40% 38% at var(--cream-x) 14%, rgba(240,214,178,0.42) 0%, transparent 70%);
+  filter:blur(46px);
+  animation:meshDrift 26s ease-in-out infinite alternate;
+}
+@keyframes meshDrift{
+  from{transform:translate3d(-1.5%,-1%,0) scale(1.02)}
+  to{transform:translate3d(2%,1.5%,0) scale(1.07)}
+}
+@media (prefers-reduced-motion:reduce){
+  .mesh-hero::before{animation:none}
+}
+
+/* Scrim that keeps hero copy legible over the mesh. It has to be heaviest
+   behind the text column, and the text column swaps sides with direction —
+   right in Arabic, left in English — so the gradient follows dir. Without
+   this, Arabic copy lands on the bright amber lobe. */
+.hero-scrim{
+  background:linear-gradient(75deg,
+    rgba(11,23,16,0.30) 0%, rgba(11,23,16,0.62) 46%, rgba(11,23,16,0.93) 100%);
+}
+html[dir="ltr"] .hero-scrim{
+  background:linear-gradient(285deg,
+    rgba(11,23,16,0.30) 0%, rgba(11,23,16,0.62) 46%, rgba(11,23,16,0.93) 100%);
+}
 
 /* Gradients */
-.text-grad-green{background:linear-gradient(135deg,#10B981,#34D399,#6EE7B7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.text-grad-gold{background:linear-gradient(135deg,#F59E0B,#FCD34D,#FBBF24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.bg-grad-green{background:linear-gradient(135deg,#10B981,#059669)}
-.bg-grad-dark{background:linear-gradient(135deg,#065F46,#0A0F0D)}
+.text-grad-green{background:linear-gradient(135deg,#378B5A,#57A87A,#8FC9A8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.text-grad-gold{background:linear-gradient(135deg,#F4A53C,#F8C87A,#F6B85E);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.bg-grad-green{background:linear-gradient(135deg,#378B5A,#2F7A4E)}
+.bg-grad-dark{background:linear-gradient(135deg,#214A38,#0B1710)}
 
 /* Glow */
-.glow-green{box-shadow:0 0 30px rgba(16,185,129,0.25),0 0 60px rgba(16,185,129,0.08)}
-.glow-gold{box-shadow:0 0 30px rgba(245,158,11,0.25),0 0 60px rgba(245,158,11,0.08)}
-.text-glow{text-shadow:0 0 30px rgba(16,185,129,0.5)}
+.glow-green{box-shadow:0 0 30px rgba(55,139,90,0.25),0 0 60px rgba(55,139,90,0.08)}
+.glow-gold{box-shadow:0 0 30px rgba(244,165,60,0.25),0 0 60px rgba(244,165,60,0.08)}
+.text-glow{text-shadow:0 0 30px rgba(55,139,90,0.5)}
 
 /* Buttons */
-.btn-primary{background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-weight:600;transition:all .3s ease;position:relative;overflow:hidden}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(16,185,129,0.4)}
-.btn-outline{background:transparent;border:1.5px solid rgba(16,185,129,0.4);color:#10B981;font-weight:600;transition:all .3s ease}
-.btn-outline:hover{background:rgba(16,185,129,0.08);border-color:#10B981;transform:translateY(-2px)}
-.btn-gold{background:linear-gradient(135deg,#F59E0B,#D97706);color:#0A0F0D;font-weight:700;transition:all .3s ease}
-.btn-gold:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(245,158,11,0.4)}
+.btn-primary{background:linear-gradient(135deg,#378B5A,#2F7A4E);color:#fff;font-weight:600;transition:all .3s ease;position:relative;overflow:hidden}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(55,139,90,0.4)}
+.btn-outline{background:transparent;border:1.5px solid rgba(55,139,90,0.4);color:#378B5A;font-weight:600;transition:all .3s ease}
+.btn-outline:hover{background:rgba(55,139,90,0.08);border-color:#378B5A;transform:translateY(-2px)}
+.btn-gold{background:linear-gradient(135deg,#F4A53C,#D4881F);color:#0B1710;font-weight:700;transition:all .3s ease}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(244,165,60,0.4)}
 
 /* Cards */
-.card{background:#0F1A11;border:1px solid #1A2E1F;border-radius:16px;transition:all .35s ease}
-.card:hover{transform:translateY(-5px);border-color:rgba(16,185,129,0.3);box-shadow:0 20px 40px rgba(0,0,0,0.35),0 0 25px rgba(16,185,129,0.08)}
-.card-gold{background:rgba(10,15,13,0.9);border:1px solid rgba(245,158,11,0.25);border-radius:16px;transition:all .35s ease}
-.card-gold:hover{transform:translateY(-5px);border-color:rgba(245,158,11,0.5);box-shadow:0 20px 40px rgba(0,0,0,0.35),0 0 25px rgba(245,158,11,0.1)}
+.card{background:#11251A;border:1px solid #1D3D2C;border-radius:16px;transition:all .35s ease}
+.card:hover{transform:translateY(-5px);border-color:rgba(55,139,90,0.3);box-shadow:0 20px 40px rgba(0,0,0,0.35),0 0 25px rgba(55,139,90,0.08)}
+.card-gold{background:rgba(11,23,16,0.9);border:1px solid rgba(244,165,60,0.25);border-radius:16px;transition:all .35s ease}
+.card-gold:hover{transform:translateY(-5px);border-color:rgba(244,165,60,0.5);box-shadow:0 20px 40px rgba(0,0,0,0.35),0 0 25px rgba(244,165,60,0.1)}
 
 /* Nav link */
-.nav-link{color:#A7F3D0;font-size:.9rem;font-weight:500;transition:color .25s;position:relative;text-decoration:none}
-.nav-link::after{content:'';position:absolute;bottom:-4px;left:50%;width:80%;height:2px;background:#10B981;border-radius:1px;transform:translateX(-50%) scaleX(0);transition:transform .3s ease}
-.nav-link:hover{color:#10B981}
+.nav-link{color:#C2E2CE;font-size:.9rem;font-weight:500;transition:color .25s;position:relative;text-decoration:none}
+.nav-link::after{content:'';position:absolute;bottom:-4px;left:50%;width:80%;height:2px;background:#378B5A;border-radius:1px;transform:translateX(-50%) scaleX(0);transition:transform .3s ease}
+.nav-link:hover{color:#378B5A}
 .nav-link:hover::after{transform:translateX(-50%) scaleX(1)}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-track{background:#0A0F0D}
-::-webkit-scrollbar-thumb{background:#065F46;border-radius:3px}
+::-webkit-scrollbar-track{background:#0B1710}
+::-webkit-scrollbar-thumb{background:#214A38;border-radius:3px}
 
 /* Animations */
 @keyframes pulse-ring{0%{transform:scale(.85);opacity:.9}100%{transform:scale(2.2);opacity:0}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
-@keyframes bolt-glow{0%,100%{filter:drop-shadow(0 0 8px #10B981) drop-shadow(0 0 20px #10B981)}50%{filter:drop-shadow(0 0 20px #10B981) drop-shadow(0 0 50px #34D399)}}
+@keyframes bolt-glow{0%,100%{filter:drop-shadow(0 0 8px #378B5A) drop-shadow(0 0 20px #378B5A)}50%{filter:drop-shadow(0 0 20px #378B5A) drop-shadow(0 0 50px #57A87A)}}
 @keyframes spin-slow{to{transform:rotate(360deg)}}
 @keyframes fade-slide-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
 @keyframes particle{0%{transform:translateY(0) scale(1);opacity:.8}100%{transform:translateY(-60px) scale(0);opacity:0}}
@@ -84,76 +180,76 @@ html[lang="en"] body{font-family:'Inter',sans-serif}
 .spin-slow{animation:spin-slow 12s linear infinite}
 
 /* Mobile menu */
-.mobile-menu{position:fixed;top:0;right:0;height:100vh;width:75%;max-width:300px;background:#0F1A11;border-left:1px solid #1A2E1F;z-index:200;transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);padding:80px 24px 24px}
-html[dir="ltr"] .mobile-menu{right:auto;left:0;border-left:none;border-right:1px solid #1A2E1F;transform:translateX(-100%)}
+.mobile-menu{position:fixed;top:0;right:0;height:100vh;width:75%;max-width:300px;background:#11251A;border-left:1px solid #1D3D2C;z-index:200;transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);padding:80px 24px 24px}
+html[dir="ltr"] .mobile-menu{right:auto;left:0;border-left:none;border-right:1px solid #1D3D2C;transform:translateX(-100%)}
 .mobile-menu.open{transform:translateX(0)}
 .menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:150;opacity:0;pointer-events:none;transition:opacity .35s}
 .menu-overlay.open{opacity:1;pointer-events:all}
 
 /* Gradient border */
-.grad-border{position:relative;background:#0F1A11;border-radius:16px}
-.grad-border::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(16,185,129,.45),transparent 60%,rgba(16,185,129,.15));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.grad-border{position:relative;background:#11251A;border-radius:16px}
+.grad-border::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(55,139,90,.45),transparent 60%,rgba(55,139,90,.15));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 
 /* GSAP hidden */
 .gsap-hidden{opacity:0;transform:translateY(40px)}
 
 /* How-it-works tabs */
-.how-tab{color:#6EE7B7;background:transparent}
-.how-tab.active{background:linear-gradient(135deg,#10B981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,.35)}
+.how-tab{color:#8FC9A8;background:transparent}
+.how-tab.active{background:linear-gradient(135deg,#378B5A,#2F7A4E);color:#fff;box-shadow:0 4px 16px rgba(55,139,90,.35)}
 
 /* Step cards */
-.step-card{background:#0F1A11;border:1px solid #1A2E1F;border-radius:16px;transition:all .35s ease}
-.step-card:hover{transform:translateY(-4px);border-color:rgba(16,185,129,.3);box-shadow:0 16px 40px rgba(0,0,0,.3)}
-.step-num{position:absolute;top:20px;right:20px;width:30px;height:30px;border-radius:50%;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#10B981;font-size:.8rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.step-card{background:#11251A;border:1px solid #1D3D2C;border-radius:16px;transition:all .35s ease}
+.step-card:hover{transform:translateY(-4px);border-color:rgba(55,139,90,.3);box-shadow:0 16px 40px rgba(0,0,0,.3)}
+.step-num{position:absolute;top:20px;right:20px;width:30px;height:30px;border-radius:50%;background:rgba(55,139,90,.12);border:1px solid rgba(55,139,90,.25);color:#378B5A;font-size:.8rem;font-weight:800;display:flex;align-items:center;justify-content:center}
 html[dir="ltr"] .step-num{right:auto;left:20px}
-.step-num-gold{position:absolute;top:20px;right:20px;width:30px;height:30px;border-radius:50%;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);color:#F59E0B;font-size:.8rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.step-num-gold{position:absolute;top:20px;right:20px;width:30px;height:30px;border-radius:50%;background:rgba(244,165,60,.12);border:1px solid rgba(244,165,60,.25);color:#F4A53C;font-size:.8rem;font-weight:800;display:flex;align-items:center;justify-content:center}
 html[dir="ltr"] .step-num-gold{right:auto;left:20px}
-.step-icon{width:54px;height:54px;border-radius:14px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.14);display:flex;align-items:center;justify-content:center}
+.step-icon{width:54px;height:54px;border-radius:14px;background:rgba(55,139,90,.07);border:1px solid rgba(55,139,90,.14);display:flex;align-items:center;justify-content:center}
 .step-connector{display:none}
 
 /* Flow row */
-.flow-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.18);border-radius:100px;padding:6px 14px;font-size:.8rem;color:#34D399;white-space:nowrap}
-.flow-pill-gold{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.18);color:#FCD34D}
-.flow-line{height:1px;background:linear-gradient(90deg,rgba(16,185,129,.25),rgba(16,185,129,.06))}
+.flow-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(55,139,90,.08);border:1px solid rgba(55,139,90,.18);border-radius:100px;padding:6px 14px;font-size:.8rem;color:#57A87A;white-space:nowrap}
+.flow-pill-gold{background:rgba(244,165,60,.08);border-color:rgba(244,165,60,.18);color:#F8C87A}
+.flow-line{height:1px;background:linear-gradient(90deg,rgba(55,139,90,.25),rgba(55,139,90,.06))}
 
 /* Real Oman map (Leaflet + OSM) */
-.oman-map{width:100%;height:460px;border-radius:20px;border:1px solid rgba(16,185,129,.16);background:#0A0F0D;overflow:hidden;z-index:1}
+.oman-map{width:100%;height:460px;border-radius:20px;border:1px solid rgba(55,139,90,.16);background:#0B1710;overflow:hidden;z-index:1}
 .oman-map .leaflet-tile-pane{filter:grayscale(.55) brightness(.62) contrast(1.1) hue-rotate(105deg) saturate(1.25)}
-.oman-map .leaflet-control-attribution{background:rgba(10,15,13,.75);color:#6EE7B7;font-size:9px}
-.oman-map .leaflet-control-attribution a{color:#34D399}
-.oman-map .leaflet-bar a{background:#0F1A11;color:#A7F3D0;border-bottom-color:#1A2E1F}
-.oman-map .leaflet-bar a:hover{background:#162019;color:#fff}
-.map-pin{width:15px;height:15px;border-radius:50%;background:#10B981;border:2px solid rgba(240,253,244,.85);box-shadow:0 0 0 6px rgba(16,185,129,.22),0 0 16px rgba(16,185,129,.7)}
-.oman-map .leaflet-popup-content-wrapper{background:#0F1A11;color:#F0FDF4;border:1px solid rgba(16,185,129,.22);border-radius:12px}
-.oman-map .leaflet-popup-tip{background:#0F1A11}
+.oman-map .leaflet-control-attribution{background:rgba(11,23,16,.75);color:#8FC9A8;font-size:9px}
+.oman-map .leaflet-control-attribution a{color:#57A87A}
+.oman-map .leaflet-bar a{background:#11251A;color:#C2E2CE;border-bottom-color:#1D3D2C}
+.oman-map .leaflet-bar a:hover{background:#153020;color:#fff}
+.map-pin{width:15px;height:15px;border-radius:50%;background:#378B5A;border:2px solid rgba(237,243,238,.85);box-shadow:0 0 0 6px rgba(55,139,90,.22),0 0 16px rgba(55,139,90,.7)}
+.oman-map .leaflet-popup-content-wrapper{background:#11251A;color:#EDF3EE;border:1px solid rgba(55,139,90,.22);border-radius:12px}
+.oman-map .leaflet-popup-tip{background:#11251A}
 .oman-map .leaflet-popup-content{margin:9px 13px;font-size:13px;font-weight:600}
 
 .cov-pill{margin-inline-start:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;white-space:nowrap}
-.cov-live{background:rgba(16,185,129,.13);color:#34D399;border:1px solid rgba(16,185,129,.25)}
-.cov-chip{font-size:12px;padding:6px 12px;border-radius:100px;color:#6EE7B7;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.12)}
+.cov-live{background:rgba(55,139,90,.13);color:#57A87A;border:1px solid rgba(55,139,90,.25)}
+.cov-chip{font-size:12px;padding:6px 12px;border-radius:100px;color:#8FC9A8;background:rgba(55,139,90,.05);border:1px solid rgba(55,139,90,.12)}
 
 /* Phone mockup with real app screens */
-.phone-frame{position:relative;width:246px;height:474px;border-radius:38px;background:#0F1A11;border:2px solid rgba(16,185,129,.22);box-shadow:0 0 60px rgba(16,185,129,.12),0 40px 80px rgba(0,0,0,.5);overflow:hidden}
+.phone-frame{position:relative;width:246px;height:474px;border-radius:38px;background:#11251A;border:2px solid rgba(55,139,90,.22);box-shadow:0 0 60px rgba(55,139,90,.12),0 40px 80px rgba(0,0,0,.5);overflow:hidden}
 .phone-slide{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s ease;pointer-events:none}
 .phone-slide.active{opacity:1}
-.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:86px;height:20px;background:#0A0F0D;border-radius:0 0 12px 12px;z-index:2}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:86px;height:20px;background:#0B1710;border-radius:0 0 12px 12px;z-index:2}
 .phone-dots{display:flex;justify-content:center;gap:7px;margin-top:18px}
-.phone-dot{width:7px;height:7px;border-radius:50%;border:none;padding:0;cursor:pointer;background:rgba(16,185,129,.25);transition:all .3s ease}
-.phone-dot.active{width:20px;border-radius:4px;background:#10B981}
+.phone-dot{width:7px;height:7px;border-radius:50%;border:none;padding:0;cursor:pointer;background:rgba(55,139,90,.25);transition:all .3s ease}
+.phone-dot.active{width:20px;border-radius:4px;background:#378B5A}
 
 /* Feature cards */
-.feat-card{background:#0F1A11;border:1px solid #1A2E1F;border-radius:16px;padding:28px;transition:all .35s ease}
-.feat-card:hover{transform:translateY(-4px);border-color:rgba(16,185,129,.3);box-shadow:0 16px 40px rgba(0,0,0,.3),0 0 20px rgba(16,185,129,.07)}
-.feat-icon{width:52px;height:52px;border-radius:14px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.14);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.feat-card{background:#11251A;border:1px solid #1D3D2C;border-radius:16px;padding:28px;transition:all .35s ease}
+.feat-card:hover{transform:translateY(-4px);border-color:rgba(55,139,90,.3);box-shadow:0 16px 40px rgba(0,0,0,.3),0 0 20px rgba(55,139,90,.07)}
+.feat-icon{width:52px;height:52px;border-radius:14px;background:rgba(55,139,90,.07);border:1px solid rgba(55,139,90,.14);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
 
 /* FAQ */
-.faq-item{border-bottom:1px solid #1A2E1F}
-.faq-btn{width:100%;text-align:right;background:transparent;border:none;cursor:pointer;padding:20px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;color:#F0FDF4;font-family:inherit;font-size:1rem;font-weight:600}
+.faq-item{border-bottom:1px solid #1D3D2C}
+.faq-btn{width:100%;text-align:right;background:transparent;border:none;cursor:pointer;padding:20px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;color:#EDF3EE;font-family:inherit;font-size:1rem;font-weight:600}
 html[dir="ltr"] .faq-btn{text-align:left}
 .faq-answer{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s ease}
 .faq-answer.open{grid-template-rows:1fr}
 .faq-answer>p{overflow:hidden;min-height:0}
-.faq-chevron{transition:transform .3s ease;color:#10B981;flex-shrink:0}
+.faq-chevron{transition:transform .3s ease;color:#378B5A;flex-shrink:0}
 .faq-chevron.open{transform:rotate(180deg)}
 
 /* Map dots */
@@ -161,19 +257,19 @@ html[dir="ltr"] .faq-btn{text-align:left}
 .map-dot{animation:map-pulse 2.2s ease-in-out infinite}
 
 /* Badge pill */
-.badge-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:100px;padding:6px 16px;font-size:.85rem;color:#34D399}
+.badge-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(55,139,90,0.08);border:1px solid rgba(55,139,90,0.25);border-radius:100px;padding:6px 16px;font-size:.85rem;color:#57A87A}
 
 /* Stat float card */
-.stat-float{background:rgba(10,15,13,.85);backdrop-filter:blur(16px);border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:12px 18px;position:absolute}
+.stat-float{background:rgba(11,23,16,.85);backdrop-filter:blur(16px);border:1px solid rgba(55,139,90,.2);border-radius:12px;padding:12px 18px;position:absolute}
 
 /* EV visual container */
 .ev-visual{position:relative;width:100%;max-width:480px;height:420px;margin:auto}
 
 /* Particles */
-.particle{position:absolute;width:4px;height:4px;border-radius:50%;background:#10B981;animation:particle 3s ease-out infinite}
+.particle{position:absolute;width:4px;height:4px;border-radius:50%;background:#378B5A;animation:particle 3s ease-out infinite}
 
 /* Section divider */
-.divider{border:none;border-top:1px solid rgba(16,185,129,0.08);margin:0}
+.divider{border:none;border-top:1px solid rgba(55,139,90,0.08);margin:0}
 </style>
 </head>
 <body>
@@ -236,9 +332,9 @@ html[dir="ltr"] .faq-btn{text-align:left}
         <!-- Hamburger -->
         <button id="menuBtn" onclick="openMenu()"
           class="lg:hidden w-9 h-9 flex flex-col justify-center items-center gap-1.5 rounded-lg hover:bg-watt-surface transition-colors">
-          <span class="w-5 h-0.5 bg-primary-300 rounded-full block" style="background:#A7F3D0"></span>
-          <span class="w-5 h-0.5 bg-primary-300 rounded-full block" style="background:#A7F3D0"></span>
-          <span class="w-4 h-0.5 bg-primary-300 rounded-full block" style="background:#A7F3D0"></span>
+          <span class="w-5 h-0.5 bg-primary-300 rounded-full block" style="background:#C2E2CE"></span>
+          <span class="w-5 h-0.5 bg-primary-300 rounded-full block" style="background:#C2E2CE"></span>
+          <span class="w-4 h-0.5 bg-primary-300 rounded-full block" style="background:#C2E2CE"></span>
         </button>
       </div>
 
@@ -249,13 +345,14 @@ html[dir="ltr"] .faq-btn{text-align:left}
 <!-- ═══════════════════════════════════════
      HERO
 ════════════════════════════════════════ -->
-<section id="hero" class="relative min-h-screen flex items-center pt-16 overflow-hidden grid-bg">
+<section id="hero" class="relative min-h-screen flex items-center pt-16 overflow-hidden mesh-hero">
 
-  <!-- Background radial -->
-  <div class="absolute inset-0 pointer-events-none">
-    <div style="position:absolute;top:-10%;left:50%;transform:translateX(-50%);width:900px;height:700px;background:radial-gradient(ellipse at center,rgba(6,95,70,.35) 0%,transparent 70%);border-radius:50%"></div>
-    <div style="position:absolute;bottom:-20%;right:-10%;width:600px;height:600px;background:radial-gradient(ellipse,rgba(16,185,129,.08) 0%,transparent 70%);border-radius:50%"></div>
-  </div>
+  <!-- Contour texture over the gradient mesh, then a scrim so type stays legible
+       against the amber lobe (the mesh alone drops contrast below AA there). -->
+  <div class="absolute inset-0 pointer-events-none grid-bg opacity-70"></div>
+  <div class="absolute inset-0 pointer-events-none hero-scrim"></div>
+  <div class="absolute inset-x-0 bottom-0 h-40 pointer-events-none"
+       style="background:linear-gradient(to bottom,transparent,#0B1710)"></div>
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-16 relative z-10">
     <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
@@ -265,7 +362,7 @@ html[dir="ltr"] .faq-btn{text-align:left}
 
         <!-- Badge -->
         <div class="badge-pill gsap-hidden" id="heroBadge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#10B981"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#378B5A"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           <span data-i18n="hero_badge">شبكة الشحن الذكي في سلطنة عُمان</span>
         </div>
 
@@ -278,7 +375,7 @@ html[dir="ltr"] .faq-btn{text-align:left}
         </div>
 
         <!-- Subtitle -->
-        <p class="text-lg sm:text-xl leading-relaxed max-w-lg gsap-hidden" style="color:#A7F3D0" id="heroSub" data-i18n="hero_subtitle">
+        <p class="text-lg sm:text-xl leading-relaxed max-w-lg gsap-hidden t-body" style="color:#C2E2CE" id="heroSub" data-i18n="hero_subtitle">
           منصة شحن مزدوجة الدور: يجد العملاء أقرب محطة ويحجزونها، بينما يشارك المستثمرون شواحن منازلهم لكسب دخل شهري ثابت.
         </p>
 
@@ -298,15 +395,15 @@ html[dir="ltr"] .faq-btn{text-align:left}
         <div class="flex flex-wrap items-center gap-6 mt-2 gsap-hidden" id="heroTrust">
           <div class="flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-            <span class="text-sm" style="color:#6EE7B7"><span data-i18n="hero_stat1_n">15+</span> <span data-i18n="hero_stat1_l">محطة نشطة</span></span>
+            <span class="text-sm" style="color:#8FC9A8"><span data-i18n="hero_stat1_n">15+</span> <span data-i18n="hero_stat1_l">محطة نشطة</span></span>
           </div>
           <div class="flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="text-sm" style="color:#6EE7B7"><span data-i18n="hero_stat2_n">24/7</span> <span data-i18n="hero_stat2_l">دعم مستمر</span></span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="text-sm" style="color:#8FC9A8"><span data-i18n="hero_stat2_n">24/7</span> <span data-i18n="hero_stat2_l">دعم مستمر</span></span>
           </div>
           <div class="flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span class="text-sm" style="color:#6EE7B7"><span data-i18n="hero_stat3_l">عبر السلطنة</span></span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="text-sm" style="color:#8FC9A8"><span data-i18n="hero_stat3_l">عبر السلطنة</span></span>
           </div>
         </div>
 
@@ -318,23 +415,23 @@ html[dir="ltr"] .faq-btn{text-align:left}
 
           <!-- Pulsing rings -->
           <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:220px;height:220px">
-            <div class="ring-1" style="position:absolute;inset:0;border:2px solid rgba(16,185,129,.6);border-radius:50%"></div>
-            <div class="ring-2" style="position:absolute;inset:0;border:2px solid rgba(16,185,129,.4);border-radius:50%"></div>
-            <div class="ring-3" style="position:absolute;inset:0;border:1px solid rgba(16,185,129,.25);border-radius:50%"></div>
+            <div class="ring-1" style="position:absolute;inset:0;border:2px solid rgba(55,139,90,.6);border-radius:50%"></div>
+            <div class="ring-2" style="position:absolute;inset:0;border:2px solid rgba(55,139,90,.4);border-radius:50%"></div>
+            <div class="ring-3" style="position:absolute;inset:0;border:1px solid rgba(55,139,90,.25);border-radius:50%"></div>
           </div>
 
           <!-- Orbit ring decoration -->
-          <div class="spin-slow" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:300px;height:300px;border:1px dashed rgba(16,185,129,.15);border-radius:50%">
+          <div class="spin-slow" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:300px;height:300px;border:1px dashed rgba(55,139,90,.15);border-radius:50%">
             <!-- Orbit dot -->
-            <div style="position:absolute;top:-5px;left:50%;width:10px;height:10px;background:#10B981;border-radius:50%;box-shadow:0 0 12px #10B981;transform:translateX(-50%)"></div>
+            <div style="position:absolute;top:-5px;left:50%;width:10px;height:10px;background:#378B5A;border-radius:50%;box-shadow:0 0 12px #378B5A;transform:translateX(-50%)"></div>
           </div>
 
           <!-- Center glow bg -->
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:140px;height:140px;background:radial-gradient(circle,rgba(16,185,129,.2),transparent);border-radius:50%"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:140px;height:140px;background:radial-gradient(circle,rgba(55,139,90,.2),transparent);border-radius:50%"></div>
 
           <!-- Central bolt icon -->
           <div class="float-anim" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">
-            <div style="width:90px;height:90px;background:linear-gradient(135deg,#065F46,#10B981);border-radius:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(16,185,129,.5),0 0 80px rgba(16,185,129,.2)" class="bolt-anim">
+            <div style="width:90px;height:90px;background:linear-gradient(135deg,#214A38,#378B5A);border-radius:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(55,139,90,.5),0 0 80px rgba(55,139,90,.2)" class="bolt-anim">
               <svg width="44" height="44" viewBox="0 0 24 24" fill="white">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
               </svg>
@@ -345,46 +442,46 @@ html[dir="ltr"] .faq-btn{text-align:left}
           <div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:260px">
             <svg viewBox="0 0 260 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <!-- Car body -->
-              <rect x="20" y="55" width="220" height="38" rx="10" fill="#0F2A1A" stroke="#10B981" stroke-width="1.5"/>
+              <rect x="20" y="55" width="220" height="38" rx="10" fill="#173528" stroke="#378B5A" stroke-width="1.5"/>
               <!-- Car roof -->
-              <path d="M60 55 Q75 22 105 18 L155 18 Q185 22 200 55 Z" fill="#0F2A1A" stroke="#10B981" stroke-width="1.5"/>
+              <path d="M60 55 Q75 22 105 18 L155 18 Q185 22 200 55 Z" fill="#173528" stroke="#378B5A" stroke-width="1.5"/>
               <!-- Windshield -->
-              <path d="M75 53 Q85 30 108 25 L152 25 Q175 30 185 53 Z" fill="rgba(16,185,129,.15)" stroke="rgba(16,185,129,.4)" stroke-width="1"/>
+              <path d="M75 53 Q85 30 108 25 L152 25 Q175 30 185 53 Z" fill="rgba(55,139,90,.15)" stroke="rgba(55,139,90,.4)" stroke-width="1"/>
               <!-- Wheel L -->
-              <circle cx="72" cy="93" r="18" fill="#0A1A0D" stroke="#10B981" stroke-width="2"/>
-              <circle cx="72" cy="93" r="8" fill="#10B981" opacity=".4"/>
+              <circle cx="72" cy="93" r="18" fill="#0D2116" stroke="#378B5A" stroke-width="2"/>
+              <circle cx="72" cy="93" r="8" fill="#378B5A" opacity=".4"/>
               <!-- Wheel R -->
-              <circle cx="188" cy="93" r="18" fill="#0A1A0D" stroke="#10B981" stroke-width="2"/>
-              <circle cx="188" cy="93" r="8" fill="#10B981" opacity=".4"/>
+              <circle cx="188" cy="93" r="18" fill="#0D2116" stroke="#378B5A" stroke-width="2"/>
+              <circle cx="188" cy="93" r="8" fill="#378B5A" opacity=".4"/>
               <!-- Charging port dot -->
-              <circle cx="22" cy="70" r="5" fill="#10B981" opacity=".9">
+              <circle cx="22" cy="70" r="5" fill="#378B5A" opacity=".9">
                 <animate attributeName="opacity" values=".4;1;.4" dur="1.5s" repeatCount="indefinite"/>
               </circle>
               <!-- Charge cable line -->
-              <line x1="8" y1="70" x2="22" y2="70" stroke="#34D399" stroke-width="2" stroke-dasharray="3 2"/>
+              <line x1="8" y1="70" x2="22" y2="70" stroke="#57A87A" stroke-width="2" stroke-dasharray="3 2"/>
             </svg>
           </div>
 
           <!-- Particles -->
           <div class="particle" style="left:45%;top:38%;animation-delay:0s;animation-duration:2.5s"></div>
-          <div class="particle" style="left:52%;top:40%;animation-delay:.5s;animation-duration:2.8s;background:#34D399"></div>
+          <div class="particle" style="left:52%;top:40%;animation-delay:.5s;animation-duration:2.8s;background:#57A87A"></div>
           <div class="particle" style="left:48%;top:36%;animation-delay:1s;animation-duration:3s;width:3px;height:3px"></div>
-          <div class="particle" style="left:55%;top:42%;animation-delay:1.5s;animation-duration:2.3s;background:#6EE7B7"></div>
+          <div class="particle" style="left:55%;top:42%;animation-delay:1.5s;animation-duration:2.3s;background:#8FC9A8"></div>
 
           <!-- Floating stat cards -->
           <div class="stat-float gsap-hidden" id="statCard1" style="top:10%;right:-8%">
-            <div style="color:#10B981;font-size:1.4rem;font-weight:900;line-height:1">15+</div>
-            <div style="color:#6EE7B7;font-size:.75rem;margin-top:2px" data-i18n="hero_card1">محطة شحن</div>
+            <div style="color:#378B5A;font-size:1.4rem;font-weight:900;line-height:1">15+</div>
+            <div style="color:#8FC9A8;font-size:.75rem;margin-top:2px" data-i18n="hero_card1">محطة شحن</div>
           </div>
 
           <div class="stat-float gsap-hidden" id="statCard2" style="top:10%;left:-8%">
-            <div style="color:#F59E0B;font-size:1.4rem;font-weight:900;line-height:1">11</div>
-            <div style="color:#FCD34D;font-size:.75rem;margin-top:2px" data-i18n="hero_card2">محافظة</div>
+            <div style="color:#F4A53C;font-size:1.4rem;font-weight:900;line-height:1">11</div>
+            <div style="color:#F8C87A;font-size:.75rem;margin-top:2px" data-i18n="hero_card2">محافظة</div>
           </div>
 
           <div class="stat-float gsap-hidden" id="statCard3" style="bottom:20%;right:-10%">
-            <div style="color:#10B981;font-size:1.4rem;font-weight:900;line-height:1">99.9%</div>
-            <div style="color:#6EE7B7;font-size:.75rem;margin-top:2px" data-i18n="hero_card3">وقت التشغيل</div>
+            <div style="color:#378B5A;font-size:1.4rem;font-weight:900;line-height:1">99.9%</div>
+            <div style="color:#8FC9A8;font-size:.75rem;margin-top:2px" data-i18n="hero_card3">وقت التشغيل</div>
           </div>
 
         </div>
@@ -395,9 +492,9 @@ html[dir="ltr"] .faq-btn{text-align:left}
     <!-- Scroll indicator -->
     <div class="flex justify-center mt-16 gsap-hidden" id="scrollInd">
       <a href="#stats" class="flex flex-col items-center gap-2 group">
-        <span class="text-xs" style="color:#6EE7B7" data-i18n="scroll_down">اسحب للأسفل</span>
-        <div style="width:22px;height:36px;border:1.5px solid rgba(16,185,129,.4);border-radius:11px;display:flex;align-items:flex-start;justify-content:center;padding-top:5px">
-          <div style="width:4px;height:4px;background:#10B981;border-radius:2px;animation:float 1.5s ease-in-out infinite"></div>
+        <span class="text-xs" style="color:#8FC9A8" data-i18n="scroll_down">اسحب للأسفل</span>
+        <div style="width:22px;height:36px;border:1.5px solid rgba(55,139,90,.4);border-radius:11px;display:flex;align-items:flex-start;justify-content:center;padding-top:5px">
+          <div style="width:4px;height:4px;background:#378B5A;border-radius:2px;animation:float 1.5s ease-in-out infinite"></div>
         </div>
       </a>
     </div>
@@ -412,43 +509,43 @@ html[dir="ltr"] .faq-btn{text-align:left}
      STATS BAR
 ════════════════════════════════════════ -->
 <section id="stats" class="relative py-16 overflow-hidden">
-  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,95,70,.12) 0%,transparent 100%);pointer-events:none"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(33,74,56,.12) 0%,transparent 100%);pointer-events:none"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-6" id="statsGrid">
 
       <div class="stat-card text-center p-8 grad-border gsap-stat">
-        <div class="text-5xl font-black text-grad-green mb-2 counter" id="cnt-stations" data-target="15" data-suffix="+">0</div>
-        <div class="text-sm font-medium" style="color:#6EE7B7" data-i18n="stats_s_l">محطة شحن</div>
+        <div class="text-5xl font-black text-grad-green mb-2 counter nums" id="cnt-stations" data-target="15" data-suffix="+">0</div>
+        <div class="text-sm font-medium" style="color:#8FC9A8" data-i18n="stats_s_l">محطة شحن</div>
         <div class="mt-3 flex justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
       </div>
 
       <div class="stat-card text-center p-8 grad-border gsap-stat">
-        <div class="text-5xl font-black text-grad-green mb-2 counter" id="cnt-govs" data-target="11" data-suffix="">0</div>
-        <div class="text-sm font-medium" style="color:#6EE7B7" data-i18n="stats_g_l">محافظة</div>
+        <div class="text-5xl font-black text-grad-green mb-2 counter nums" id="cnt-govs" data-target="11" data-suffix="">0</div>
+        <div class="text-sm font-medium" style="color:#8FC9A8" data-i18n="stats_g_l">محافظة</div>
         <div class="mt-3 flex justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
         </div>
       </div>
 
       <div class="stat-card text-center p-8 grad-border gsap-stat">
-        <div class="text-5xl font-black text-grad-green mb-2" id="cnt-users">
+        <div class="text-5xl font-black text-grad-green mb-2 nums" id="cnt-users">
           <span data-i18n="stats_u_n">10K+</span>
         </div>
-        <div class="text-sm font-medium" style="color:#6EE7B7" data-i18n="stats_u_l">مستخدم</div>
+        <div class="text-sm font-medium" style="color:#8FC9A8" data-i18n="stats_u_l">مستخدم</div>
         <div class="mt-3 flex justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         </div>
       </div>
 
       <div class="stat-card text-center p-8 grad-border gsap-stat">
-        <div class="text-5xl font-black text-grad-gold mb-2" id="cnt-uptime">
+        <div class="text-5xl font-black text-grad-gold mb-2 nums" id="cnt-uptime">
           <span data-i18n="stats_up_n">99.9%</span>
         </div>
-        <div class="text-sm font-medium" style="color:#FCD34D" data-i18n="stats_up_l">وقت التشغيل</div>
+        <div class="text-sm font-medium" style="color:#F8C87A" data-i18n="stats_up_l">وقت التشغيل</div>
         <div class="mt-3 flex justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
       </div>
 
@@ -464,21 +561,21 @@ html[dir="ltr"] .faq-btn{text-align:left}
 <section id="how" class="relative py-24 overflow-hidden">
 
   <!-- Subtle bg glow -->
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:500px;background:radial-gradient(ellipse,rgba(6,95,70,.1) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:500px;background:radial-gradient(ellipse,rgba(33,74,56,.1) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <!-- Section header -->
     <div class="text-center mb-14 gsap-hidden" id="howHeader">
       <div class="badge-pill inline-flex mb-5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="#10B981"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#378B5A"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span data-i18n="how_badge_label">خطوات بسيطة</span>
       </div>
-      <h2 class="text-4xl sm:text-5xl font-black mb-4">
+      <h2 class="text-4xl sm:text-5xl font-black mb-4 t-title">
         <span class="text-white" data-i18n="how_title_1">كيف يعمل</span>
         <span class="text-grad-green" data-i18n="how_title_2"> واط؟</span>
       </h2>
-      <p class="text-lg max-w-2xl mx-auto" style="color:#A7F3D0" data-i18n="how_sub">
+      <p class="text-lg max-w-2xl mx-auto t-body" style="color:#C2E2CE" data-i18n="how_sub">
         عملية بسيطة وسريعة، سواء كنت تبحث عن شاحن أو تريد مشاركة شاحنك
       </p>
     </div>
@@ -506,40 +603,40 @@ html[dir="ltr"] .faq-btn{text-align:left}
         <div class="step-card grad-border p-7 gsap-step relative">
           <div class="step-num" data-i18n="num1">١</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="cs1_t">افتح الخريطة</h3>
-          <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="cs1_d">ابحث عن أقرب محطة شحن أو شاحن خاص بالقرب منك</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="cs1_d">ابحث عن أقرب محطة شحن أو شاحن خاص بالقرب منك</p>
           <div class="step-connector"></div>
         </div>
 
         <div class="step-card grad-border p-7 gsap-step relative">
           <div class="step-num" data-i18n="num2">٢</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="cs2_t">احجز موعدك</h3>
-          <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="cs2_d">اختر الوقت والمدة المناسبة وأكّد حجزك في ثوانٍ</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="cs2_d">اختر الوقت والمدة المناسبة وأكّد حجزك في ثوانٍ</p>
           <div class="step-connector"></div>
         </div>
 
         <div class="step-card grad-border p-7 gsap-step relative">
           <div class="step-num" data-i18n="num3">٣</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="cs3_t">ابدأ الشحن</h3>
-          <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="cs3_d">امسح رمز QR عند وصولك وابدأ جلسة الشحن فوراً</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="cs3_d">امسح رمز QR عند وصولك وابدأ جلسة الشحن فوراً</p>
           <div class="step-connector"></div>
         </div>
 
         <div class="step-card grad-border p-7 gsap-step relative">
           <div class="step-num" data-i18n="num4">٤</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="cs4_t">ادفع بسهولة</h3>
-          <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="cs4_d">يُخصم المبلغ تلقائياً من محفظتك الرقمية في واط</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="cs4_d">يُخصم المبلغ تلقائياً من محفظتك الرقمية في واط</p>
         </div>
 
       </div>
@@ -547,12 +644,12 @@ html[dir="ltr"] .faq-btn{text-align:left}
       <!-- Customer flow visual connector (desktop) -->
       <div class="hidden lg:flex items-center justify-between px-10 mt-8 gsap-hidden" id="customerFlow">
         <div class="flow-pill">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="#10B981"><circle cx="12" cy="12" r="10"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#378B5A"><circle cx="12" cy="12" r="10"/></svg>
           <span data-i18n="flow_start">ابدأ رحلتك</span>
         </div>
         <div class="flow-line flex-1 mx-4"></div>
         <div class="flow-pill flow-pill-gold">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="#F59E0B"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#F4A53C"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           <span data-i18n="flow_end">جلسة ناجحة ✓</span>
         </div>
       </div>
@@ -562,40 +659,40 @@ html[dir="ltr"] .faq-btn{text-align:left}
     <div id="stepsInvestor" class="how-steps-panel hidden">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-        <div class="step-card-gold p-7 gsap-step relative" style="background:#0A0F0D;border:1px solid rgba(245,158,11,.2);border-radius:16px;transition:all .35s ease">
+        <div class="step-card-gold p-7 gsap-step relative" style="background:#0B1710;border:1px solid rgba(244,165,60,.2);border-radius:16px;transition:all .35s ease">
           <div class="step-num-gold" data-i18n="num1">١</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="is1_t">قدّم طلبك</h3>
-          <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="is1_d">أرسل نموذج الانضمام مع تفاصيل شاحنك وموقعك</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="is1_d">أرسل نموذج الانضمام مع تفاصيل شاحنك وموقعك</p>
         </div>
 
-        <div class="step-card-gold p-7 gsap-step relative" style="background:#0A0F0D;border:1px solid rgba(245,158,11,.2);border-radius:16px;transition:all .35s ease">
+        <div class="step-card-gold p-7 gsap-step relative" style="background:#0B1710;border:1px solid rgba(244,165,60,.2);border-radius:16px;transition:all .35s ease">
           <div class="step-num-gold" data-i18n="num2">٢</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="is2_t">الموافقة والتركيب</h3>
-          <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="is2_d">يراجع فريق واط طلبك ويُرسل جهاز التحكم الذكي</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="is2_d">يراجع فريق واط طلبك ويُرسل جهاز التحكم الذكي</p>
         </div>
 
-        <div class="step-card-gold p-7 gsap-step relative" style="background:#0A0F0D;border:1px solid rgba(245,158,11,.2);border-radius:16px;transition:all .35s ease">
+        <div class="step-card-gold p-7 gsap-step relative" style="background:#0B1710;border:1px solid rgba(244,165,60,.2);border-radius:16px;transition:all .35s ease">
           <div class="step-num-gold" data-i18n="num3">٣</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="is3_t">أدرج شاحنك</h3>
-          <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="is3_d">فعّل شاحنك في التطبيق وحدد الأوقات والسعر</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="is3_d">فعّل شاحنك في التطبيق وحدد الأوقات والسعر</p>
         </div>
 
-        <div class="step-card-gold p-7 gsap-step relative" style="background:#0A0F0D;border:1px solid rgba(245,158,11,.2);border-radius:16px;transition:all .35s ease">
+        <div class="step-card-gold p-7 gsap-step relative" style="background:#0B1710;border:1px solid rgba(244,165,60,.2);border-radius:16px;transition:all .35s ease">
           <div class="step-num-gold" data-i18n="num4">٤</div>
           <div class="step-icon mb-5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           </div>
           <h3 class="text-lg font-bold text-white mb-2" data-i18n="is4_t">اكسب دخلاً</h3>
-          <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="is4_d">استقبل الحجوزات واحصل على أرباحك في محفظتك الرقمية</p>
+          <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="is4_d">استقبل الحجوزات واحصل على أرباحك في محفظتك الرقمية</p>
         </div>
 
       </div>
@@ -603,10 +700,10 @@ html[dir="ltr"] .faq-btn{text-align:left}
       <!-- Investor commission badge -->
       <div class="flex justify-center mt-10 gsap-hidden" id="investorBadge">
         <div class="glass-gold px-8 py-4 rounded-2xl flex items-center gap-4">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           <div>
             <div class="font-black text-2xl text-grad-gold">90%</div>
-            <div class="text-sm" style="color:#FCD34D" data-i18n="inv_commission">من كل جلسة يذهب مباشرةً لمحفظتك</div>
+            <div class="text-sm" style="color:#F8C87A" data-i18n="inv_commission">من كل جلسة يذهب مباشرةً لمحفظتك</div>
           </div>
         </div>
       </div>
@@ -621,60 +718,60 @@ html[dir="ltr"] .faq-btn{text-align:left}
      FEATURES
 ════════════════════════════════════════ -->
 <section id="features" class="relative py-24 overflow-hidden">
-  <div style="position:absolute;top:0;right:0;width:600px;height:600px;background:radial-gradient(ellipse,rgba(16,185,129,.06) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
+  <div style="position:absolute;top:0;right:0;width:600px;height:600px;background:radial-gradient(ellipse,rgba(55,139,90,.06) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <div class="text-center mb-14 gsap-hidden" id="featHeader">
       <div class="badge-pill inline-flex mb-5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="#10B981"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#378B5A"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span data-i18n="feat_badge">المميزات</span>
       </div>
-      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-grad-green" data-i18n="feat_title">كل ما تحتاجه في مكان واحد</h2>
-      <p class="text-lg max-w-2xl mx-auto" style="color:#A7F3D0" data-i18n="feat_sub">تطبيق واط مصمم ليجعل تجربة شحن سيارتك الكهربائية سلسة وموثوقة</p>
+      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-grad-green t-title" data-i18n="feat_title">كل ما تحتاجه في مكان واحد</h2>
+      <p class="text-lg max-w-2xl mx-auto t-body" style="color:#C2E2CE" data-i18n="feat_sub">تطبيق واط مصمم ليجعل تجربة شحن سيارتك الكهربائية سلسة وموثوقة</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <div class="feat-card gsap-feat">
         <div class="feat-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
         <h3 class="text-lg font-bold text-white mb-2" data-i18n="f1_t">خريطة تفاعلية</h3>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="f1_d">تحديد موقعك آنياً وعرض جميع المحطات القريبة مع حالتها لحظة بلحظة</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="f1_d">تحديد موقعك آنياً وعرض جميع المحطات القريبة مع حالتها لحظة بلحظة</p>
       </div>
       <div class="feat-card gsap-feat">
         <div class="feat-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </div>
         <h3 class="text-lg font-bold text-white mb-2" data-i18n="f2_t">حجز ذكي</h3>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="f2_d">اختر الخانة الزمنية المناسبة واحجز مسبقاً لتجنب الانتظار والازدحام</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="f2_d">اختر الخانة الزمنية المناسبة واحجز مسبقاً لتجنب الانتظار والازدحام</p>
       </div>
       <div class="feat-card gsap-feat">
         <div class="feat-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
         </div>
         <h3 class="text-lg font-bold text-white mb-2" data-i18n="f3_t">محفظة رقمية</h3>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="f3_d">أضف رصيداً عبر ثواني وادفع شحناتك تلقائياً بدون نقود أو تنسيق</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="f3_d">أضف رصيداً عبر ثواني وادفع شحناتك تلقائياً بدون نقود أو تنسيق</p>
       </div>
       <div class="feat-card gsap-feat">
         <div class="feat-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
         </div>
         <h3 class="text-lg font-bold text-white mb-2" data-i18n="f4_t">تحكم Tuya الذكي</h3>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="f4_d">يتصل التطبيق بالشاحن مباشرةً ويُشغّله أو يوقفه عن بُعد تلقائياً</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="f4_d">يتصل التطبيق بالشاحن مباشرةً ويُشغّله أو يوقفه عن بُعد تلقائياً</p>
       </div>
       <div class="feat-card gsap-feat">
         <div class="feat-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         </div>
         <h3 class="text-lg font-bold text-white mb-2" data-i18n="f5_t">تتبع لحظي</h3>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="f5_d">راقب جلسة الشحن: الطاقة المُسلَّمة والتكلفة الجارية، بشكل فوري</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="f5_d">راقب جلسة الشحن: الطاقة المُسلَّمة والتكلفة الجارية، بشكل فوري</p>
       </div>
       <div class="feat-card gsap-feat">
         <div class="feat-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
         </div>
         <h3 class="text-lg font-bold text-white mb-2" data-i18n="f6_t">ثنائي اللغة</h3>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="f6_d">واجهة كاملة بالعربية والإنجليزية مع دعم RTL/LTR</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="f6_d">واجهة كاملة بالعربية والإنجليزية مع دعم RTL/LTR</p>
       </div>
     </div>
 
@@ -687,16 +784,16 @@ html[dir="ltr"] .faq-btn{text-align:left}
      MAP
 ════════════════════════════════════════ -->
 <section id="map" class="relative py-24 overflow-hidden grid-bg">
-  <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(6,95,70,.07),transparent);pointer-events:none"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(33,74,56,.07),transparent);pointer-events:none"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <div class="text-center mb-14 gsap-hidden" id="mapHeader">
       <div class="badge-pill inline-flex mb-5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
         <span data-i18n="map_badge">التغطية الحالية</span>
       </div>
-      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white" data-i18n="map_title">أين تجدنا الآن</h2>
-      <p class="text-lg max-w-2xl mx-auto" style="color:#A7F3D0" data-i18n="map_sub">انطلقنا من مسقط والداخلية، ونتوسع تدريجياً في باقي محافظات السلطنة</p>
+      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white t-title" data-i18n="map_title">أين تجدنا الآن</h2>
+      <p class="text-lg max-w-2xl mx-auto t-body" style="color:#C2E2CE" data-i18n="map_sub">انطلقنا من مسقط والداخلية، ونتوسع تدريجياً في باقي محافظات السلطنة</p>
     </div>
 
     <div class="flex flex-col lg:flex-row gap-12 items-center">
@@ -710,19 +807,19 @@ html[dir="ltr"] .faq-btn{text-align:left}
       <div class="flex-1 gsap-hidden" id="govList">
         <div class="space-y-3">
           <div class="glass p-4 rounded-xl flex items-center gap-3">
-            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style="background:#10B981"></div>
+            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style="background:#378B5A"></div>
             <span class="text-sm font-semibold text-white" data-i18n="gov_mus">مسقط</span>
             <span class="cov-pill cov-live" data-i18n="cov_live">متاح الآن</span>
           </div>
           <div class="glass p-4 rounded-xl flex items-center gap-3">
-            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style="background:#10B981"></div>
+            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style="background:#378B5A"></div>
             <span class="text-sm font-semibold text-white" data-i18n="gov_dak">الداخلية</span>
             <span class="cov-pill cov-live" data-i18n="cov_live">متاح الآن</span>
           </div>
         </div>
 
         <div class="mt-6">
-          <div class="text-xs font-semibold mb-3" style="color:#6EE7B7" data-i18n="cov_next">قريباً في باقي المحافظات</div>
+          <div class="text-xs font-semibold mb-3" style="color:#8FC9A8" data-i18n="cov_next">قريباً في باقي المحافظات</div>
           <div class="flex flex-wrap gap-2">
             <span class="cov-chip" data-i18n="gov_bn">شمال الباطنة</span>
             <span class="cov-chip" data-i18n="gov_bs">جنوب الباطنة</span>
@@ -736,7 +833,7 @@ html[dir="ltr"] .faq-btn{text-align:left}
           </div>
         </div>
 
-        <p class="text-xs mt-6 leading-relaxed" style="color:#6EE7B7;opacity:.75" data-i18n="cov_note">المواقع المعروضة تقريبية على مستوى المنطقة — يظهر العنوان الدقيق للشاحن في التطبيق بعد تأكيد الحجز.</p>
+        <p class="text-xs mt-6 leading-relaxed t-body" style="color:#8FC9A8;opacity:.75" data-i18n="cov_note">المواقع المعروضة تقريبية على مستوى المنطقة — يظهر العنوان الدقيق للشاحن في التطبيق بعد تأكيد الحجز.</p>
       </div>
 
     </div>
@@ -749,17 +846,17 @@ html[dir="ltr"] .faq-btn{text-align:left}
      PACKAGES / باقات الشواحن
 ════════════════════════════════════════ -->
 <section id="packages" class="relative py-24 overflow-hidden grid-bg">
-  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:900px;height:500px;background:radial-gradient(ellipse,rgba(245,158,11,.06) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:900px;height:500px;background:radial-gradient(ellipse,rgba(244,165,60,.06) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <!-- Header -->
     <div class="text-center mb-14 gsap-hidden" id="pkgHeader">
-      <div class="badge-pill inline-flex mb-5" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25);color:#FCD34D">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <div class="badge-pill inline-flex mb-5" style="background:rgba(244,165,60,.08);border-color:rgba(244,165,60,.25);color:#F8C87A">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span data-i18n="pkg_badge">باقات الشواحن المنزلية</span>
       </div>
-      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white" data-i18n="pkg_title">باقات شواحن السيارات الكهربائية</h2>
-      <p class="text-lg max-w-2xl mx-auto" style="color:#A7F3D0" data-i18n="pkg_sub">شاحن ذكي مع التركيب الكامل وضمان سنة — أسعار واضحة داخل محافظة مسقط</p>
+      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white t-title" data-i18n="pkg_title">باقات شواحن السيارات الكهربائية</h2>
+      <p class="text-lg max-w-2xl mx-auto t-body" style="color:#C2E2CE" data-i18n="pkg_sub">شاحن ذكي مع التركيب الكامل وضمان سنة — أسعار واضحة داخل محافظة مسقط</p>
     </div>
 
     <!-- Main charger packages -->
@@ -769,37 +866,37 @@ html[dir="ltr"] .faq-btn{text-align:left}
       <div class="card p-8 gsap-pkg flex flex-col">
         <div class="flex items-start justify-between mb-6">
           <div class="flex items-center gap-3">
-            <div style="width:52px;height:52px;border-radius:14px;background:rgba(16,185,129,.09);border:1px solid rgba(16,185,129,.18);display:flex;align-items:center;justify-content:center">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <div style="width:52px;height:52px;border-radius:14px;background:rgba(55,139,90,.09);border:1px solid rgba(55,139,90,.18);display:flex;align-items:center;justify-content:center">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
             <div>
               <div class="font-black text-white text-xl" data-i18n="pkg_ac_name">شاحن AC ذكي</div>
-              <div class="text-sm" style="color:#6EE7B7"><span data-i18n="pkg_power">القدرة</span> · 7KW</div>
+              <div class="text-sm" style="color:#8FC9A8"><span data-i18n="pkg_power">القدرة</span> · 7KW</div>
             </div>
           </div>
         </div>
-        <p class="text-sm mb-6 leading-relaxed" style="color:#A7F3D0" data-i18n="pkg_ac_desc">مثالي للشحن المنزلي اليومي. يشمل التحكم الذكي عبر التطبيق والتركيب الاحترافي.</p>
+        <p class="text-sm mb-6 leading-relaxed t-body" style="color:#C2E2CE" data-i18n="pkg_ac_desc">مثالي للشحن المنزلي اليومي. يشمل التحكم الذكي عبر التطبيق والتركيب الاحترافي.</p>
 
         <!-- Price rows -->
         <div class="space-y-3 mb-6">
-          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.12)">
-            <span class="text-sm" style="color:#A7F3D0" data-i18n="pkg_front">المجمع الأساسي أمام المنزل</span>
-            <span class="font-black text-white text-lg">270 <span class="text-xs font-medium" style="color:#6EE7B7" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
+          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(55,139,90,.05);border:1px solid rgba(55,139,90,.12)">
+            <span class="text-sm" style="color:#C2E2CE" data-i18n="pkg_front">المجمع الأساسي أمام المنزل</span>
+            <span class="font-black text-white text-lg">270 <span class="text-xs font-medium" style="color:#8FC9A8" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
           </div>
-          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.12)">
-            <span class="text-sm" style="color:#A7F3D0" data-i18n="pkg_back">المجمع الأساسي خلف المنزل</span>
-            <span class="font-black text-white text-lg">370 <span class="text-xs font-medium" style="color:#6EE7B7" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
+          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(55,139,90,.05);border:1px solid rgba(55,139,90,.12)">
+            <span class="text-sm" style="color:#C2E2CE" data-i18n="pkg_back">المجمع الأساسي خلف المنزل</span>
+            <span class="font-black text-white text-lg">370 <span class="text-xs font-medium" style="color:#8FC9A8" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
           </div>
         </div>
 
         <ul class="space-y-3 mb-6">
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_smart">تحكم ذكي عبر التطبيق</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_install">تركيب احترافي كامل</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_warranty">ضمان سنة كاملة</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_smart">تحكم ذكي عبر التطبيق</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_install">تركيب احترافي كامل</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_warranty">ضمان سنة كاملة</span></li>
         </ul>
 
-        <div class="mt-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm" style="background:rgba(16,185,129,.06);border:1px dashed rgba(16,185,129,.25);color:#A7F3D0">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div class="mt-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm" style="background:rgba(55,139,90,.06);border:1px dashed rgba(55,139,90,.25);color:#C2E2CE">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span><span data-i18n="pkg_run">تكلفة تشغيل الساعة تقريباً</span> <b class="text-white">0.098</b> <span data-i18n="pkg_omr_hr">ر.ع/ساعة</span></span>
         </div>
         <a href="#download" class="btn-primary w-full text-center px-5 py-3 rounded-xl mt-5" data-i18n="pkg_cta">اطلب التركيب</a>
@@ -807,40 +904,40 @@ html[dir="ltr"] .faq-btn{text-align:left}
 
       <!-- DC 30KW (featured) -->
       <div class="card-gold p-8 gsap-pkg relative overflow-hidden glow-gold flex flex-col">
-        <div style="position:absolute;top:0;right:0;width:120px;height:120px;background:radial-gradient(circle,rgba(245,158,11,.12),transparent);pointer-events:none"></div>
+        <div style="position:absolute;top:0;right:0;width:120px;height:120px;background:radial-gradient(circle,rgba(244,165,60,.12),transparent);pointer-events:none"></div>
         <div class="flex items-start justify-between mb-6">
           <div class="flex items-center gap-3">
-            <div style="width:52px;height:52px;border-radius:14px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);display:flex;align-items:center;justify-content:center">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <div style="width:52px;height:52px;border-radius:14px;background:rgba(244,165,60,.1);border:1px solid rgba(244,165,60,.22);display:flex;align-items:center;justify-content:center">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
             <div>
               <div class="font-black text-lg text-grad-gold" style="font-size:1.25rem" data-i18n="pkg_dc_name">شاحن DC سريع</div>
-              <div class="text-sm" style="color:#F59E0B"><span data-i18n="pkg_power">القدرة</span> · 30KW</div>
+              <div class="text-sm" style="color:#F4A53C"><span data-i18n="pkg_power">القدرة</span> · 30KW</div>
             </div>
           </div>
-          <span class="text-xs px-2.5 py-1 rounded-full font-bold" style="background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.25)" data-i18n="pkg_best">الأكثر قوة</span>
+          <span class="text-xs px-2.5 py-1 rounded-full font-bold" style="background:rgba(244,165,60,.12);color:#F4A53C;border:1px solid rgba(244,165,60,.25)" data-i18n="pkg_best">الأكثر قوة</span>
         </div>
-        <p class="text-sm mb-6 leading-relaxed" style="color:#FCD34D" data-i18n="pkg_dc_desc">شحن سريع للاستخدام المكثف. يشمل التحكم الذكي والتركيب الاحترافي.</p>
+        <p class="text-sm mb-6 leading-relaxed t-body" style="color:#F8C87A" data-i18n="pkg_dc_desc">شحن سريع للاستخدام المكثف. يشمل التحكم الذكي والتركيب الاحترافي.</p>
 
         <div class="space-y-3 mb-6">
-          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.15)">
-            <span class="text-sm" style="color:#FCD34D" data-i18n="pkg_front">المجمع الأساسي أمام المنزل</span>
-            <span class="font-black text-white text-lg">875 <span class="text-xs font-medium" style="color:#F59E0B" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
+          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(244,165,60,.05);border:1px solid rgba(244,165,60,.15)">
+            <span class="text-sm" style="color:#F8C87A" data-i18n="pkg_front">المجمع الأساسي أمام المنزل</span>
+            <span class="font-black text-white text-lg">875 <span class="text-xs font-medium" style="color:#F4A53C" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
           </div>
-          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.15)">
-            <span class="text-sm" style="color:#FCD34D" data-i18n="pkg_back">المجمع الأساسي خلف المنزل</span>
-            <span class="font-black text-white text-lg">1175 <span class="text-xs font-medium" style="color:#F59E0B" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
+          <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:rgba(244,165,60,.05);border:1px solid rgba(244,165,60,.15)">
+            <span class="text-sm" style="color:#F8C87A" data-i18n="pkg_back">المجمع الأساسي خلف المنزل</span>
+            <span class="font-black text-white text-lg">1175 <span class="text-xs font-medium" style="color:#F4A53C" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
           </div>
         </div>
 
         <ul class="space-y-3 mb-6">
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_smart">تحكم ذكي عبر التطبيق</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_install">تركيب احترافي كامل</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_warranty">ضمان سنة كاملة</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_smart">تحكم ذكي عبر التطبيق</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_install">تركيب احترافي كامل</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pkg_f_warranty">ضمان سنة كاملة</span></li>
         </ul>
 
-        <div class="mt-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm" style="background:rgba(245,158,11,.06);border:1px dashed rgba(245,158,11,.3);color:#FCD34D">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div class="mt-auto flex items-center gap-2 rounded-xl px-4 py-3 text-sm" style="background:rgba(244,165,60,.06);border:1px dashed rgba(244,165,60,.3);color:#F8C87A">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span><span data-i18n="pkg_run">تكلفة تشغيل الساعة تقريباً</span> <b class="text-white">0.420</b> <span data-i18n="pkg_omr_hr">ر.ع/ساعة</span></span>
         </div>
         <a href="#download" class="btn-gold w-full text-center px-5 py-3 rounded-xl mt-5" data-i18n="pkg_cta">اطلب التركيب</a>
@@ -850,22 +947,22 @@ html[dir="ltr"] .faq-btn{text-align:left}
     <!-- Already have a charger -->
     <div class="grad-border p-8 mb-8 gsap-pkg">
       <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div style="width:44px;height:44px;border-radius:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M12 9v6M16 12h1"/></svg>
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(55,139,90,.07);border:1px solid rgba(55,139,90,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M12 9v6M16 12h1"/></svg>
         </div>
         <div>
           <div class="font-black text-white text-lg" data-i18n="pkg_have_title">لديك شاحن جاهز؟</div>
-          <div class="text-sm" style="color:#A7F3D0" data-i18n="pkg_have_sub">نركّب منظومة التحكم الذكي على شاحنك الحالي</div>
+          <div class="text-sm" style="color:#C2E2CE" data-i18n="pkg_have_sub">نركّب منظومة التحكم الذكي على شاحنك الحالي</div>
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="flex items-center justify-between rounded-xl px-4 py-4" style="background:#0F1A11;border:1px solid #1A2E1F">
-          <span class="text-sm leading-relaxed" style="color:#A7F3D0" data-i18n="pkg_box_desc">يوجد صندوق معدني — نركّب المنظومة بداخله</span>
-          <span class="font-black text-white text-lg whitespace-nowrap">50 <span class="text-xs font-medium" style="color:#6EE7B7" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
+        <div class="flex items-center justify-between rounded-xl px-4 py-4" style="background:#11251A;border:1px solid #1D3D2C">
+          <span class="text-sm leading-relaxed" style="color:#C2E2CE" data-i18n="pkg_box_desc">يوجد صندوق معدني — نركّب المنظومة بداخله</span>
+          <span class="font-black text-white text-lg whitespace-nowrap">50 <span class="text-xs font-medium" style="color:#8FC9A8" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
         </div>
-        <div class="flex items-center justify-between rounded-xl px-4 py-4" style="background:#0F1A11;border:1px solid #1A2E1F">
-          <span class="text-sm leading-relaxed" style="color:#A7F3D0" data-i18n="pkg_iso_desc">يوجد isolator فقط — نركّب الصندوق المعدني مع المنظومة</span>
-          <span class="font-black text-white text-lg whitespace-nowrap">90 <span class="text-xs font-medium" style="color:#6EE7B7" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
+        <div class="flex items-center justify-between rounded-xl px-4 py-4" style="background:#11251A;border:1px solid #1D3D2C">
+          <span class="text-sm leading-relaxed" style="color:#C2E2CE" data-i18n="pkg_iso_desc">يوجد isolator فقط — نركّب الصندوق المعدني مع المنظومة</span>
+          <span class="font-black text-white text-lg whitespace-nowrap">90 <span class="text-xs font-medium" style="color:#8FC9A8" data-i18n="pkg_vat">ر.ع + الضريبة</span></span>
         </div>
       </div>
     </div>
@@ -873,23 +970,23 @@ html[dir="ltr"] .faq-btn{text-align:left}
     <!-- Notes -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 gsap-pkg">
       <div class="card p-6">
-        <div class="feat-icon" style="margin-bottom:14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div class="feat-icon" style="margin-bottom:14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
         <div class="font-bold text-white mb-1.5" data-i18n="pkg_note_area_t">التغطية والتوصيل</div>
-        <p class="text-sm leading-relaxed" style="color:#A7F3D0" data-i18n="pkg_note_area_d">الأسعار داخل حدود محافظة مسقط. كل 10 كم خارج الحدود بتكلفة 5 ر.ع.</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#C2E2CE" data-i18n="pkg_note_area_d">الأسعار داخل حدود محافظة مسقط. كل 10 كم خارج الحدود بتكلفة 5 ر.ع.</p>
       </div>
       <div class="card p-6">
-        <div class="feat-icon" style="margin-bottom:14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M5 12.55a11 11 0 0114 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+        <div class="feat-icon" style="margin-bottom:14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><path d="M5 12.55a11 11 0 0114 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
         <div class="font-bold text-white mb-1.5" data-i18n="pkg_note_wifi_t">تقوية شبكة الواي فاي</div>
-        <p class="text-sm leading-relaxed" style="color:#A7F3D0" data-i18n="pkg_note_wifi_d">إذا لم تصل شبكة الواي فاي إلى الشاحن، تُضاف مقويات مع التركيب من 43 إلى 120 ر.ع حسب الجهاز.</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#C2E2CE" data-i18n="pkg_note_wifi_d">إذا لم تصل شبكة الواي فاي إلى الشاحن، تُضاف مقويات مع التركيب من 43 إلى 120 ر.ع حسب الجهاز.</p>
       </div>
       <div class="card p-6">
-        <div class="feat-icon" style="margin-bottom:14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <div class="feat-icon" style="margin-bottom:14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
         <div class="font-bold text-white mb-1.5" data-i18n="pkg_note_warranty_t">ضمان سنة كاملة</div>
-        <p class="text-sm leading-relaxed" style="color:#A7F3D0" data-i18n="pkg_note_warranty_d">ضمان على جميع الشواحن لمدة سنة كاملة من تاريخ تشغيل الشاحن.</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#C2E2CE" data-i18n="pkg_note_warranty_d">ضمان على جميع الشواحن لمدة سنة كاملة من تاريخ تشغيل الشاحن.</p>
       </div>
     </div>
 
-    <p class="text-center text-xs mt-6" style="color:#4B5563" data-i18n="pkg_disclaimer">* الأسعار مرجعية بحسب سعر الكيلوواط 14 بيسة، وقد تختلف حسب الموقع والمعاينة. جميع الأسعار لا تشمل الضريبة.</p>
+    <p class="text-center text-xs mt-6 t-body" style="color:#47594E" data-i18n="pkg_disclaimer">* الأسعار مرجعية بحسب سعر الكيلوواط 14 بيسة، وقد تختلف حسب الموقع والمعاينة. جميع الأسعار لا تشمل الضريبة.</p>
   </div>
 </section>
 
@@ -899,46 +996,46 @@ html[dir="ltr"] .faq-btn{text-align:left}
      INVESTOR
 ════════════════════════════════════════ -->
 <section id="investor" class="relative py-24 overflow-hidden">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:500px;background:radial-gradient(ellipse,rgba(245,158,11,.05) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:500px;background:radial-gradient(ellipse,rgba(244,165,60,.05) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <div class="flex flex-col lg:flex-row gap-16 items-center">
 
       <!-- Left: content -->
       <div class="flex-1 gsap-hidden" id="invContent">
-        <div class="badge-pill inline-flex mb-6" style="border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.07)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-          <span style="color:#F59E0B" data-i18n="inv_badge">برنامج المستثمرين</span>
+        <div class="badge-pill inline-flex mb-6" style="border-color:rgba(244,165,60,.25);background:rgba(244,165,60,.07)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <span style="color:#F4A53C" data-i18n="inv_badge">برنامج المستثمرين</span>
         </div>
-        <h2 class="text-4xl sm:text-5xl font-black mb-5 text-white" data-i18n="inv_title">حوّل شاحنك المنزلي إلى مصدر دخل</h2>
-        <p class="text-lg mb-10 leading-relaxed" style="color:#FCD34D" data-i18n="inv_sub">شارك في شبكة واط واكسب دخلاً شهرياً ثابتاً من شاحن منزلك بدون أي جهد يومي</p>
+        <h2 class="text-4xl sm:text-5xl font-black mb-5 text-white t-title" data-i18n="inv_title">حوّل شاحنك المنزلي إلى مصدر دخل</h2>
+        <p class="text-lg mb-10 leading-relaxed t-body" style="color:#F8C87A" data-i18n="inv_sub">شارك في شبكة واط واكسب دخلاً شهرياً ثابتاً من شاحن منزلك بدون أي جهد يومي</p>
 
         <div class="flex flex-col gap-6 mb-10">
           <div class="flex items-start gap-4">
-            <div style="width:44px;height:44px;border-radius:12px;background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(244,165,60,.09);border:1px solid rgba(244,165,60,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
             </div>
             <div>
               <h3 class="font-bold text-white mb-1" data-i18n="inv_b1_t">دخل شهري ثابت</h3>
-              <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="inv_b1_d">90% من عائد كل جلسة شحن تذهب مباشرة إلى محفظتك</p>
+              <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="inv_b1_d">90% من عائد كل جلسة شحن تذهب مباشرة إلى محفظتك</p>
             </div>
           </div>
           <div class="flex items-start gap-4">
-            <div style="width:44px;height:44px;border-radius:12px;background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(244,165,60,.09);border:1px solid rgba(244,165,60,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
             </div>
             <div>
               <h3 class="font-bold text-white mb-1" data-i18n="inv_b2_t">إدارة كاملة بالتطبيق</h3>
-              <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="inv_b2_d">تحكم في التوفر والأسعار والأوقات من هاتفك في أي وقت</p>
+              <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="inv_b2_d">تحكم في التوفر والأسعار والأوقات من هاتفك في أي وقت</p>
             </div>
           </div>
           <div class="flex items-start gap-4">
-            <div style="width:44px;height:44px;border-radius:12px;background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(244,165,60,.09);border:1px solid rgba(244,165,60,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
             </div>
             <div>
               <h3 class="font-bold text-white mb-1" data-i18n="inv_b3_t">جهاز ذكي مجاناً</h3>
-              <p class="text-sm leading-relaxed" style="color:#FCD34D" data-i18n="inv_b3_d">تُقدم واط جهاز Tuya للتحكم عن بُعد بعد قبول طلبك</p>
+              <p class="text-sm leading-relaxed t-body" style="color:#F8C87A" data-i18n="inv_b3_d">تُقدم واط جهاز Tuya للتحكم عن بُعد بعد قبول طلبك</p>
             </div>
           </div>
         </div>
@@ -951,27 +1048,27 @@ html[dir="ltr"] .faq-btn{text-align:left}
 
       <!-- Right: earnings card -->
       <div class="flex-1 flex justify-center gsap-hidden" id="invVisual">
-        <div style="width:100%;max-width:360px;background:#0A0F0D;border:1px solid rgba(245,158,11,.2);border-radius:20px;padding:32px">
+        <div style="width:100%;max-width:360px;background:#0B1710;border:1px solid rgba(244,165,60,.2);border-radius:20px;padding:32px">
           <div class="text-center mb-8">
             <div class="text-7xl font-black text-grad-gold mb-2">90%</div>
-            <div class="text-sm" style="color:#FCD34D" data-i18n="inv_commission">من كل جلسة يذهب مباشرةً لمحفظتك</div>
+            <div class="text-sm" style="color:#F8C87A" data-i18n="inv_commission">من كل جلسة يذهب مباشرةً لمحفظتك</div>
           </div>
-          <div class="text-xs font-semibold mb-4" style="color:#6EE7B7" data-i18n="earn_ex">مثال على الأرباح الشهرية</div>
+          <div class="text-xs font-semibold mb-4" style="color:#8FC9A8" data-i18n="earn_ex">مثال على الأرباح الشهرية</div>
           <div class="space-y-1">
-            <div class="flex justify-between items-center py-3" style="border-bottom:1px solid #1A2E1F">
-              <span class="text-sm" style="color:#A7F3D0" data-i18n="earn_5">5 جلسات / أسبوع</span>
-              <span class="font-bold text-sm" style="color:#34D399" data-i18n="earn_45">~45 ر.ع</span>
+            <div class="flex justify-between items-center py-3" style="border-bottom:1px solid #1D3D2C">
+              <span class="text-sm" style="color:#C2E2CE" data-i18n="earn_5">5 جلسات / أسبوع</span>
+              <span class="font-bold text-sm" style="color:#57A87A" data-i18n="earn_45">~45 ر.ع</span>
             </div>
-            <div class="flex justify-between items-center py-3" style="border-bottom:1px solid #1A2E1F">
-              <span class="text-sm" style="color:#A7F3D0" data-i18n="earn_10">10 جلسات / أسبوع</span>
-              <span class="font-bold text-sm" style="color:#34D399" data-i18n="earn_90">~90 ر.ع</span>
+            <div class="flex justify-between items-center py-3" style="border-bottom:1px solid #1D3D2C">
+              <span class="text-sm" style="color:#C2E2CE" data-i18n="earn_10">10 جلسات / أسبوع</span>
+              <span class="font-bold text-sm" style="color:#57A87A" data-i18n="earn_90">~90 ر.ع</span>
             </div>
             <div class="flex justify-between items-center py-3">
-              <span class="text-sm" style="color:#A7F3D0" data-i18n="earn_20">20 جلسة / أسبوع</span>
+              <span class="text-sm" style="color:#C2E2CE" data-i18n="earn_20">20 جلسة / أسبوع</span>
               <span class="font-bold text-sm text-grad-gold" data-i18n="earn_180">~180 ر.ع</span>
             </div>
           </div>
-          <div class="mt-5 p-3 rounded-xl text-center text-xs" style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.12);color:#FCD34D" data-i18n="earn_note">
+          <div class="mt-5 p-3 rounded-xl text-center text-xs" style="background:rgba(244,165,60,.06);border:1px solid rgba(244,165,60,.12);color:#F8C87A" data-i18n="earn_note">
             تقدير بناءً على متوسط 1 ر.ع / كيلوواط
           </div>
         </div>
@@ -987,16 +1084,16 @@ html[dir="ltr"] .faq-btn{text-align:left}
      MEMBERSHIP
 ════════════════════════════════════════ -->
 <section id="membership" class="relative py-24 overflow-hidden">
-  <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:800px;height:400px;background:radial-gradient(ellipse,rgba(16,185,129,.06) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
+  <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:800px;height:400px;background:radial-gradient(ellipse,rgba(55,139,90,.06) 0%,transparent 70%);pointer-events:none;border-radius:50%"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <div class="text-center mb-14 gsap-hidden" id="memHeader">
       <div class="badge-pill inline-flex mb-5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         <span data-i18n="mem_badge">مستويات العضوية</span>
       </div>
-      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white" data-i18n="mem_title">مستويات العضوية</h2>
-      <p class="text-lg max-w-2xl mx-auto" style="color:#A7F3D0" data-i18n="mem_sub">كلما شحنت أكثر، كلما حصلت على مزايا أفضل</p>
+      <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white t-title" data-i18n="mem_title">مستويات العضوية</h2>
+      <p class="text-lg max-w-2xl mx-auto t-body" style="color:#C2E2CE" data-i18n="mem_sub">كلما شحنت أكثر، كلما حصلت على مزايا أفضل</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1004,68 +1101,68 @@ html[dir="ltr"] .faq-btn{text-align:left}
       <!-- Standard -->
       <div class="card p-8 gsap-mem">
         <div class="flex items-center gap-3 mb-6">
-          <div style="width:44px;height:44px;border-radius:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.14);display:flex;align-items:center;justify-content:center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(55,139,90,.07);border:1px solid rgba(55,139,90,.14);display:flex;align-items:center;justify-content:center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
           </div>
           <div>
             <div class="font-black text-white text-lg" data-i18n="mem_std">العضوية العادية</div>
-            <div class="text-xs" style="color:#6EE7B7" data-i18n="mem_std_s">0–9 جلسات</div>
+            <div class="text-xs" style="color:#8FC9A8" data-i18n="mem_std_s">0–9 جلسات</div>
           </div>
         </div>
-        <p class="text-sm mb-6 leading-relaxed" style="color:#A7F3D0" data-i18n="mem_std_d">ابدأ رحلتك مع واط واستمتع بجميع الميزات الأساسية</p>
+        <p class="text-sm mb-6 leading-relaxed t-body" style="color:#C2E2CE" data-i18n="mem_std_d">ابدأ رحلتك مع واط واستمتع بجميع الميزات الأساسية</p>
         <ul class="space-y-3">
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f1">الوصول للخريطة والمحطات</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f2">حجز الخانات الزمنية</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f3">المحفظة الرقمية</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#374151"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f4">أولوية الحجز</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#374151"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f5">دعم متميز</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#374151"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f6">عروض حصرية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f1">الوصول للخريطة والمحطات</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f2">حجز الخانات الزمنية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f3">المحفظة الرقمية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#33463B"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#33463B" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f4">أولوية الحجز</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#33463B"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#33463B" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f5">دعم متميز</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#33463B"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#33463B" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f6">عروض حصرية</span></li>
         </ul>
       </div>
 
       <!-- Silver -->
-      <div class="card p-8 gsap-mem" style="border-color:rgba(148,163,184,.2)">
+      <div class="card p-8 gsap-mem" style="border-color:rgba(157,176,164,.2)">
         <div class="flex items-center gap-3 mb-6">
-          <div style="width:44px;height:44px;border-radius:12px;background:rgba(148,163,184,.07);border:1px solid rgba(148,163,184,.18);display:flex;align-items:center;justify-content:center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(157,176,164,.07);border:1px solid rgba(157,176,164,.18);display:flex;align-items:center;justify-content:center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9DB0A4" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
           </div>
           <div>
             <div class="font-black text-white text-lg" data-i18n="mem_sil">العضوية الفضية</div>
-            <div class="text-xs" style="color:#94A3B8" data-i18n="mem_sil_s">10–49 جلسة</div>
+            <div class="text-xs" style="color:#9DB0A4" data-i18n="mem_sil_s">10–49 جلسة</div>
           </div>
         </div>
-        <p class="text-sm mb-6 leading-relaxed" style="color:#A7F3D0" data-i18n="mem_sil_d">أولوية في الحجز ودعم متميز للأعضاء الفضيين</p>
+        <p class="text-sm mb-6 leading-relaxed t-body" style="color:#C2E2CE" data-i18n="mem_sil_d">أولوية في الحجز ودعم متميز للأعضاء الفضيين</p>
         <ul class="space-y-3">
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f1">الوصول للخريطة والمحطات</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f2">حجز الخانات الزمنية</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#6EE7B7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f3">المحفظة الرقمية</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#94A3B8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f4">أولوية الحجز</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#94A3B8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f5">دعم متميز</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#374151"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f6">عروض حصرية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f1">الوصول للخريطة والمحطات</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f2">حجز الخانات الزمنية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#8FC9A8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f3">المحفظة الرقمية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#9DB0A4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9DB0A4" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f4">أولوية الحجز</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#9DB0A4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9DB0A4" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f5">دعم متميز</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#33463B"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#33463B" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span data-i18n="mem_f6">عروض حصرية</span></li>
         </ul>
       </div>
 
       <!-- Gold -->
       <div class="card-gold p-8 gsap-mem relative overflow-hidden glow-gold">
-        <div style="position:absolute;top:0;right:0;width:100px;height:100px;background:radial-gradient(circle,rgba(245,158,11,.1),transparent);pointer-events:none"></div>
+        <div style="position:absolute;top:0;right:0;width:100px;height:100px;background:radial-gradient(circle,rgba(244,165,60,.1),transparent);pointer-events:none"></div>
         <div class="flex items-center gap-3 mb-6">
-          <div style="width:44px;height:44px;border-radius:12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);display:flex;align-items:center;justify-content:center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(244,165,60,.1);border:1px solid rgba(244,165,60,.22);display:flex;align-items:center;justify-content:center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </div>
           <div>
             <div class="font-black text-lg text-grad-gold" data-i18n="mem_gld">العضوية الذهبية</div>
-            <div class="text-xs" style="color:#F59E0B" data-i18n="mem_gld_s">+50 جلسة</div>
+            <div class="text-xs" style="color:#F4A53C" data-i18n="mem_gld_s">+50 جلسة</div>
           </div>
-          <span class="mr-auto text-xs px-2.5 py-1 rounded-full font-bold" style="background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.25)" data-i18n="mem_best">الأفضل</span>
+          <span class="mr-auto text-xs px-2.5 py-1 rounded-full font-bold" style="background:rgba(244,165,60,.12);color:#F4A53C;border:1px solid rgba(244,165,60,.25)" data-i18n="mem_best">الأفضل</span>
         </div>
-        <p class="text-sm mb-6 leading-relaxed" style="color:#FCD34D" data-i18n="mem_gld_d">أعلى مستوى: أولوية قصوى وعروض حصرية</p>
+        <p class="text-sm mb-6 leading-relaxed t-body" style="color:#F8C87A" data-i18n="mem_gld_d">أعلى مستوى: أولوية قصوى وعروض حصرية</p>
         <ul class="space-y-3">
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f1">الوصول للخريطة والمحطات</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f2">حجز الخانات الزمنية</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f3">المحفظة الرقمية</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f4">أولوية الحجز</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f5">دعم متميز</span></li>
-          <li class="flex items-center gap-2 text-sm" style="color:#FCD34D"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f6">عروض حصرية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f1">الوصول للخريطة والمحطات</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f2">حجز الخانات الزمنية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f3">المحفظة الرقمية</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f4">أولوية الحجز</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f5">دعم متميز</span></li>
+          <li class="flex items-center gap-2 text-sm" style="color:#F8C87A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F4A53C" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="mem_f6">عروض حصرية</span></li>
         </ul>
       </div>
 
@@ -1079,7 +1176,7 @@ html[dir="ltr"] .faq-btn{text-align:left}
      DOWNLOAD
 ════════════════════════════════════════ -->
 <section id="download" class="relative py-24 overflow-hidden">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(6,95,70,.18) 0%,transparent 60%);pointer-events:none"></div>
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(33,74,56,.18) 0%,transparent 60%);pointer-events:none"></div>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
     <div class="flex flex-col lg:flex-row gap-16 items-center">
@@ -1101,31 +1198,31 @@ html[dir="ltr"] .faq-btn{text-align:left}
             <button class="phone-dot" onclick="showSlide(2)" aria-label="3"></button>
             <button class="phone-dot" onclick="showSlide(3)" aria-label="4"></button>
           </div>
-          <div style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);width:140px;height:30px;background:rgba(16,185,129,.12);filter:blur(18px);border-radius:50%;z-index:-1"></div>
+          <div style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);width:140px;height:30px;background:rgba(55,139,90,.12);filter:blur(18px);border-radius:50%;z-index:-1"></div>
         </div>
       </div>
 
       <!-- Download content -->
       <div class="flex-1 gsap-hidden" id="appContent">
         <div class="badge-pill inline-flex mb-6">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span data-i18n="app_badge">التطبيق</span>
         </div>
-        <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white" data-i18n="app_title">حمّل تطبيق واط</h2>
-        <p class="text-lg mb-8" style="color:#A7F3D0" data-i18n="app_sub">متاح على iOS و Android. ابدأ تجربتك الآن.</p>
+        <h2 class="text-4xl sm:text-5xl font-black mb-4 text-white t-title" data-i18n="app_title">حمّل تطبيق واط</h2>
+        <p class="text-lg mb-8 t-body" style="color:#C2E2CE" data-i18n="app_sub">متاح على iOS و Android. ابدأ تجربتك الآن.</p>
 
         <div class="flex flex-wrap gap-4 mb-8">
-          <div class="glass px-6 py-4 rounded-2xl flex items-center gap-3 cursor-pointer" style="border-color:rgba(16,185,129,.18)">
-            <svg width="26" height="26" viewBox="0 0 814 1000" fill="#F0FDF4"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 405.8 31 279.6 31 247.1c0-151.5 98.5-231.5 194.3-231.5 61.2 0 112.3 40.8 150.7 40.8 36.8 0 94.7-43.4 165.9-43.4 28 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28 31.8-54.5 83.1-54.5 135.1 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135-70.9z"/></svg>
+          <div class="glass px-6 py-4 rounded-2xl flex items-center gap-3 cursor-pointer" style="border-color:rgba(55,139,90,.18)">
+            <svg width="26" height="26" viewBox="0 0 814 1000" fill="#EDF3EE"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 405.8 31 279.6 31 247.1c0-151.5 98.5-231.5 194.3-231.5 61.2 0 112.3 40.8 150.7 40.8 36.8 0 94.7-43.4 165.9-43.4 28 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28 31.8-54.5 83.1-54.5 135.1 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135-70.9z"/></svg>
             <div>
-              <div class="text-xs" style="color:#6EE7B7" data-i18n="app_soon">قريباً على</div>
+              <div class="text-xs" style="color:#8FC9A8" data-i18n="app_soon">قريباً على</div>
               <div class="font-bold text-white text-sm">App Store</div>
             </div>
           </div>
-          <div class="glass px-6 py-4 rounded-2xl flex items-center gap-3 cursor-pointer" style="border-color:rgba(16,185,129,.18)">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#A7F3D0"><path d="M3.18 23.76c.3.17.65.19.97.08l12.45-7.19-2.8-2.8-10.62 9.91zM.34 2.42C.13 2.7 0 3.08 0 3.56v16.88c0 .48.14.86.35 1.14l.06.06 9.45-9.45v-.22L.4 2.36l-.06.06zM19.85 10.35l-2.55-1.47-3.14 3.14 3.14 3.14 2.56-1.48c.73-.42.73-1.1 0-1.52l-.01-.81zM3.18.24L15.63 7.43l-2.8 2.8-9.62-9.91c-.3-.17-.65-.19-.97-.08l-.06-.06z"/></svg>
+          <div class="glass px-6 py-4 rounded-2xl flex items-center gap-3 cursor-pointer" style="border-color:rgba(55,139,90,.18)">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#C2E2CE"><path d="M3.18 23.76c.3.17.65.19.97.08l12.45-7.19-2.8-2.8-10.62 9.91zM.34 2.42C.13 2.7 0 3.08 0 3.56v16.88c0 .48.14.86.35 1.14l.06.06 9.45-9.45v-.22L.4 2.36l-.06.06zM19.85 10.35l-2.55-1.47-3.14 3.14 3.14 3.14 2.56-1.48c.73-.42.73-1.1 0-1.52l-.01-.81zM3.18.24L15.63 7.43l-2.8 2.8-9.62-9.91c-.3-.17-.65-.19-.97-.08l-.06-.06z"/></svg>
             <div>
-              <div class="text-xs" style="color:#6EE7B7" data-i18n="app_soon">قريباً على</div>
+              <div class="text-xs" style="color:#8FC9A8" data-i18n="app_soon">قريباً على</div>
               <div class="font-bold text-white text-sm">Google Play</div>
             </div>
           </div>
@@ -1133,16 +1230,16 @@ html[dir="ltr"] .faq-btn{text-align:left}
 
         <div class="flex flex-wrap gap-5">
           <div class="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <span class="text-sm" style="color:#A7F3D0" data-i18n="app_p1">مجاني تماماً</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="text-sm" style="color:#C2E2CE" data-i18n="app_p1">مجاني تماماً</span>
           </div>
           <div class="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <span class="text-sm" style="color:#A7F3D0" data-i18n="app_p2">لا يحتاج تسجيل مسبق</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="text-sm" style="color:#C2E2CE" data-i18n="app_p2">لا يحتاج تسجيل مسبق</span>
           </div>
           <div class="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <span class="text-sm" style="color:#A7F3D0" data-i18n="app_p3">تحديثات مستمرة</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#378B5A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="text-sm" style="color:#C2E2CE" data-i18n="app_p3">تحديثات مستمرة</span>
           </div>
         </div>
       </div>
@@ -1159,15 +1256,15 @@ html[dir="ltr"] .faq-btn{text-align:left}
 <section class="relative py-20">
   <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="text-center mb-12 gsap-hidden" id="faqHeader">
-      <h2 class="text-4xl font-black text-white" data-i18n="faq_title">الأسئلة الشائعة</h2>
+      <h2 class="text-4xl font-black text-white t-title" data-i18n="faq_title">الأسئلة الشائعة</h2>
     </div>
     <div class="gsap-hidden" id="faqList">
-      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq1_q">كيف أبدأ الشحن؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#A7F3D0;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq1_a">افتح التطبيق، ابحث عن محطة قريبة، احجز خانة زمنية، توجه للمحطة، وامسح رمز QR لبدء الشحن.</p></div></div>
-      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq2_q">ما طرق الدفع المتاحة؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#A7F3D0;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq2_a">يمكنك شحن محفظتك الرقمية عبر بوابة ثواني Thawani باستخدام بطاقة الائتمان أو الخصم.</p></div></div>
-      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq3_q">كيف أنضم كمستثمر؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#A7F3D0;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq3_a">اضغط على "كن مستثمراً" من ملفك الشخصي، أكمل النموذج، وسيتواصل فريقنا معك خلال 48 ساعة.</p></div></div>
-      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq4_q">هل التطبيق مجاني؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#A7F3D0;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq4_a">نعم، التطبيق مجاني تماماً للتنزيل والاستخدام. تدفع فقط مقابل جلسات الشحن.</p></div></div>
-      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq5_q">ما المناطق المغطاة حالياً؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#A7F3D0;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq5_a">لدينا محطات في جميع محافظات السلطنة الإحدى عشرة مع توسع مستمر.</p></div></div>
-      <div class="faq-item" style="border-bottom:none"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq6_q">ماذا لو واجهت مشكلة أثناء الشحن؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#A7F3D0;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq6_a">فريق الدعم متاح على مدار الساعة عبر التطبيق أو الاتصال المباشر لحل أي مشكلة.</p></div></div>
+      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq1_q">كيف أبدأ الشحن؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#C2E2CE;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq1_a">افتح التطبيق، ابحث عن محطة قريبة، احجز خانة زمنية، توجه للمحطة، وامسح رمز QR لبدء الشحن.</p></div></div>
+      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq2_q">ما طرق الدفع المتاحة؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#C2E2CE;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq2_a">يمكنك شحن محفظتك الرقمية عبر بوابة ثواني Thawani باستخدام بطاقة الائتمان أو الخصم.</p></div></div>
+      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq3_q">كيف أنضم كمستثمر؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#C2E2CE;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq3_a">اضغط على "كن مستثمراً" من ملفك الشخصي، أكمل النموذج، وسيتواصل فريقنا معك خلال 48 ساعة.</p></div></div>
+      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq4_q">هل التطبيق مجاني؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#C2E2CE;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq4_a">نعم، التطبيق مجاني تماماً للتنزيل والاستخدام. تدفع فقط مقابل جلسات الشحن.</p></div></div>
+      <div class="faq-item"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq5_q">ما المناطق المغطاة حالياً؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#C2E2CE;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq5_a">لدينا محطات في جميع محافظات السلطنة الإحدى عشرة مع توسع مستمر.</p></div></div>
+      <div class="faq-item" style="border-bottom:none"><button class="faq-btn" onclick="toggleFaq(this)"><span data-i18n="faq6_q">ماذا لو واجهت مشكلة أثناء الشحن؟</span><svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-answer"><p style="color:#C2E2CE;font-size:.9rem;line-height:1.7;padding-bottom:20px" data-i18n="faq6_a">فريق الدعم متاح على مدار الساعة عبر التطبيق أو الاتصال المباشر لحل أي مشكلة.</p></div></div>
     </div>
   </div>
 </section>
@@ -1175,14 +1272,14 @@ html[dir="ltr"] .faq-btn{text-align:left}
 <!-- ═══════════════════════════════════════
      FOOTER
 ════════════════════════════════════════ -->
-<footer style="background:#060C08;border-top:1px solid #1A2E1F" class="relative pt-16 pb-8">
+<footer style="background:#071109;border-top:1px solid #1D3D2C" class="relative pt-16 pb-8">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 pb-10" style="border-bottom:1px solid #1A2E1F">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 pb-10" style="border-bottom:1px solid #1D3D2C">
       <div>
         <a href="#hero" class="flex items-center mb-4" aria-label="GoWatt">
           <img src="brand/logo/gowatt-logo-light-green.png" alt="GoWatt" class="h-9 w-auto"/>
         </a>
-        <p class="text-sm leading-relaxed" style="color:#6EE7B7" data-i18n="footer_tag">منصة شحن السيارات الكهربائية لسلطنة عُمان</p>
+        <p class="text-sm leading-relaxed t-body" style="color:#8FC9A8" data-i18n="footer_tag">منصة شحن السيارات الكهربائية لسلطنة عُمان</p>
       </div>
       <div>
         <h4 class="font-bold text-white mb-4" data-i18n="footer_links">روابط سريعة</h4>
@@ -1205,10 +1302,10 @@ html[dir="ltr"] .faq-btn{text-align:left}
       </div>
     </div>
     <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8">
-      <p class="text-sm" style="color:#4B5563">&copy; <span id="footerYear"></span> <span data-i18n="footer_copy">واط. جميع الحقوق محفوظة.</span></p>
+      <p class="text-sm t-body" style="color:#47594E">&copy; <span id="footerYear"></span> <span data-i18n="footer_copy">واط. جميع الحقوق محفوظة.</span></p>
       <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full animate-pulse" style="background:#10B981"></div>
-        <span class="text-xs" style="color:#6EE7B7" data-i18n="ft_oman">سلطنة عُمان 🇴🇲</span>
+        <div class="w-2 h-2 rounded-full animate-pulse" style="background:#378B5A"></div>
+        <span class="text-xs" style="color:#8FC9A8" data-i18n="ft_oman">سلطنة عُمان 🇴🇲</span>
       </div>
     </div>
   </div>
@@ -1497,10 +1594,10 @@ function applyLang(lang) {
   const mm = document.getElementById('mobileMenu');
   if (lang === 'ar') {
     mm.style.right = '0'; mm.style.left = '';
-    mm.style.borderLeft = '1px solid #1A2E1F'; mm.style.borderRight = '';
+    mm.style.borderLeft = '1px solid #1D3D2C'; mm.style.borderRight = '';
   } else {
     mm.style.left = '0'; mm.style.right = '';
-    mm.style.borderRight = '1px solid #1A2E1F'; mm.style.borderLeft = '';
+    mm.style.borderRight = '1px solid #1D3D2C'; mm.style.borderLeft = '';
   }
 
   // Map popups follow the language
@@ -1679,8 +1776,8 @@ window.addEventListener('load', () => {
     onUpdate: self => {
       const nav = document.getElementById('mainNav');
       if (self.progress > 0) {
-        nav.style.background = 'rgba(10,15,13,0.92)';
-        nav.style.borderBottom = '1px solid rgba(16,185,129,0.1)';
+        nav.style.background = 'rgba(11,23,16,0.92)';
+        nav.style.borderBottom = '1px solid rgba(55,139,90,0.1)';
       } else {
         nav.style.background = '';
         nav.style.borderBottom = '';
