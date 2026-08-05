@@ -39,7 +39,13 @@ html{scroll-behavior:smooth}
    sets every paragraph at 700, which is hard to read at body size and leaves
    no weight left for emphasis — so body runs at 400 and 700 is kept for
    emphasis, which is what the deck's own body copy actually does. */
-body{background:#0B1710;color:#EDF3EE;font-family:'IBM Plex Sans Arabic',sans-serif;overflow-x:hidden;
+/* Montserrat is listed FIRST even on the Arabic side. It has no Arabic glyphs,
+   so Arabic falls straight through to IBM Plex Sans Arabic, while Latin runs
+   inside Arabic copy — "Go Watt", GHz, 24/7, OMR — render in the brand's Latin
+   face instead of IBM Plex's. Reversing these two puts the wordmark in the
+   wrong typeface every time it appears in an Arabic sentence. */
+body{background:#0B1710;color:#EDF3EE;
+     font-family:'Montserrat','IBM Plex Sans Arabic',sans-serif;overflow-x:hidden;
      -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 html[lang="en"] body{font-family:'Montserrat',sans-serif}
 
@@ -573,7 +579,7 @@ html[dir="ltr"] .faq-btn{text-align:left}
       </div>
       <h2 class="text-4xl sm:text-5xl font-black mb-4 t-title">
         <span class="text-white" data-i18n="how_title_1">كيف يعمل</span>
-        <span class="text-grad-green" data-i18n="how_title_2"> واط؟</span>
+        <span class="text-grad-green" data-i18n="how_title_2"> Go Watt؟</span>
       </h2>
       <p class="text-lg max-w-2xl mx-auto t-body" style="color:#C2E2CE" data-i18n="how_sub">
         عملية بسيطة وسريعة، سواء كنت تبحث عن شاحن أو تريد مشاركة شاحنك
@@ -1402,7 +1408,7 @@ const T = {
     how_badge_label:'خطوات بسيطة',
     inv_commission:'من كل جلسة يذهب مباشرةً لمحفظتك',
     feat_badge:'المميزات',
-    how_title:'كيف يعمل واط؟',
+    how_title:'كيف يعمل Go Watt؟',
     how_sub:'عملية بسيطة وسريعة، سواء كنت تبحث عن شاحن أو تريد مشاركة شاحنك',
     how_tab_c:'كعميل', how_tab_i:'كمستثمر',
     cs1_t:'افتح الخريطة', cs1_d:'ابحث عن أقرب محطة شحن أو شاحن خاص بالقرب منك',
@@ -1430,7 +1436,7 @@ const T = {
     inv_b2_t:'إدارة كاملة بالتطبيق', inv_b2_d:'تحكم في التوفر والأسعار والأوقات من هاتفك في أي وقت',
     inv_b3_t:'جهاز ذكي مجاناً', inv_b3_d:'تُقدم واط جهاز Tuya للتحكم عن بُعد بعد قبول طلبك',
     inv_cta:'قدّم طلبك الآن',
-    how_title_1:'كيف يعمل', how_title_2:' واط؟',
+    how_title_1:'كيف يعمل', how_title_2:' Go Watt؟',
     flow_start:'ابدأ رحلتك', flow_end:'جلسة ناجحة ✓',
     num1:'١', num2:'٢', num3:'٣', num4:'٤',
     gov_mus:'مسقط', gov_bn:'شمال الباطنة', gov_bs:'جنوب الباطنة', gov_dak:'الداخلية',
@@ -1505,7 +1511,7 @@ const T = {
     how_badge_label:'Simple Steps',
     inv_commission:'of every session goes directly to your wallet',
     feat_badge:'Features',
-    how_title:'How Does Watt Work?',
+    how_title:'How Does Go Watt Work?',
     how_sub:"A simple, fast process, whether you're looking to charge or want to share your charger",
     how_tab_c:'As a Customer', how_tab_i:'As an Investor',
     cs1_t:'Open the Map', cs1_d:'Find the nearest charging station or private charger near you',
@@ -1533,7 +1539,7 @@ const T = {
     inv_b2_t:'Full App Management', inv_b2_d:'Control availability, pricing, and hours from your phone anytime',
     inv_b3_t:'Free Smart Device', inv_b3_d:'Watt provides a Tuya remote-control device after your application is approved',
     inv_cta:'Apply Now',
-    how_title_1:'How Does', how_title_2:' Watt Work?',
+    how_title_1:'How Does', how_title_2:' Go Watt Work?',
     flow_start:'Start your journey', flow_end:'Successful session ✓',
     num1:'1', num2:'2', num3:'3', num4:'4',
     gov_mus:'Muscat', gov_bn:'North Al Batinah', gov_bs:'South Al Batinah', gov_dak:'Ad Dakhiliyah',
