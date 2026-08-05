@@ -44,12 +44,21 @@ const schema = z.object({
 
   // SMS / phone-OTP (iSmartSMS by Infocomm, Oman). If the three required creds
   // are unset, OTP codes are logged to the console instead of being texted.
-  // Infocomm ship several endpoints and an account is provisioned for one of
-  // them. Ours authenticates on SMSDynamicAPI; the SMSDynamicRefIntlAPI variant
-  // in their PDF rejects the same credentials with code 3 (user/password wrong),
-  // which reads as a bad password rather than the wrong URL. If a new account
-  // returns 3 with credentials you know are right, probe the other endpoints —
-  // code 9 (invalid mobile) on a junk number means auth passed.
+  // Infocomm ship several endpoints; SMSDynamicRefIntlAPI is the one in their
+  // PDF, SMSDynamicAPI is set here because it looked like the working one. That
+  // is UNVERIFIED — do not trust it without checking. Sending has never actually
+  // succeeded on this account, so which endpoint is correct is still unknown.
+  //
+  // Do not diagnose from the numeric return code alone. This account returned 3
+  // (user/password wrong), 7 (account inactive), 9 (invalid mobile) and 12
+  // (account blocked) for the SAME credentials, varying only by endpoint and by
+  // the MobileNo sent — the endpoints validate fields in a different order, so a
+  // code that names one cause can be reporting another. Repeated attempts also
+  // got the account blocked, so probe sparingly.
+  //
+  // To confirm the real state: send from the iSmartSMS web portal. If that works
+  // while the API returns an auth error, it is an API-permission problem on
+  // Infocomm's side and no change here will fix it.
   ISMARTSMS_URL: z.string().default('https://www.ismartsms.net/iBulkSMS/HttpWS/SMSDynamicAPI.aspx'),
   ISMARTSMS_USER_ID: z.string().optional(),
   ISMARTSMS_PASSWORD: z.string().optional(),
