@@ -8,7 +8,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sms:test": "ts-node --transpile-only scripts/send-test-sms.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
