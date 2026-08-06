@@ -58,7 +58,14 @@ export async function sendSms(to: string, body: string): Promise<void> {
   params.set('Message', body);
   params.set('Lang', '0');            // 0 = English, 64 = Arabic
   params.set('Header', env.ISMARTSMS_HEADER!);
-  // PushDateTime omitted → provider sends immediately.
+  // Our id for this message, echoed back in Infocomm's delivery reports so a
+  // specific OTP can be traced. The SMSDynamicRef* endpoints reject a request
+  // without it (code 15, "invalid request or parameter fields"); the plain
+  // endpoints ignore it. Sending it always keeps us valid on either one.
+  params.set('referenceIds', `${mobileNo}-${Date.now()}`);
+  // PushDateTime is deliberately omitted: omitting it means "send now", and it
+  // avoids their MM/DD/YYYY hh:mm:ss format (a DD/MM date returns code 16).
+  // Scheduling an OTP would be pointless anyway — do not add it here.
 
   const res = await fetch(env.ISMARTSMS_URL, {
     method: 'POST',
