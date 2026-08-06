@@ -7,6 +7,7 @@ import * as tuya from '../../integrations/tuya';
 import * as thawani from '../../integrations/thawani';
 import { sendPush } from '../../integrations/push';
 import { notify } from '../../integrations/notify';
+import { runDispatch } from '../mobile/dispatch';
 
 // Cron endpoints — called on a timer (server crontab / systemd timer) with the
 // x-job-secret header. Not part of the public app API.
@@ -59,6 +60,13 @@ router.post('/auto-shutoff', asyncHandler(async (_req, res) => {
     }
   }
   res.json({ processed: results.length, results });
+}));
+
+// Every ~30 s: re-offer mobile-charge jobs whose offer timed out, and give up
+// on requests no van took (releasing the customer's hold). Requests are also
+// dispatched immediately on creation — this tick only handles the timeouts.
+router.post('/mobile-dispatch', asyncHandler(async (_req, res) => {
+  res.json(await runDispatch());
 }));
 
 // Every ~10 min: release no-show bookings (frees the slot).

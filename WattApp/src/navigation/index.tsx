@@ -28,6 +28,8 @@ import type {
   AdminStackParamList,
   InvestorTabParamList,
   InvestorStackParamList,
+  OperatorTabParamList,
+  OperatorStackParamList,
 } from '../types';
 
 // Auth screens — kept eager: they are the pre-login flow, small, and needed
@@ -77,6 +79,20 @@ const InvestorApplicationScreen = lazyScreen(() => import('../screens/InvestorAp
 const NotificationsScreen       = lazyScreen(() => import('../screens/NotificationsScreen'));
 const CompleteProfileScreen     = lazyScreen(() => import('../screens/CompleteProfileScreen'));
 
+const MobileChargeScreen         = lazyScreen(() => import('../screens/MobileChargeScreen'));
+const MobileChargeTrackingScreen = lazyScreen(() => import('../screens/MobileChargeTrackingScreen'));
+const MobileChargeSummaryScreen  = lazyScreen(() => import('../screens/MobileChargeSummaryScreen'));
+const MobileChargeHistoryScreen  = lazyScreen(() => import('../screens/MobileChargeHistoryScreen'));
+
+const TripPlannerScreen     = lazyScreen(() => import('../screens/TripPlannerScreen'));
+const TripPlanResultScreen  = lazyScreen(() => import('../screens/TripPlanResultScreen'));
+const MyTripsScreen         = lazyScreen(() => import('../screens/MyTripsScreen'));
+const TripDetailScreen      = lazyScreen(() => import('../screens/TripDetailScreen'));
+
+const OperatorHomeScreen    = lazyScreen(() => import('../screens/operator/OperatorHomeScreen'));
+const OperatorJobScreen     = lazyScreen(() => import('../screens/operator/OperatorJobScreen'));
+const OperatorHistoryScreen = lazyScreen(() => import('../screens/operator/OperatorHistoryScreen'));
+
 const AdminMapScreen               = lazyScreen(() => import('../screens/admin/AdminMapScreen'));
 const AdminUsersScreen             = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
 const AdminCustomerDetailScreen    = lazyScreen(() => import('../screens/admin/AdminCustomerDetailScreen'));
@@ -87,6 +103,8 @@ const AdminPayoutsScreen           = lazyScreen(() => import('../screens/admin/A
 const SuperAdminScreen             = lazyScreen(() => import('../screens/admin/SuperAdminScreen'));
 const AdminAnalyticsScreen         = lazyScreen(() => import('../screens/admin/AdminAnalyticsScreen'));
 const AdminFlaggedScreen           = lazyScreen(() => import('../screens/admin/AdminFlaggedScreen'));
+const AdminFleetScreen             = lazyScreen(() => import('../screens/admin/AdminFleetScreen'));
+const AdminMobileRequestsScreen    = lazyScreen(() => import('../screens/admin/AdminMobileRequestsScreen'));
 
 const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
 const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
@@ -101,6 +119,8 @@ const AdminStack     = createNativeStackNavigator<AdminStackParamList>();
 const AdminTab       = createBottomTabNavigator<AdminTabParamList>();
 const InvestorStack  = createNativeStackNavigator<InvestorStackParamList>();
 const InvestorTab    = createBottomTabNavigator<InvestorTabParamList>();
+const OperatorStack  = createNativeStackNavigator<OperatorStackParamList>();
+const OperatorTab    = createBottomTabNavigator<OperatorTabParamList>();
 
 // Match the app background so the floating tab bar's surroundings stay seamless.
 const navTheme = {
@@ -428,7 +448,74 @@ function CustomerNavigator() {
       <CustomerStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
       <CustomerStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
       <CustomerStack.Screen name="Notifications" component={NotificationsScreen} />
+      <CustomerStack.Screen name="MobileCharge" component={MobileChargeScreen} />
+      {/* Tracking and the receipt both disable the back gesture: swiping away
+          from a live callout, or from an unrated receipt, loses the thread. */}
+      <CustomerStack.Screen name="MobileChargeTracking" component={MobileChargeTrackingScreen} options={{ gestureEnabled: false }} />
+      <CustomerStack.Screen name="MobileChargeSummary" component={MobileChargeSummaryScreen} options={{ gestureEnabled: false }} />
+      <CustomerStack.Screen name="MobileChargeHistory" component={MobileChargeHistoryScreen} />
+      <CustomerStack.Screen name="TripPlanner" component={TripPlannerScreen} />
+      <CustomerStack.Screen name="TripPlanResult" component={TripPlanResultScreen} />
+      <CustomerStack.Screen name="MyTrips" component={MyTripsScreen} />
+      <CustomerStack.Screen name="TripDetail" component={TripDetailScreen} />
     </CustomerStack.Navigator>
+  );
+}
+
+// ── OPERATOR (mobile-charging driver) ─────────────────────────
+//
+// Drivers are staff with a deliberately narrow app: their job queue, their
+// history, their profile. No map, no bookings, no wallet — nothing that would
+// invite them to browse while working.
+
+function OperatorTabs() {
+  const { t } = useLang();
+  return (
+    <OperatorTab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} accentColor={COLORS.primary} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <OperatorTab.Screen
+        name="OperatorHome"
+        component={OperatorHomeScreen}
+        options={{
+          tabBarLabel: t.op_tab_home,
+          tabBarIcon: ({ focused, color }) => (
+            <ZapIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <OperatorTab.Screen
+        name="OperatorHistory"
+        component={OperatorHistoryScreen}
+        options={{
+          tabBarLabel: t.op_tab_history,
+          tabBarIcon: ({ focused, color }) => (
+            <CalendarIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <OperatorTab.Screen
+        name="OperatorProfile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: t.op_tab_profile,
+          tabBarIcon: ({ focused, color }) => (
+            <UserIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+    </OperatorTab.Navigator>
+  );
+}
+
+function OperatorNavigator() {
+  return (
+    <OperatorStack.Navigator screenOptions={{ headerShown: false }}>
+      <OperatorStack.Screen name="OperatorTabs" component={OperatorTabs} />
+      <OperatorStack.Screen name="OperatorJob" component={OperatorJobScreen} />
+      <OperatorStack.Screen name="Notifications" component={NotificationsScreen} />
+    </OperatorStack.Navigator>
   );
 }
 
@@ -676,6 +763,8 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminPayouts" component={AdminPayoutsScreen} />
       <AdminStack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
       <AdminStack.Screen name="AdminFlagged" component={AdminFlaggedScreen} />
+      <AdminStack.Screen name="AdminFleet" component={AdminFleetScreen} />
+      <AdminStack.Screen name="AdminMobileRequests" component={AdminMobileRequestsScreen} />
       <AdminStack.Screen name="SuperAdmin" component={SuperAdminScreen} />
       <AdminStack.Screen name="Notifications" component={NotificationsScreen} />
     </AdminStack.Navigator>
@@ -753,6 +842,8 @@ export default function AppNavigator() {
           <RootStack.Screen name="GuestMain" component={GuestNavigator} />
         ) : activeProfile?.role === 'admin' || activeProfile?.role === 'superadmin' ? (
           <RootStack.Screen name="AdminMain" component={AdminNavigator} />
+        ) : activeProfile?.role === 'operator' ? (
+          <RootStack.Screen name="OperatorMain" component={OperatorNavigator} />
         ) : activeProfile?.role === 'investor' || activeProfile?.role === 'host' ? (
           <RootStack.Screen name="InvestorMain" component={InvestorNavigator} />
         ) : (

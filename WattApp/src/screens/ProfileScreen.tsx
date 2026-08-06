@@ -16,7 +16,6 @@ import { useLang } from '../context/LanguageContext';
 import { api } from '../lib/api';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
-import ComingSoonCard from '../components/ComingSoonCard';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
 import type { ChargingSession, ChargerApplication, CustomerStackParamList } from '../types';
@@ -25,7 +24,7 @@ import {
   BellIcon, ShieldIcon, HelpCircleIcon, InfoIcon, GlobeIcon,
   LogOutIcon, ChevronRightIcon, UserIcon, CarIcon, PhoneIcon, MailIcon,
   AwardIcon, XIcon, CheckIcon, ZapIcon, BatteryChargingIcon, StarIcon,
-  CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon,
+  CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon, NavigationIcon,
 } from '../components/icons';
 
 // ── Vehicle helpers ────────────────────────────────────────────
@@ -53,10 +52,10 @@ function serializeVehicle(v: VehicleData): string {
 // ── Screen ─────────────────────────────────────────────────────
 
 const AVATAR_KEY = (id: string) => `watt_avatar_${id}`;
-// Per-user keys: these are device-local, but two accounts on the same phone must
-// not inherit each other's waitlist opt-ins or dismissed teasers.
-const COMING_KEY        = (id: string) => `watt_coming_soon_notified_${id}`; // {featureId: true} waitlist opt-ins
-const COMING_HIDDEN_KEY = (id: string) => `watt_coming_soon_hidden_${id}`;   // {featureId: true} dismissed teasers
+// The mobile-charging and trip-planner teasers that used to live here have both
+// shipped, so their waitlist/dismissal state is gone. The old AsyncStorage keys
+// (watt_coming_soon_notified_*, watt_coming_soon_hidden_*) are simply orphaned —
+// a few bytes per account, not worth a migration to delete.
 
 type NavProp = NativeStackNavigationProp<CustomerStackParamList>;
 
@@ -65,6 +64,10 @@ export default function ProfileScreen() {
   const { t, toggleLanguage, isRTL } = useLang();
   const tabBarHeight = useTabBarHeight();
   const navigation = useNavigation<NavProp>();
+  // This screen is reused by the operator (driver) tab, whose stack has none of
+  // the customer routes below. Gate on role instead of forking the screen —
+  // navigating to a route that isn't registered throws at runtime.
+  const isDriver = profile?.role === 'operator';
 
   // Modal visibility
   const [editModal,     setEditModal]     = useState(false);
@@ -80,42 +83,6 @@ export default function ProfileScreen() {
   const [localAvatar,   setLocalAvatar]   = useState<string | null>(null);
   const [avatarLoading, setAvatarLoading] = useState(false);
 
-  // Coming-soon "Notify me" opt-ins + dismissed teasers (persisted locally, per user)
-  const userId = profile?.id ?? null;
-  const [comingNotified, setComingNotified] = useState<Record<string, boolean>>({});
-  const [comingHidden,   setComingHidden]   = useState<Record<string, boolean>>({});
-  useEffect(() => {
-    // Clear first so the previous account's state never flashes on the new one
-    // while the reads are in flight.
-    setComingNotified({});
-    setComingHidden({});
-    if (!userId) return;
-    let active = true;   // ignore a slow read that resolves after another switch
-    AsyncStorage.getItem(COMING_KEY(userId)).then(v => {
-      if (active && v) { try { setComingNotified(JSON.parse(v)); } catch {} }
-    });
-    AsyncStorage.getItem(COMING_HIDDEN_KEY(userId)).then(v => {
-      if (active && v) { try { setComingHidden(JSON.parse(v)); } catch {} }
-    });
-    return () => { active = false; };
-  }, [userId]);
-  const notifyComing = (id: string) => {
-    if (!userId) return;
-    setComingNotified(prev => {
-      const next = { ...prev, [id]: true };
-      AsyncStorage.setItem(COMING_KEY(userId), JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  };
-  const hideComing = (id: string) => {
-    if (!userId) return;
-    setComingHidden(prev => {
-      const next = { ...prev, [id]: true };
-      AsyncStorage.setItem(COMING_HIDDEN_KEY(userId), JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  };
-  const allComingHidden = comingHidden.mobile_charging && comingHidden.trip_planner;
 
   // Edit form state
   const [editName,      setEditName]      = useState(profile?.full_name ?? '');
@@ -335,51 +302,51 @@ export default function ProfileScreen() {
         </View>
 
         {/* ── Investor Application Banner ────────────────────── */}
-        <InvestorBanner
+        {!isDriver && <InvestorBanner
           application={application}
           t={t}
           onApply={() => navigation.navigate('InvestorApplication', {})}
           onReapply={() => navigation.navigate('InvestorApplication', { reapply: true })}
-        />
+        />}
 
-        {/* ── Coming Soon (teasers) — hidden once the user dismisses both ── */}
-        {!allComingHidden && (
-        <View style={{ marginHorizontal: 16, marginTop: 14 }}>
-          <Text style={[styles.sectionTitle, { marginLeft: 4 }, isRTL && { textAlign: 'right', marginLeft: 0, marginRight: 4 }]}>
-            {t.coming_soon_section}
-          </Text>
-          <View style={{ gap: 12 }}>
-            {!comingHidden.mobile_charging && (
-            <ComingSoonCard
-              emoji="⚡"
-              title={t.coming_mobile_title}
-              subtitle={t.coming_mobile_sub}
-              badge={t.coming_badge}
-              notifyLabel={t.coming_notify}
-              notifiedLabel={t.coming_notified}
-              joined={!!comingNotified.mobile_charging}
-              onNotify={() => notifyComing('mobile_charging')}
-              onDismiss={() => hideComing('mobile_charging')}
-              dismissLabel={t.coming_dismiss}
-              isRTL={isRTL}
-            />
-            )}
-            {!comingHidden.trip_planner && (
-            <ComingSoonCard
-              emoji="🗺️"
-              title={t.coming_trip_title}
-              subtitle={t.coming_trip_sub}
-              badge={t.coming_badge}
-              notifyLabel={t.coming_notify}
-              notifiedLabel={t.coming_notified}
-              joined={!!comingNotified.trip_planner}
-              onNotify={() => notifyComing('trip_planner')}
-              onDismiss={() => hideComing('trip_planner')}
-              dismissLabel={t.coming_dismiss}
-              isRTL={isRTL}
-            />
-            )}
-          </View>
+        {/* ── Services ───────────────────────────────────────── */}
+        {/* Both of these shipped; the Coming Soon teasers they replaced used to
+            live here (mobile charging and the trip planner). */}
+        {!isDriver && (
+        <View style={{ marginHorizontal: 16, marginTop: 14, gap: 12 }}>
+          <TouchableOpacity
+            style={[styles.serviceCard, isRTL && { flexDirection: 'row-reverse' }]}
+            onPress={() => navigation.navigate('MobileCharge')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.serviceIcon}>
+              <ZapIcon size={22} color="#fff" strokeWidth={2.4} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.serviceTitle, isRTL && { textAlign: 'right' }]}>{t.mc_entry_title}</Text>
+              <Text style={[styles.serviceSub, isRTL && { textAlign: 'right' }]}>{t.mc_entry_sub}</Text>
+            </View>
+            <View style={isRTL ? { transform: [{ scaleX: -1 }] } : undefined}>
+              <ChevronRightIcon size={18} color={COLORS.textTertiary} strokeWidth={2} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.serviceCard, isRTL && { flexDirection: 'row-reverse' }]}
+            onPress={() => navigation.navigate('TripPlanner')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.serviceIcon, { backgroundColor: COLORS.primaryDark }]}>
+              <NavigationIcon size={22} color="#fff" strokeWidth={2.4} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.serviceTitle, isRTL && { textAlign: 'right' }]}>{t.tp_entry_title}</Text>
+              <Text style={[styles.serviceSub, isRTL && { textAlign: 'right' }]}>{t.tp_entry_sub}</Text>
+            </View>
+            <View style={isRTL ? { transform: [{ scaleX: -1 }] } : undefined}>
+              <ChevronRightIcon size={18} color={COLORS.textTertiary} strokeWidth={2} />
+            </View>
+          </TouchableOpacity>
         </View>
         )}
 
@@ -430,10 +397,18 @@ export default function ProfileScreen() {
         {/* ── Settings ──────────────────────────────────────── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.profile_settings}</Text>
-          <SettingRow Icon={PlugZapIcon}    label={t.cp_edit_row}            onPress={() => navigation.navigate('CompleteProfile')} />
+          {!isDriver && (
+            <SettingRow Icon={PlugZapIcon}  label={t.cp_edit_row}            onPress={() => navigation.navigate('CompleteProfile')} />
+          )}
           <SettingRow Icon={BellIcon}       label={t.profile_notifications}  onPress={() => setNotifModal(true)} />
           <SettingRow Icon={ShieldIcon}     label={t.profile_security}       onPress={() => setSecurityModal(true)} />
           <SettingRow Icon={HistoryIcon}    label={t.profile_history_title}  onPress={() => setHistoryModal(true)} />
+          {!isDriver && (
+            <SettingRow Icon={ZapIcon}      label={t.mc_history_title}       onPress={() => navigation.navigate('MobileChargeHistory')} />
+          )}
+          {!isDriver && (
+            <SettingRow Icon={NavigationIcon} label={t.tp_my_trips}          onPress={() => navigation.navigate('MyTrips')} />
+          )}
           <SettingRow Icon={HelpCircleIcon} label={t.profile_help}           onPress={() => setHelpModal(true)} />
           <SettingRow Icon={InfoIcon}       label={t.profile_about}          onPress={() => setAboutModal(true)} />
           <TouchableOpacity style={[styles.settingRow, styles.settingRowLast]} onPress={toggleLanguage} activeOpacity={0.7}>
@@ -995,6 +970,19 @@ const styles = StyleSheet.create({
   // Section
   section: { backgroundColor: COLORS.card, borderRadius: 22, marginHorizontal: 16, marginTop: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+
+  // Services — live features that used to be Coming Soon teasers
+  serviceCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
+    backgroundColor: COLORS.card, borderRadius: 18,
+    borderWidth: 1, borderColor: COLORS.primaryTint,
+  },
+  serviceIcon: {
+    width: 46, height: 46, borderRadius: 15, backgroundColor: COLORS.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  serviceTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  serviceSub: { fontSize: 12.5, color: COLORS.textSecondary, marginTop: 2 },
 
   // Info rows
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: COLORS.border },

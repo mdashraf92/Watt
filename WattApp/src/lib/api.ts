@@ -1,5 +1,8 @@
 import { ENV } from '../config/env';
 import { tokenStore } from './tokenStore';
+import type {
+  MobileChargeConfig, MobileChargeRequest, OperatorJob, SavedTrip, ServiceVan, TripPlan,
+} from '../types';
 
 // ── GO WATT API client (replaces supabase-js) ───────────────────────────────
 // Talks to the custom backend. Handles JWT access/refresh tokens, transparent
@@ -271,6 +274,98 @@ export const api = {
         coordinates: Array<[number, number]>;
         steps: Array<{ instruction: string; modifier: string | null; name: string; distance_m: number }>;
       }>('POST', '/api/routing/route', { body: { from, to } }),
+  },
+
+  // ── Mobile charging — customer side ──────────────────────────────────────
+  mobile: {
+    config:  () => request<MobileChargeConfig>('GET', '/api/mobile/config'),
+    list:    () => request<MobileChargeRequest[]>('GET', '/api/mobile/requests'),
+    active:  () => request<MobileChargeRequest | null>('GET', '/api/mobile/requests/active'),
+    get:     (id: string) => request<MobileChargeRequest>('GET', `/api/mobile/requests/${id}`),
+    // Places the wallet hold. Raises insufficient_balance (402) exactly like
+    // sessions.start, so the same card-top-up recovery applies.
+    request: (b: { latitude: number; longitude: number; kwh: number; notes?: string; address?: string }) =>
+      request<{ request_id: string; held_amount: number; estimated_cost: number;
+                callout_fee: number; price_per_kwh: number }>('POST', '/api/mobile/requests', { body: b }),
+    cancel:  (id: string, reason?: string) =>
+      request<{ already: boolean; fee: number; released: number; balance: number }>(
+        'POST', `/api/mobile/requests/${id}/cancel`, { body: { reason } }),
+    rate:    (id: string, rating: number, comment?: string) =>
+      request('POST', `/api/mobile/requests/${id}/rate`, { body: { rating, comment } }),
+  },
+
+  // ── Mobile charging — driver side ────────────────────────────────────────
+  operator: {
+    me:       () => request<{ van: ServiceVan | null; active_job: OperatorJob | null }>('GET', '/api/operator/me'),
+    duty:     (on_duty: boolean, at?: { latitude: number; longitude: number }) =>
+      request<ServiceVan>('POST', '/api/operator/duty', { body: { on_duty, ...at } }),
+    location: (latitude: number, longitude: number) =>
+      request('POST', '/api/operator/location', { body: { latitude, longitude } }),
+    jobs:     () => request<{ offered: (OperatorJob & { distance_km: number }) | null; history: OperatorJob[] }>(
+      'GET', '/api/operator/jobs'),
+    job:      (id: string) => request<OperatorJob>('GET', `/api/operator/jobs/${id}`),
+    accept:   (id: string) => request<{ taken: boolean; status: string }>('POST', `/api/operator/jobs/${id}/accept`),
+    decline:  (id: string) => request('POST', `/api/operator/jobs/${id}/decline`),
+    setStatus: (id: string, status: 'en_route' | 'arrived' | 'charging',
+                extra?: { latitude?: number; longitude?: number; eta_minutes?: number }) =>
+      request('POST', `/api/operator/jobs/${id}/status`, { body: { status, ...extra } }),
+    complete: (id: string, p: { kwh: number; battery_end?: number | null; meter_kwh?: number | null }) =>
+      request<{ already: boolean; cost: number; kwh: number; balance: number }>(
+        'POST', `/api/operator/jobs/${id}/complete`, { body: p }),
+  },
+
+  // ── Fleet + mobile-job oversight (admin) ─────────────────────────────────
+  fleet: {
+    vans:      () => request<ServiceVan[]>('GET', '/api/admin/vans'),
+    operators: () => request<Array<{ id: string; full_name: string; phone: string;
+                                     van_id: string | null; van_label: string | null }>>(
+      'GET', '/api/admin/operators'),
+    createVan: (v: Partial<ServiceVan> & { label: string; capacity_kwh: number }) =>
+      request<ServiceVan>('POST', '/api/admin/vans', { body: v }),
+    updateVan: (id: string, patch: Partial<ServiceVan>) =>
+      request<ServiceVan>('PATCH', `/api/admin/vans/${id}`, { body: patch }),
+    refillVan: (id: string) => request<ServiceVan>('POST', `/api/admin/vans/${id}/refill`),
+    removeVan: (id: string) => request('DELETE', `/api/admin/vans/${id}`),
+    requests:  (status?: string) =>
+      request<Array<MobileChargeRequest & { customer_name: string; customer_phone: string;
+                                           operator_name: string | null; van_label: string | null }>>(
+        'GET', '/api/admin/mobile/requests', { query: status ? { status } : undefined }),
+    live:      () => request<{ vans: ServiceVan[]; requests: Array<MobileChargeRequest & { customer_name: string }> }>(
+      'GET', '/api/admin/mobile/live'),
+    cancel:    (id: string, reason?: string) =>
+      request('POST', `/api/admin/mobile/requests/${id}/cancel`, { body: { reason } }),
+  },
+
+  // ── Trip planner ─────────────────────────────────────────────────────────
+  trips: {
+    // Stateless: computes a plan, saves nothing. The app decides what to keep.
+    plan: (b: {
+      from: { latitude: number; longitude: number };
+      to: { latitude: number; longitude: number };
+      waypoints?: Array<{ latitude: number; longitude: number }>;
+      battery_kwh: number;
+      start_soc_pct: number;
+      reserve_soc_pct?: number;
+      consumption_kwh_per_100km?: number;
+      connector_type?: string | null;
+    }) => request<TripPlan>('POST', '/api/routing/plan', { body: b }),
+
+    list:   () => request<SavedTrip[]>('GET', '/api/routing/trips'),
+    get:    (id: string) => request<SavedTrip>('GET', `/api/routing/trips/${id}`),
+    save:   (b: {
+      name?: string;
+      from: { latitude: number; longitude: number; label?: string };
+      to:   { latitude: number; longitude: number; label?: string };
+      params: Record<string, any>;
+      plan: Record<string, any>;
+    }) => request<SavedTrip>('POST', '/api/routing/trips', { body: b }),
+    remove: (id: string) => request('DELETE', `/api/routing/trips/${id}`),
+
+    // Only the next unbooked stop may be linked — the server enforces it.
+    attachBooking: (tripId: string, seq: number, booking_id: string) =>
+      request('POST', `/api/routing/trips/${tripId}/stops/${seq}/booking`, { body: { booking_id } }),
+    markStop: (tripId: string, seq: number, action: 'done' | 'skipped') =>
+      request('POST', `/api/routing/trips/${tripId}/stops/${seq}/${action}`),
   },
 
   stationStatus: {

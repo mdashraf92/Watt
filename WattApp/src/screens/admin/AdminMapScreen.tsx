@@ -7,7 +7,7 @@ import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../../
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
-import type { Station } from '../../types';
+import type { MobileChargeRequest, ServiceVan, Station } from '../../types';
 import { api } from '../../lib/api';
 import { realtime } from '../../lib/realtime';
 import { COLORS } from '../../constants/colors';
@@ -44,6 +44,11 @@ export default function AdminMapScreen() {
   const [search,   setSearch]     = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | string>('all');
   const [cardHeight, setCardHeight] = useState(0);
+  // Live fleet overlay. Vans move constantly, so this polls rather than riding
+  // the realtime broadcast — their positions are deliberately kept off it.
+  const [fleet, setFleet] = useState<{ vans: ServiceVan[]; requests: Array<MobileChargeRequest & { customer_name: string }> }>(
+    { vans: [], requests: [] },
+  );
   const tabBarHeight = useTabBarHeight();
   const cardBottom = tabBarHeight + 12;
 
@@ -56,7 +61,14 @@ export default function AdminMapScreen() {
         prev.map(s => s.id === row.id ? { ...s, ...row } : s)
       );
     });
-    return unsub;
+
+    const pullFleet = () => {
+      api.fleet.live().then(setFleet).catch(() => { /* overlay is optional */ });
+    };
+    pullFleet();
+    const fleetTimer = setInterval(pullFleet, 20_000);
+
+    return () => { unsub(); clearInterval(fleetTimer); };
   }, []);
 
   const fetchStations = async () => {
@@ -137,12 +149,30 @@ export default function AdminMapScreen() {
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={OMAN_REGION}
-        markers={visible.map((s): OSMMarkerSpec => ({
-          id: s.id,
-          latitude: s.latitude, longitude: s.longitude,
-          color: STATUS_COLOR[s.status] ?? COLORS.offline,
-          icon: 'zap',
-        }))}
+        markers={[
+          ...visible.map((s): OSMMarkerSpec => ({
+            id: s.id,
+            latitude: s.latitude, longitude: s.longitude,
+            color: STATUS_COLOR[s.status] ?? COLORS.offline,
+            icon: 'zap',
+          })),
+          // Vans on duty, and callouts still waiting for one. Prefixed ids keep
+          // them from colliding with station ids in onMarkerPress.
+          ...fleet.vans
+            .filter(v => v.last_lat != null && v.last_lng != null)
+            .map((v): OSMMarkerSpec => ({
+              id: `van:${v.id}`,
+              latitude: v.last_lat!, longitude: v.last_lng!,
+              color: v.status === 'on_job' ? COLORS.gold : COLORS.primary,
+              icon: 'home',
+            })),
+          ...fleet.requests.map((r): OSMMarkerSpec => ({
+            id: `mcr:${r.id}`,
+            latitude: r.pickup_lat, longitude: r.pickup_lng,
+            color: COLORS.error,
+            icon: 'star',
+          })),
+        ]}
         onMarkerPress={(id) => {
           const s = stations.find(x => x.id === id);
           if (s) setSelected(s);

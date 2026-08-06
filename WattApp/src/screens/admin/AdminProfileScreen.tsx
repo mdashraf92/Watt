@@ -12,7 +12,7 @@ import { COLORS } from '../../constants/colors';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import {
   ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon,
-  UserIcon, MailIcon, AwardIcon, UsersIcon, WalletIcon, TrendingUpIcon,
+  UserIcon, MailIcon, AwardIcon, UsersIcon, WalletIcon, TrendingUpIcon, PlugZapIcon,
 } from '../../components/icons';
 
 export default function AdminProfileScreen() {
@@ -153,6 +153,26 @@ export default function AdminProfileScreen() {
             </View>
             <Text style={styles.langToggle}>›</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminFleet')} activeOpacity={0.7}>
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.primaryBg }]}>
+                <ZapIcon size={16} color={COLORS.primary} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.ad_fleet_title}</Text>
+            </View>
+            <Text style={styles.langToggle}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminMobileRequests')} activeOpacity={0.7}>
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.goldBg }]}>
+                <PlugZapIcon size={16} color={COLORS.gold} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.ad_mobile_title}</Text>
+            </View>
+            <Text style={styles.langToggle}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.settingRow, styles.settingRowLast, isRTL && styles.rowReverse]} onPress={toggleLanguage} activeOpacity={0.7}>
             <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
               <View style={[styles.settingIconWrap, { backgroundColor: '#eff6ff' }]}>

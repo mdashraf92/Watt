@@ -28,7 +28,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon } from '../components/icons';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon } from '../components/icons';
 import { markerForStatus } from '../constants/mapMarkers';
 
 function listingToStation(l: ChargerListing): Station {
@@ -94,6 +94,8 @@ export default function MapScreen() {
   const [unreadCount, setUnreadCount]   = useState(0);
   const [routing,     setRouting]       = useState(false);
   const [routeInfo,   setRouteInfo]     = useState<{ distance_m: number; duration_s: number } | null>(null);
+  // A live mobile-charge callout, so the map can offer a way straight back to it.
+  const [mobileJob,   setMobileJob]     = useState<{ id: string; status: string } | null>(null);
 
   // In-app directions: fetch road geometry from the backend's OSRM proxy and
   // draw it on the map, instead of handing the user off to Google Maps.
@@ -137,11 +139,14 @@ export default function MapScreen() {
   // no account, so the bell is hidden and this never fires for them.
   useFocusEffect(
     useCallback(() => {
-      if (!isAuthenticated) { setUnreadCount(0); return; }
+      if (!isAuthenticated) { setUnreadCount(0); setMobileJob(null); return; }
       let active = true;
       api.notifications.unreadCount()
         .then((r: any) => { if (active) setUnreadCount(r?.count ?? 0); })
         .catch(() => { /* badge is non-critical — leave the last known value */ });
+      api.mobile.active()
+        .then(j => { if (active) setMobileJob(j ? { id: j.id, status: j.status } : null); })
+        .catch(() => { /* absence of a callout is the normal case */ });
       return () => { active = false; };
     }, [isAuthenticated]),
   );
@@ -422,6 +427,24 @@ export default function MapScreen() {
           <LocateIcon size={20} color={COLORS.primary} strokeWidth={2} />
         </TouchableOpacity>
 
+        {/* Roadside rescue. Sits on the map because that is where someone with
+            a flat battery already is — not buried three taps into Profile. */}
+        {isAuthenticated && (
+          <TouchableOpacity
+            style={styles.rescueBtn}
+            onPress={() => navigation.navigate(
+              mobileJob ? 'MobileChargeTracking' : 'MobileCharge',
+              mobileJob ? { requestId: mobileJob.id } : undefined as any,
+            )}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t.mc_entry_title}
+          >
+            <PlugZapIcon size={19} color="#fff" strokeWidth={2.3} />
+            {mobileJob && <View style={styles.rescueLiveDot} />}
+          </TouchableOpacity>
+        )}
+
         {/* Active session banner — just below search */}
         {activeSessionId && !showList && (
           <TouchableOpacity
@@ -658,6 +681,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card, borderRadius: 24, width: 44, height: 44,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
+  rescueBtn: {
+    alignSelf: 'flex-end', marginTop: 10,
+    backgroundColor: COLORS.gold, borderRadius: 24, width: 44, height: 44,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
+  rescueLiveDot: {
+    position: 'absolute', top: 4, right: 4,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: COLORS.primaryDark, borderWidth: 2, borderColor: COLORS.gold,
   },
 
   // Active session banner

@@ -24,6 +24,9 @@ import paymentReturnRoutes from './modules/payments/return.routes';
 import devicesRoutes from './modules/devices/devices.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import routingRoutes from './modules/routing/routing.routes';
+import mobileRoutes from './modules/mobile/mobile.routes';
+import operatorRoutes from './modules/mobile/operator.routes';
+import mobileAdminRoutes from './modules/mobile/admin.routes';
 import statusRoutes from './modules/stations/status.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
 
@@ -51,6 +54,7 @@ export function createApp() {
   app.use('/api/favorites', favoritesRoutes);
   app.use('/api/payouts', payoutsRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/admin', mobileAdminRoutes);   // fleet + mobile-charge oversight
   app.use('/api/superadmin', superadminRoutes);
   app.use('/api/host', hostRoutes);
   app.use('/api/applications', applicationsRoutes);
@@ -59,6 +63,8 @@ export function createApp() {
   app.use('/api/devices', devicesRoutes);
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/routing', routingRoutes);
+  app.use('/api/mobile', mobileRoutes);       // mobile charging — customer side
+  app.use('/api/operator', operatorRoutes);   // mobile charging — driver side
   app.use('/api', statusRoutes);   // /api/stations/:id/status, /api/listings/:id/status
   app.use('/api/jobs', jobsRoutes);   // cron-only (x-job-secret)
 

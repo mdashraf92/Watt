@@ -15,7 +15,11 @@ import { AppError } from '../../lib/errors';
 //   stations         — admin / superadmin only (company network, no owner)
 //   charger_listings — the owning host/investor, or admin / superadmin
 const router = Router();
-router.use(requireAuth);
+// requireAuth is applied PER ROUTE, not with router.use(). This router is mounted
+// at the bare '/api' prefix (its two paths live under different resources), and a
+// blanket router.use() there runs for every '/api/*' request that reaches it —
+// including ones meant for routers mounted later, which it would reject before
+// they ever saw them. That previously swallowed all of '/api/jobs/*'.
 
 const STATION_STATUSES = ['available', 'busy', 'fault', 'offline', 'under_maintenance'] as const;
 const LISTING_STATUSES = ['available', 'offline', 'under_maintenance'] as const;
@@ -35,6 +39,7 @@ function translate(e: any): never {
 
 // PATCH /api/stations/:id/status
 router.patch('/stations/:id/status',
+  requireAuth,
   validateBody(z.object({
     status: z.enum(STATION_STATUSES),
     reason: z.string().max(300).optional(),
@@ -51,6 +56,7 @@ router.patch('/stations/:id/status',
 
 // PATCH /api/stations/listings/:id/status
 router.patch('/listings/:id/status',
+  requireAuth,
   validateBody(z.object({
     status: z.enum(LISTING_STATUSES),
     reason: z.string().max(300).optional(),

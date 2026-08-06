@@ -47,7 +47,28 @@ manual** — no Omani payout provider is wired (Thawani is pay-in only). This is
 accepted gap for launch.
 
 **Admin / Superadmin** — users, customer detail, investor applications, payouts, flagged
-items, analytics, live map, role management. **Status: complete.**
+items, analytics, live map, role management, **van fleet and mobile-charge oversight**.
+**Status: complete.**
+
+**Mobile charging (new)** — a customer with a flat battery calls out a van: pin the
+location, pick the kWh, see the full price, wallet hold placed. The nearest on-duty van
+is offered the job with a countdown; on decline or timeout it goes to the next. The
+customer watches the van move in real time. Billing mirrors station sessions exactly
+(hold → cap at hold → settle → one ledger row), so the existing card top-up recovery
+works unchanged. **Status: code complete; needs vans and drivers before it does anything.**
+
+**Operator (new role)** — van drivers get their own navigator: duty toggle, job offers,
+navigate, arrive, deliver, bill. Location is streamed **while the app is in the
+foreground only**; background location needs `expo-task-manager` plus a store
+justification and was deliberately deferred. Drivers are expected to keep the app open
+on a dash mount.
+
+**Trip planner (new)** — a battery-aware stop planner over the OSRM route: which
+chargers are within the corridor, where you must stop, arrival/departure state of charge
+per leg, cost and time. Reports infeasibility loudly with the exact gap rather than
+returning an optimistic plan. Trips can be saved, and stops booked **one at a time as
+you reach them** — reserving a connector hours ahead only earns a no-show penalty when
+the ETA drifts. **Status: code complete; the planner needs `OSRM_URL` set (§4 B9).**
 
 **Auth** — email + password (validated), phone OTP via iSmartSMS with dev fallback, password
 reset by email. Google / Apple sign-in are **not** implemented — buttons are not shown, so
@@ -72,12 +93,14 @@ release confidence comes from manual regression only. See §6.
 |---|---|---|---|---|
 | **B1** | **Backend has no permanent HTTPS host.** The preview build points at a temporary `trycloudflare.com` tunnel; the production profile points at `https://go-watt.com`, which is the marketing site. Android release builds refuse plain HTTP, so an IP:port backend will not work. | App cannot reach the API at all | DevOps | **4 Aug** |
 | **B2** | Stand up `api.go-watt.com`: DNS, TLS cert, reverse proxy → Node on 8080, `PUBLIC_URL` and `CORS_ORIGIN` set, then `EXPO_PUBLIC_API_URL` in `eas.json` (production + preview) | Same as above | DevOps | **4 Aug** |
-| **B3** | Run the DB scripts on the production database: `backend-compat.sql`, `backend-tables.sql`, `backend-realtime.sql`, `backend-saved-cards.sql`. Confirm the admin/role columns exist there (they were only ever created in the old cloud DB). | Login, realtime and cards fail without them | Backend | **4 Aug** |
+| **B3** | Run the DB scripts on the production database: `backend-compat.sql`, `backend-tables.sql`, `backend-realtime.sql`, `backend-saved-cards.sql`, `backend-mobile-charging.sql`, `backend-trips.sql`. Confirm the admin/role columns exist there (they were only ever created in the old cloud DB). | Login, realtime and cards fail without them | Backend | **4 Aug** |
 | **B4** | **Thawani production**: merchant keys in `.env`, `THAWANI_BASE_URL` → `https://checkout.thawani.om`, and ask Thawani to enable **card saving + Payment Intents** (a separate permission from plain checkout). Test end-to-end with real 0.100 OMR first on UAT. | Top-ups and card payments | Ashraf | **5 Aug** |
 | **B5** | Schedule the cron jobs (`auto-shutoff` every minute, `no-show`, `disburse`, `reminders`, `reconcile-payments`) with `JOB_SECRET`. Auto-shutoff is money-critical: without it a session can outrun its hold. | Revenue leakage | DevOps | **5 Aug** |
 | **B6** | Production credentials for **SMTP** (password reset) and **iSmartSMS** (OTP login, registered sender header) | Users locked out | Ashraf | **5 Aug** |
 | **B7** | Store submission: Android AAB via EAS + Play Console listing, data-safety form, privacy URL. iOS needs the Apple Developer account active. | No release | Mobile | **submit 6 Aug** |
 | **B8** | Full manual regression on a real device against production, in both languages | Only safety net we have | Whole team | **7–8 Aug** |
+| **B9** | **Trip planner needs OSRM.** `/api/routing/plan` returns 503 until `OSRM_URL` points at a routing instance. In-app directions have the same dependency. | Trip planner unusable | DevOps | **6 Aug** |
+| **B10** | **Mobile charging needs a fleet before launch day**: run `backend-mobile-charging.sql`, create the `operator` accounts, add each van in Admin › Fleet and assign a driver. An unassigned van is invisible to dispatch. Schedule the `mobile-dispatch` cron — without it an unanswered offer stalls and the customer's money stays held. | Feature is live but takes no jobs | Ashraf + DevOps | **7 Aug** |
 
 ### Realistic call on the date
 Android on 10 August is achievable if B1–B3 land by 4 August. **iOS is the risk** — first-time
@@ -95,7 +118,9 @@ compressing testing to hit both.
 - Today's payment work is **uncommitted on `main`** — branch and commit it.
 - Automatic bank payout for investors (needs an Omani payout provider).
 - Google / Apple sign-in.
-- Mobile-charging and trip-planner teasers stay as waitlist cards.
+- Background location for drivers (foreground-only today — see §3).
+- Place-name search in the trip planner: it currently searches our own stations only,
+  since no third-party geocoder is wired up. Picking any point on the map works.
 
 ---
 
