@@ -4,15 +4,18 @@ import React, {
 import { StyleProp, View, ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import { ENV } from '../config/env';
 import {
   BRAND_MARKERS, MARKER_SIZE, MARKER_ANCHOR,
   USER_MARKER_SIZE, USER_MARKER_ANCHOR,
 } from '../constants/mapMarkers';
 
-// Free OpenStreetMap map rendered with Leaflet inside a WebView.
-// No API key, no billing, works in Expo Go. Mirrors the small slice of the
-// react-native-maps API this app uses, so swapping back to Google Maps
-// later is a one-file change per screen.
+// Map rendered with Leaflet inside a WebView — no native map SDK, works in
+// Expo Go. Tiles come from Mapbox (EXPO_PUBLIC_MAPBOX_TOKEN) when configured;
+// falls back to plain OpenStreetMap tiles if the token is ever blank, so a
+// missing/expired token degrades the map rather than breaking it. Mirrors
+// the small slice of the react-native-maps API this app uses, so swapping to
+// a native SDK later is still a one-file change.
 
 export interface OSMRegion {
   latitude: number;
@@ -64,6 +67,7 @@ const GLYPHS: Record<string, string> = {
 
 function buildHtml(region: OSMRegion, interactive: boolean): string {
   const zoom = deltaToZoom(region.latitudeDelta);
+  const MAPBOX_TOKEN = ENV.mapboxToken;
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -105,10 +109,19 @@ function buildHtml(region: OSMRegion, interactive: boolean): string {
     boxZoom: false, keyboard: false, tap: ${interactive},
   }).setView([${region.latitude}, ${region.longitude}], ${zoom});
 
+  ${MAPBOX_TOKEN ? `
+  L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}@2x?access_token={accessToken}', {
+    maxZoom: 22,
+    tileSize: 512,
+    zoomOffset: -1,
+    id: 'mapbox/streets-v12',
+    accessToken: '${MAPBOX_TOKEN}',
+    attribution: '&copy; Mapbox &copy; OpenStreetMap',
+  }).addTo(map);` : `
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap',
-  }).addTo(map);
+  }).addTo(map);`}
 
   var markerLayer = L.layerGroup().addTo(map);
   var userMarker = null;

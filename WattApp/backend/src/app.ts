@@ -29,6 +29,9 @@ import operatorRoutes from './modules/mobile/operator.routes';
 import mobileAdminRoutes from './modules/mobile/admin.routes';
 import statusRoutes from './modules/stations/status.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
+import waitlistRoutes from './modules/waitlist/waitlist.routes';
+import reportsRoutes from './modules/reports/reports.routes';
+import sessionsAdminRoutes from './modules/sessions/admin.routes';
 
 export function createApp() {
   const app = express();
@@ -36,7 +39,9 @@ export function createApp() {
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(','), credentials: true }));
-  app.use(express.json({ limit: '1mb' }));
+  // 3mb (up from 1mb) to fit base64 photo attachments (support reports,
+  // post-session completion photos) alongside ordinary JSON bodies.
+  app.use(express.json({ limit: '3mb' }));
   app.use(attachUser);
 
   app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
@@ -67,6 +72,9 @@ export function createApp() {
   app.use('/api/operator', operatorRoutes);   // mobile charging — driver side
   app.use('/api', statusRoutes);   // /api/stations/:id/status, /api/listings/:id/status
   app.use('/api/jobs', jobsRoutes);   // cron-only (x-job-secret)
+  app.use('/api/waitlist', waitlistRoutes);   // public POST from the marketing site; admin-only reads
+  app.use('/api/reports', reportsRoutes);   // "report a problem" — own reports + /admin inbox
+  app.use('/api/admin', sessionsAdminRoutes);   // active-session oversight (force-stop / refund)
 
   app.use(notFoundHandler);
   app.use(errorHandler);

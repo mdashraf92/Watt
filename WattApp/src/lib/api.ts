@@ -1,7 +1,8 @@
 import { ENV } from '../config/env';
 import { tokenStore } from './tokenStore';
 import type {
-  MobileChargeConfig, MobileChargeRequest, OperatorJob, SavedTrip, ServiceVan, TripPlan,
+  MobileChargeConfig, MobileChargeRequest, OperatorJob, SavedTrip, ServiceVan, TripPlan, SupportReport,
+  ChargerListing,
 } from '../types';
 
 // ── GO WATT API client (replaces supabase-js) ───────────────────────────────
@@ -149,6 +150,7 @@ export const api = {
 
   chargers: {
     listAvailable: () => request('GET', '/api/chargers'),
+    get:           (id: string) => request<ChargerListing>('GET', `/api/chargers/${id}`),
     reviews:       (id: string) => request('GET', `/api/chargers/${id}/reviews`),
   },
 
@@ -171,6 +173,9 @@ export const api = {
       request('POST', `/api/sessions/${id}/complete`, { body: p }),
     rate:     (id: string, rating: number, comment?: string) =>
       request('POST', `/api/sessions/${id}/rate`, { body: { rating, comment } }),
+    uploadPhoto: (id: string, photo_base64: string) =>
+      request<{ id: string; completion_photo_base64: string; completion_photo_taken_at: string }>(
+        'POST', `/api/sessions/${id}/photo`, { body: { photo_base64 } }),
   },
 
   wallet: {
@@ -185,6 +190,12 @@ export const api = {
       charger_type: string; power_kw?: number | null;
       electricity_form_name: string; commercial_registration: string; id_card_number: string;
     }) => request('POST', '/api/applications', { body: data }),
+  },
+
+  reports: {
+    create: (b: { category: string; description: string; photo_base64?: string | null; booking_id?: string | null; session_id?: string | null }) =>
+      request<SupportReport>('POST', '/api/reports', { body: b }),
+    list: () => request<SupportReport[]>('GET', '/api/reports'),
   },
 
   favorites: {
@@ -220,6 +231,13 @@ export const api = {
       request('PATCH', `/api/admin/listings/${id}`, { body: patch }),
     application:  (id: string, action: 'accept' | 'reject' | 'review') =>
       request('POST', `/api/admin/applications/${id}/${action}`, { body: {} }),
+    investorEarnings: (userId: string) => request<InvestorEarningsReport>('GET', `/api/admin/investors/${userId}/earnings`),
+    reports:       (status?: string) => request<SupportReport[]>('GET', '/api/reports/admin', { query: { status } }),
+    reportRespond: (id: string, message: string) => request<SupportReport>('POST', `/api/reports/admin/${id}/respond`, { body: { message } }),
+    reportClose:   (id: string) => request<SupportReport>('POST', `/api/reports/admin/${id}/close`),
+    activeSessions: () => request<AdminActiveSession[]>('GET', '/api/admin/sessions/active'),
+    forceStopSession: (id: string, mode: 'bill' | 'refund', reason?: string) =>
+      request('POST', `/api/admin/sessions/${id}/force-stop`, { body: { mode, reason } }),
   },
 
   superadmin: {
@@ -227,6 +245,12 @@ export const api = {
     setAdmin:    (identifier: string, make: boolean) => request('POST', '/api/superadmin/admins', { body: { identifier, make } }),
     settings:    () => request('GET', '/api/superadmin/settings'),
     setSetting:  (key: string, value: string) => request('PUT', '/api/superadmin/settings', { body: { key, value } }),
+    overstaySettings: () => request<OverstaySettings>('GET', '/api/superadmin/overstay-settings'),
+    setOverstaySettings: (s: OverstaySettings) =>
+      request<OverstaySettings>('PUT', '/api/superadmin/overstay-settings', { body: s }),
+    mobileSettings: () => request<MobileSettings>('GET', '/api/superadmin/mobile-settings'),
+    setMobileSettings: (s: MobileSettings) =>
+      request<MobileSettings>('PUT', '/api/superadmin/mobile-settings', { body: s }),
   },
 
   host: {
@@ -394,6 +418,57 @@ export const api = {
     markRead:    (ids: string[]) => request('POST', '/api/notifications/read', { body: { ids } }),
     markAllRead: () => request('POST', '/api/notifications/read-all'),
   },
+};
+
+export type AdminActiveSession = {
+  id: string;
+  started_at: string;
+  kwh_delivered: number;
+  cost: number;
+  held_amount: number;
+  customer_name: string;
+  customer_phone: string;
+  charger_name: string | null;
+  booked_end: string | null;
+};
+
+export type OverstaySettings = {
+  overstay_grace_minutes: number;
+  overstay_fee_per_minute: number;
+  overstay_max_minutes: number;
+};
+
+export type InvestorEarningsTransaction = {
+  id: string;
+  amount: number;
+  description: string;
+  created_at: string;
+  session_id: string | null;
+  kwh_delivered: number | null;
+  cost: number | null;
+  started_at: string | null;
+  ended_at: string | null;
+  charger_name: string | null;
+};
+
+export type InvestorEarningsReport = {
+  investor: {
+    id: string; full_name: string; phone: string; wallet_balance: number;
+    payout_bank_name: string | null; payout_account_holder: string | null; payout_iban: string | null;
+  };
+  listing: { id: string; station_name: string | null; address: string; price_per_kwh: number } | null;
+  transactions: InvestorEarningsTransaction[];
+  total_earnings: number;
+};
+
+export type MobileSettings = {
+  mobile_enabled: boolean;
+  mobile_callout_fee: number;
+  mobile_price_per_kwh: number;
+  mobile_min_kwh: number;
+  mobile_max_kwh: number;
+  mobile_cancel_fee: number;
+  mobile_service_radius_km: number;
 };
 
 export type AppNotification = {

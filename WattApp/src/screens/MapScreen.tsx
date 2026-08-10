@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Station, ChargerListing } from '../types';
 import { api } from '../lib/api';
+import { listingToStation } from '../lib/listingToStation';
 import { realtime } from '../lib/realtime';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
@@ -30,26 +31,6 @@ import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
 import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon } from '../components/icons';
 import { markerForStatus } from '../constants/mapMarkers';
-
-function listingToStation(l: ChargerListing): Station {
-  return {
-    id: l.id,
-    name: l.station_name ? `🏠 ${l.station_name}` : `🏠 ${l.host_name ?? 'Private Charger'}`,
-    address: l.address,
-    latitude: l.latitude,
-    longitude: l.longitude,
-    status: l.is_available ? 'available' : 'offline',
-    price_per_kwh: l.price_per_kwh,
-    total_connectors: 1,
-    available_connectors: l.is_available ? 1 : 0,
-    rating: l.rating,
-    total_ratings: l.total_ratings,
-    power_kw: l.power_kw,
-    operating_hours: `${l.availability_start ?? '08:00'} – ${l.availability_end ?? '22:00'}`,
-    governorate: '',
-    created_at: l.created_at,
-  };
-}
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available,
@@ -94,6 +75,7 @@ export default function MapScreen() {
   const [unreadCount, setUnreadCount]   = useState(0);
   const [routing,     setRouting]       = useState(false);
   const [routeInfo,   setRouteInfo]     = useState<{ distance_m: number; duration_s: number } | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   // A live mobile-charge callout, so the map can offer a way straight back to it.
   const [mobileJob,   setMobileJob]     = useState<{ id: string; status: string } | null>(null);
 
@@ -153,6 +135,25 @@ export default function MapScreen() {
 
   const listAnim       = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Rescue button pulse — conveys urgency through motion rather than a new
+  // color, so it stays on-brand (gold) while still reading as "act now",
+  // distinct from the report flow's static warning-triangle icon.
+  const rescuePulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(rescuePulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(rescuePulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  const rescueRingStyle = {
+    transform: [{ scale: rescuePulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] }) }],
+    opacity: rescuePulse.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0.55, 0.25, 0] }),
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -241,6 +242,7 @@ export default function MapScreen() {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status === 'granted') {
       const loc = await Location.getCurrentPositionAsync({});
+      setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
       mapRef.current?.animateToRegion({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
@@ -249,6 +251,21 @@ export default function MapScreen() {
       }, 800);
     }
   };
+
+  // Straight-line distance (km) — good enough for "how far is this charger"
+  // at a glance; showDirections() gives the real road distance on request.
+  const distanceKm = useCallback((lat: number, lng: number): number | null => {
+    if (!userLocation) return null;
+    const R = 6371;
+    const dLat = (lat - userLocation.latitude) * Math.PI / 180;
+    const dLng = (lng - userLocation.longitude) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(userLocation.latitude * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }, [userLocation]);
+
+  const formatDistance = (km: number) => km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 
   const toggleList = () => {
     const toValue = showList ? 0 : 1;
@@ -296,6 +313,8 @@ export default function MapScreen() {
     const onPress = isListing
       ? () => selectListing(listings.find(l => l.id === item.id)!)
       : () => selectStation(item);
+    const km = distanceKm(item.latitude, item.longitude);
+    const distText = km != null ? formatDistance(km) : null;
     const subText = isListing
       ? item.operating_hours ?? ''
       : `${translateGov(item.governorate, isRTL)} • ${item.available_connectors}/${item.total_connectors} ${t.map_available}`;
@@ -315,10 +334,13 @@ export default function MapScreen() {
             {subText}
           </Text>
         </View>
-        <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
+        <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+          <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
+          {distText && <Text style={styles.listCardDistance}>{distText}</Text>}
+        </View>
       </TouchableOpacity>
     );
-  }, [isRTL, t, listingIdSet, listings, favStationIds]);
+  }, [isRTL, t, listingIdSet, listings, favStationIds, distanceKm]);
 
   const isInvestor = profile?.role === 'investor' || profile?.role === 'host';
 
@@ -430,19 +452,22 @@ export default function MapScreen() {
         {/* Roadside rescue. Sits on the map because that is where someone with
             a flat battery already is — not buried three taps into Profile. */}
         {isAuthenticated && (
-          <TouchableOpacity
-            style={styles.rescueBtn}
-            onPress={() => navigation.navigate(
-              mobileJob ? 'MobileChargeTracking' : 'MobileCharge',
-              mobileJob ? { requestId: mobileJob.id } : undefined as any,
-            )}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={t.mc_entry_title}
-          >
-            <PlugZapIcon size={19} color="#fff" strokeWidth={2.3} />
-            {mobileJob && <View style={styles.rescueLiveDot} />}
-          </TouchableOpacity>
+          <View style={styles.rescueWrap}>
+            <Animated.View style={[styles.rescueRing, rescueRingStyle]} pointerEvents="none" />
+            <TouchableOpacity
+              style={styles.rescueBtn}
+              onPress={() => navigation.navigate(
+                mobileJob ? 'MobileChargeTracking' : 'MobileCharge',
+                mobileJob ? { requestId: mobileJob.id } : undefined as any,
+              )}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t.mc_entry_title}
+            >
+              <PlugZapIcon size={22} color="#fff" strokeWidth={2.5} />
+              {mobileJob && <View style={styles.rescueLiveDot} />}
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Active session banner — just below search */}
@@ -532,6 +557,7 @@ export default function MapScreen() {
               <Text style={styles.selectedSub}>{selectedListing.address}</Text>
               <Text style={styles.selectedSub}>
                 {selectedListing.charger_type} · {selectedListing.power_kw} kW · {selectedListing.availability_start}–{selectedListing.availability_end}
+                {(() => { const km = distanceKm(selectedListing.latitude, selectedListing.longitude); return km != null ? ` · ${formatDistance(km)}` : ''; })()}
               </Text>
             </View>
             <View style={styles.selectedRight}>
@@ -549,19 +575,28 @@ export default function MapScreen() {
                 <Text style={styles.bookBtnText}>{t.inv_charger_tab}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
-                onPress={() => {
-                  if (!isAuthenticated) { navigation.getParent()?.navigate('SignIn'); return; }
-                  selectedListing.is_available && navigation.navigate('Booking', {
-                    station: listingToStation(selectedListing),
-                    listingId: selectedListing.id,
-                  });
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.bookBtnText}>{selectedListing.is_available ? t.map_book : t.map_unavailable}</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={styles.detailsBtn}
+                  onPress={() => { setSelectedListing(null); navigation.navigate('StationDetails', { listingId: selectedListing.id }); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.detailsBtnText}>{t.map_details}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
+                  onPress={() => {
+                    if (!isAuthenticated) { navigation.getParent()?.navigate('SignIn'); return; }
+                    selectedListing.is_available && navigation.navigate('Booking', {
+                      station: listingToStation(selectedListing),
+                      listingId: selectedListing.id,
+                    });
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.bookBtnText}>{selectedListing.is_available ? t.map_book : t.map_unavailable}</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
           <TouchableOpacity style={styles.dismissBtn} onPress={() => setSelectedListing(null)}>
@@ -579,7 +614,10 @@ export default function MapScreen() {
                 <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[selected.status] }]} />
                 <Text style={styles.selectedName} numberOfLines={1}>{selected.name}</Text>
               </View>
-              <Text style={styles.selectedSub}>{translateGov(selected.governorate, isRTL)} · {selected.available_connectors} / {selected.total_connectors} {t.map_available}</Text>
+              <Text style={styles.selectedSub}>
+                {translateGov(selected.governorate, isRTL)} · {selected.available_connectors} / {selected.total_connectors} {t.map_available}
+                {(() => { const km = distanceKm(selected.latitude, selected.longitude); return km != null ? ` · ${formatDistance(km)}` : ''; })()}
+              </Text>
               <Text style={styles.selectedStatus}>{STATUS_LABEL[selected.status]}</Text>
             </View>
             <View style={styles.selectedRight}>
@@ -682,11 +720,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, elevation: 3,
   },
-  rescueBtn: {
+  rescueWrap: {
     alignSelf: 'flex-end', marginTop: 10,
+    width: 44, height: 44,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rescueRing: {
+    position: 'absolute',
+    width: 44, height: 44, borderRadius: 24,
+    backgroundColor: COLORS.gold,
+  },
+  rescueBtn: {
     backgroundColor: COLORS.gold, borderRadius: 24, width: 44, height: 44,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowOffset: { width: 0, height: 2 }, elevation: 4,
   },
   rescueLiveDot: {
     position: 'absolute', top: 4, right: 4,
@@ -756,6 +803,7 @@ const styles = StyleSheet.create({
   listCardName: { fontSize: 14, fontWeight: '600', color: COLORS.text },
   listCardSub:  { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   listCardPrice:{ fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  listCardDistance: { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
 
   selectedCard: {
     position: 'absolute', bottom: 80, left: 16, right: 16,

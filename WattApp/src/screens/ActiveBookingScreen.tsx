@@ -125,7 +125,7 @@ export default function ActiveBookingScreen() {
               `${t.charging_insufficient_msg} ${(short ?? 0).toFixed(3)} OMR`,
               [
                 { text: t.cancel, style: 'cancel' },
-                { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
+                { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs', { screen: 'Wallet' }) },
               ],
             );
             return;
@@ -237,7 +237,11 @@ export default function ActiveBookingScreen() {
             Icon={MapPinIcon}
             iconColor="#7c3aed" iconBg="#f5f3ff"
             label={t.active_station}
-            value={booking.station ? stationDisplayName(booking.station, isRTL) : '—'}
+            value={
+              booking.station
+                ? stationDisplayName(booking.station, isRTL)
+                : booking.listing?.station_name || booking.listing?.address || '—'
+            }
           />
           <InfoRow
             Icon={CalendarIcon}

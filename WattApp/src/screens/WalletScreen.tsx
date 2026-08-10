@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,13 +23,22 @@ import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
 import {
-  WalletIcon, PlusIcon, XIcon, CheckIcon,
-  ArrowUpIcon, ZapIcon, RotateCcwIcon, GiftIcon, CreditCardIcon,
+  WalletIcon, PlusIcon, XIcon,
+  ArrowUpIcon, ZapIcon, RotateCcwIcon, GiftIcon, CreditCardIcon, ChevronRightIcon,
 } from '../components/icons';
 import ErrorView from '../components/ErrorView';
 import GradientButton from '../components/GradientButton';
+import PaymentMethodsSection from '../components/PaymentMethodsSection';
 
-const TOP_UP_AMOUNTS = [5, 10, 20, 50];
+const MIN_TOP_UP = 1;
+const MAX_TOP_UP = 50;
+
+/** Clamp to [MIN_TOP_UP, MAX_TOP_UP], defaulting invalid/empty input to the minimum. */
+function clampTopUp(raw: string): number {
+  const n = parseFloat(raw);
+  if (!n || Number.isNaN(n)) return MIN_TOP_UP;
+  return Math.min(MAX_TOP_UP, Math.max(MIN_TOP_UP, Math.round(n * 1000) / 1000));
+}
 
 const TX_ICON_COMPONENT: Record<string, React.ComponentType<any>> = {
   topup: ArrowUpIcon,
@@ -71,8 +81,16 @@ export default function WalletScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
-  const [selectedAmount, setSelectedAmount] = useState(10);
+  const [showCards, setShowCards] = useState(false);
+  const [amountText, setAmountText] = useState('10');
   const [topUpLoading, setTopUpLoading] = useState(false);
+  const selectedAmount = clampTopUp(amountText);
+
+  // Snap the typed text to the clamped value once the user finishes editing —
+  // e.g. 0.5 becomes 1, 100 becomes 50 — rather than correcting mid-keystroke.
+  const handleAmountBlur = () => {
+    setAmountText(String(clampTopUp(amountText)));
+  };
   const [txFilter, setTxFilter] = useState<'all' | 'topup' | 'charge' | 'refund' | 'bonus'>('all');
 
   useEffect(() => { fetchTransactions(); }, [profile?.id]);
@@ -204,7 +222,7 @@ export default function WalletScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.topUpBtn} onPress={() => setShowTopUp(true)} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.topUpBtn} onPress={() => { setAmountText('10'); setShowTopUp(true); }} activeOpacity={0.85}>
           <PlusIcon size={16} color={COLORS.textOnGold} strokeWidth={2.5} />
           <Text style={styles.topUpBtnText}>{t.wallet_top_up_clean}</Text>
         </TouchableOpacity>
@@ -213,6 +231,15 @@ export default function WalletScreen() {
       {heldBalance > 0 && (
         <Text style={styles.holdHint}>{t.wallet_on_hold_hint}</Text>
       )}
+
+      {/* Payment methods entry point */}
+      <TouchableOpacity style={styles.paymentMethodsRow} onPress={() => setShowCards(true)} activeOpacity={0.8}>
+        <View style={styles.paymentMethodsIcon}>
+          <CreditCardIcon size={18} color={COLORS.primary} strokeWidth={2} />
+        </View>
+        <Text style={styles.paymentMethodsText}>{t.wallet_manage_cards}</Text>
+        <ChevronRightIcon size={18} color={COLORS.textTertiary} strokeWidth={2} />
+      </TouchableOpacity>
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -290,23 +317,22 @@ export default function WalletScreen() {
             </View>
             <Text style={styles.modalSub}>{t.wallet_modal_sub}</Text>
 
-            {/* Amount selection */}
-            <View style={styles.amountsGrid}>
-              {TOP_UP_AMOUNTS.map(a => (
-                <TouchableOpacity
-                  key={a}
-                  style={[styles.amountChip, a === selectedAmount && styles.amountChipActive]}
-                  onPress={() => setSelectedAmount(a)}
-                >
-                  {a === selectedAmount && (
-                    <CheckIcon size={14} color={COLORS.primary} strokeWidth={2.5} />
-                  )}
-                  <Text style={[styles.amountText, a === selectedAmount && styles.amountTextActive]}>
-                    {a} OMR
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* Amount entry */}
+            <View style={styles.amountInputBox}>
+              <TextInput
+                style={styles.amountInput}
+                value={amountText}
+                onChangeText={setAmountText}
+                onBlur={handleAmountBlur}
+                keyboardType="decimal-pad"
+                selectTextOnFocus
+                maxLength={6}
+              />
+              <Text style={styles.amountInputUnit}>OMR</Text>
             </View>
+            <Text style={styles.amountHint}>
+              {t.wallet_amount_hint.replace('{min}', String(MIN_TOP_UP)).replace('{max}', String(MAX_TOP_UP))}
+            </Text>
 
             {/* Summary */}
             <View style={styles.summaryBox}>
@@ -340,6 +366,24 @@ export default function WalletScreen() {
               onPress={handleTopUp}
               loading={topUpLoading}
             />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Payment Methods Modal — same Thawani add-card flow as Profile → Complete Profile */}
+      <Modal visible={showCards} transparent animationType="slide" onRequestClose={() => setShowCards(false)}>
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowCards(false)} activeOpacity={1}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 24) + 8, maxHeight: '85%' }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalTitleRow}>
+              <Text style={styles.modalTitle}>{t.wallet_manage_cards}</Text>
+              <TouchableOpacity onPress={() => setShowCards(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <PaymentMethodsSection showWalletRow={false} />
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -430,6 +474,18 @@ const styles = StyleSheet.create({
     fontSize: 12, color: COLORS.textSecondary,
     textAlign: 'center', marginHorizontal: 32, marginTop: -4, marginBottom: 8,
   },
+
+  // Payment methods entry point
+  paymentMethodsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border,
+    marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 13,
+  },
+  paymentMethodsIcon: {
+    width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.primaryBg,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  paymentMethodsText: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.text },
 
   // Stats
   statsRow: {
@@ -534,23 +590,28 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
   modalSub: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 20 },
-  amountsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  amountChip: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
+  amountInputBox: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.background,
-  },
-  amountChipActive: {
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 18,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primaryBg,
+    marginBottom: 8,
   },
-  amountText: { fontSize: 15, fontWeight: '700', color: COLORS.text },
-  amountTextActive: { color: COLORS.primary },
+  amountInput: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: COLORS.text,
+    minWidth: 90,
+    textAlign: 'right',
+    padding: 0,
+  },
+  amountInputUnit: { fontSize: 16, fontWeight: '700', color: COLORS.textSecondary },
+  amountHint: { fontSize: 12, color: COLORS.textTertiary, textAlign: 'center', marginBottom: 20 },
 
   // Summary
   summaryBox: {

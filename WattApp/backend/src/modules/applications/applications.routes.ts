@@ -4,6 +4,7 @@ import { asyncHandler } from '../../middleware/error';
 import { requireAuth } from '../../middleware/auth';
 import { validateBody } from '../../middleware/validate';
 import { query } from '../../db/pool';
+import { notify } from '../../integrations/notify';
 
 // Investor / charger applications submitted by the user.
 const router = Router();
@@ -47,7 +48,21 @@ router.post('/',
        b.latitude, b.longitude, b.charger_type, b.power_kw ?? null,
        b.electricity_form_name, b.commercial_registration, b.id_card_number],
     );
-    res.status(201).json(rows[0]);
+    const application = rows[0];
+
+    const { rows: admins } = await query(`select id from public.profiles where role in ('admin','superadmin')`);
+    if (admins.length) {
+      notify({
+        userIds: admins.map(a => a.id),
+        category: 'booking',
+        kind: 'investor_application_submitted',
+        title: 'New investor application',
+        body: `${application.full_name} applied to host a charger in ${application.governorate}.`,
+        data: { application_id: application.id },
+      }).catch(() => {});
+    }
+
+    res.status(201).json(application);
   }),
 );
 

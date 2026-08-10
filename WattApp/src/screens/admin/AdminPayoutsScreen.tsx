@@ -8,7 +8,7 @@ import { useLang } from '../../context/LanguageContext';
 import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import type { PayoutRequest } from '../../types';
-import { ArrowLeftIcon, WalletIcon } from '../../components/icons';
+import { ArrowLeftIcon, WalletIcon, ClipboardIcon } from '../../components/icons';
 import PayoutStatusBadge from '../../components/PayoutStatusBadge';
 
 export default function AdminPayoutsScreen() {
@@ -17,10 +17,14 @@ export default function AdminPayoutsScreen() {
 
   const [requests, setRequests] = useState<PayoutRequest[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [busyId, setBusyId]     = useState<string | null>(null);
   const [filter, setFilter]     = useState<'all' | 'processing' | 'paid' | 'failed'>('all');
 
-  // Read-only settlement log. Payouts are sent to investors' banks
-  // automatically by the disburse-payouts job — no approve/reject here.
+  // Automatic disbursement (disburse-payouts) is switched off until a real
+  // Oman payout provider is wired up, so nothing actually resolves a
+  // 'processing' request today. Mark-paid/reject is restored here so admin
+  // can still complete a payout by transferring the money manually and
+  // recording it, instead of it sitting unresolved forever.
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
@@ -33,7 +37,34 @@ export default function AdminPayoutsScreen() {
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
+  const process = (item: PayoutRequest, action: 'paid' | 'reject') => {
+    Alert.alert(
+      action === 'paid' ? t.admin_payout_confirm_paid_title : t.admin_payout_confirm_reject_title,
+      action === 'paid' ? t.admin_payout_confirm_paid_msg : t.admin_payout_confirm_reject_msg,
+      [
+        { text: t.cancel, style: 'cancel' },
+        {
+          text: t.confirm,
+          style: action === 'reject' ? 'destructive' : 'default',
+          onPress: async () => {
+            setBusyId(item.id);
+            try {
+              await api.payouts.process(item.id, action);
+              await fetchRequests();
+            } catch (e: any) {
+              Alert.alert(t.error, e.message);
+            } finally {
+              setBusyId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderItem = ({ item }: { item: PayoutRequest }) => {
+    const actionable = item.status !== 'paid' && item.status !== 'failed';
+    const busy = busyId === item.id;
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
@@ -53,6 +84,36 @@ export default function AdminPayoutsScreen() {
         </View>
 
         <Text style={styles.date}>{new Date(item.requested_at).toLocaleString()}</Text>
+
+        <TouchableOpacity
+          style={styles.reportBtn}
+          onPress={() => navigation.navigate('AdminInvestorEarnings', { userId: item.user_id })}
+          activeOpacity={0.8}
+        >
+          <ClipboardIcon size={14} color={COLORS.primary} strokeWidth={2} />
+          <Text style={styles.reportBtnText}>{t.admin_earn_view_report}</Text>
+        </TouchableOpacity>
+
+        {actionable && (
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.rejectBtn]}
+              onPress={() => process(item, 'reject')}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              {busy ? <ActivityIndicator color={COLORS.error} size="small" /> : <Text style={styles.rejectText}>{t.admin_payout_reject}</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.paidBtn]}
+              onPress={() => process(item, 'paid')}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.paidText}>{t.admin_payout_mark_paid}</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
@@ -137,6 +198,12 @@ const styles = StyleSheet.create({
   bankIban: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2, letterSpacing: 0.5 },
   date: { fontSize: 11, color: COLORS.textTertiary },
 
+  reportBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.primaryTint,
+    backgroundColor: COLORS.primaryBg,
+  },
+  reportBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
   actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
   rejectBtn: { backgroundColor: COLORS.errorBg, borderWidth: 1, borderColor: '#fecaca' },

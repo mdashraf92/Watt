@@ -557,3 +557,14 @@ export function PlugZapIcon({ size = 24, color = '#000', strokeWidth = 2 }: Icon
     </Svg>
   );
 }
+
+export function AlertTriangleIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m10.29 3.86-8.18 14.19A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.71-2.95L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <Line x1={12} y1={9} x2={12} y2={13} />
+      <Line x1={12} y1={17} x2={12.01} y2={17} />
+    </Svg>
+  );
+}

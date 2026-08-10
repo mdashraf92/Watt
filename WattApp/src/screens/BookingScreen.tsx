@@ -364,7 +364,7 @@ export default function BookingScreen() {
     if (profile.wallet_balance < -0.5) {
       Alert.alert(t.booking_debt_title, `${t.booking_debt_msg} ${Math.abs(profile.wallet_balance).toFixed(3)} OMR`, [
         { text: t.cancel, style: 'cancel' },
-        { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
+        { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs', { screen: 'Wallet' }) },
       ]);
       return;
     }

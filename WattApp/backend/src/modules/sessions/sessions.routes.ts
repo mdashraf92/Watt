@@ -40,13 +40,17 @@ router.get('/active', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 // Single session (owner only) with station/listing/booking for the charging screen.
+// `booked_end` + the overstay settings are included so the client can render an
+// accurate grace/overstay banner without a separate settings call.
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await query(
     `select cs.*,
             row_to_json(s.*) as station,
             json_build_object('id', cl.id, 'tuya_device_id', cl.tuya_device_id, 'power_kw', cl.power_kw,
               'price_per_kwh', cl.price_per_kwh, 'address', cl.address) as listing,
-            json_build_object('id', b.id, 'listing_id', b.listing_id) as booking
+            json_build_object('id', b.id, 'listing_id', b.listing_id, 'booked_end', b.booked_end) as booking,
+            (select value::int from app_config where key = 'overstay_grace_minutes') as overstay_grace_minutes,
+            (select value::numeric from app_config where key = 'overstay_fee_per_minute') as overstay_fee_per_minute
      from public.charging_sessions cs
      left join public.stations s on s.id = cs.station_id
      left join public.charger_listings cl on cl.id = cs.listing_id
@@ -104,6 +108,24 @@ router.post('/:id/complete',
       [req.params.id, kwh, battery_end ?? null, description ?? null, meter_kwh ?? null],
     );
     res.json(row.result);
+  }),
+);
+
+// Attach a post-session photo (proof of condition/completion). Not
+// money-critical, so a plain owner-scoped update is enough — no SQL function.
+router.post('/:id/photo',
+  requireAuth,
+  validateBody(z.object({ photo_base64: z.string().min(1).max(3_000_000) })),
+  asyncHandler(async (req, res) => {
+    const { rows } = await query(
+      `update public.charging_sessions
+         set completion_photo_base64 = $3, completion_photo_taken_at = now()
+       where id = $1 and user_id = $2
+       returning id, completion_photo_base64, completion_photo_taken_at`,
+      [req.params.id, req.user!.id, req.body.photo_base64],
+    );
+    if (!rows[0]) return res.status(404).json({ error: { code: 'not_found', message: 'Session not found' } });
+    res.json(rows[0]);
   }),
 );
 

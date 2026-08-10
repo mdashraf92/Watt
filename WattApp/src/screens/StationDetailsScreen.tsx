@@ -14,13 +14,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { Connector, MainStackParamList, Station } from '../types';
 import { api } from '../lib/api';
+import { listingToStation } from '../lib/listingToStation';
 import { realtime } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
-import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon, HeartIcon } from '../components/icons';
+import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon, HeartIcon, UserIcon } from '../components/icons';
 import ErrorView from '../components/ErrorView';
 import GradientButton from '../components/GradientButton';
 
@@ -45,7 +46,13 @@ const AMENITY_ICONS: Record<string, string> = {
 export default function StationDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { stationId } = route.params;
+  const params = route.params;
+  // Private chargers ("🏠 Ashraf", "🏠 Rami" on the map) had no details page at
+  // all before — only official network stations did. This screen now renders
+  // both, converting a listing onto the same Station shape via
+  // listingToStation() so the rest of the UI doesn't need to fork.
+  const isListing = 'listingId' in params;
+  const id = isListing ? params.listingId : params.stationId;
   const { profile } = useAuth();
   const { t, isRTL } = useLang();
   const locale = isRTL ? 'ar-OM' : 'en-GB';
@@ -56,6 +63,7 @@ export default function StationDetailsScreen() {
   };
 
   const [station, setStation] = useState<Station | null>(null);
+  const [hostName, setHostName] = useState<string | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [reviews, setReviews] = useState<{ rating: number; comment: string | null; reviewer: string; created_at: string }[]>([]);
   const [favId, setFavId]   = useState<string | null>(null);   // favorites row id (null = not favorited)
@@ -66,33 +74,45 @@ export default function StationDetailsScreen() {
     fetchStation();
     fetchReviews();
     fetchFavorite();
-    // Live status updates for this station.
-    const off = realtime.onTable('stations', (row) => {
-      if (row?.id === stationId) setStation(prev => prev ? { ...prev, ...row } : row);
+    // Live status updates for this station/listing.
+    const off = realtime.onTable(isListing ? 'charger_listings' : 'stations', (row) => {
+      if (row?.id !== id) return;
+      setStation(prev => prev ? { ...prev, ...(isListing ? listingToStation(row) : row) } : prev);
     });
     return off;
-  }, [stationId]);
+  }, [id, isListing]);
 
   const fetchStation = async () => {
     try {
-      const data: any = await api.stations.get(stationId);
-      if (data) {
-        setStation(data as Station);
-        setConnectors((data.connectors ?? []) as Connector[]);
+      if (isListing) {
+        const data = await api.chargers.get(id);
+        if (data) {
+          setStation(listingToStation(data));
+          setHostName(data.host_name ?? null);
+        }
+      } else {
+        const data: any = await api.stations.get(id);
+        if (data) {
+          setStation(data as Station);
+          setConnectors((data.connectors ?? []) as Connector[]);
+        }
       }
     } catch { /* keep null → shows retry */ }
     finally { setLoading(false); }
   };
 
   const fetchReviews = async () => {
-    try { setReviews((await api.stations.reviews(stationId)) as typeof reviews); } catch { /* ignore */ }
+    try {
+      const data = isListing ? await api.chargers.reviews(id) : await api.stations.reviews(id);
+      setReviews(data as typeof reviews);
+    } catch { /* ignore */ }
   };
 
   const fetchFavorite = async () => {
     if (!profile) return;
     try {
       const favs: any[] = await api.favorites.list();
-      setFavId(favs.find(f => f.station_id === stationId)?.id ?? null);
+      setFavId(favs.find(f => isListing ? f.listing_id === id : f.station_id === id)?.id ?? null);
     } catch { /* ignore */ }
   };
 
@@ -105,7 +125,7 @@ export default function StationDetailsScreen() {
         setFavId(null);                                     // optimistic
         await api.favorites.remove(wasFav);
       } else {
-        const row: any = await api.favorites.add({ station_id: stationId });
+        const row: any = await api.favorites.add(isListing ? { listing_id: id } : { station_id: id });
         setFavId(row.id);
       }
     } catch { setFavId(wasFav); }                            // revert on failure
@@ -183,29 +203,39 @@ export default function StationDetailsScreen() {
           <StatCard label={t.station_available} value={`${station.available_connectors}/${station.total_connectors}`} unit={t.socket} color={COLORS.available} emoji="🔌" />
         </View>
 
-        {/* Connectors */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.station_connectors}</Text>
-          {connectors.map(c => (
-            <View key={c.id} style={styles.connectorRow}>
-              <View style={[styles.connectorBadge, { backgroundColor: c.status === 'available' ? COLORS.successBg : COLORS.warningBg }]}>
-                <View style={[styles.connectorDot, { backgroundColor: c.status === 'available' ? COLORS.available : COLORS.busy }]} />
+        {/* Connectors — a private listing is always exactly one plug, already
+            conveyed by the stats grid above, so this section is stations-only. */}
+        {!isListing && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t.station_connectors}</Text>
+            {connectors.map(c => (
+              <View key={c.id} style={styles.connectorRow}>
+                <View style={[styles.connectorBadge, { backgroundColor: c.status === 'available' ? COLORS.successBg : COLORS.warningBg }]}>
+                  <View style={[styles.connectorDot, { backgroundColor: c.status === 'available' ? COLORS.available : COLORS.busy }]} />
+                </View>
+                <Text style={styles.connectorType}>{c.connector_type}</Text>
+                <Text style={styles.connectorPower}>{c.power_kw} kW</Text>
+                <Text style={[styles.connectorStatus, { color: c.status === 'available' ? COLORS.available : COLORS.busy }]}>
+                  {c.status === 'available' ? t.status_available : t.status_busy}
+                </Text>
               </View>
-              <Text style={styles.connectorType}>{c.connector_type}</Text>
-              <Text style={styles.connectorPower}>{c.power_kw} kW</Text>
-              <Text style={[styles.connectorStatus, { color: c.status === 'available' ? COLORS.available : COLORS.busy }]}>
-                {c.status === 'available' ? t.status_available : t.status_busy}
-              </Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
 
-        {/* Info */}
+        {/* Info — a private listing has no governorate/maintenance record of its
+            own, so those rows are replaced with who's hosting it. */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.station_info}</Text>
           <InfoRow Icon={ClockIcon} label={t.station_hours} value={station.operating_hours} />
-          <InfoRow Icon={MapPinIcon} label={t.station_area} value={`${translateGov(station.governorate, isRTL)}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
-          <InfoRow Icon={CheckIcon} label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString(locale) : t.station_maintenance_none} />
+          {isListing ? (
+            hostName && <InfoRow Icon={UserIcon} label={t.station_host} value={hostName} />
+          ) : (
+            <>
+              <InfoRow Icon={MapPinIcon} label={t.station_area} value={`${translateGov(station.governorate, isRTL)}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
+              <InfoRow Icon={CheckIcon} label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString(locale) : t.station_maintenance_none} />
+            </>
+          )}
           <InfoRow Icon={StarIcon} label={t.ratings_label} value={`${station.total_ratings} ${t.station_ratings_count}`} />
         </View>
 
@@ -268,7 +298,7 @@ export default function StationDetailsScreen() {
         <View style={{ flex: 1 }}>
           <GradientButton
             label={canBook ? t.station_book : t.station_unavailable}
-            onPress={() => canBook && navigation.navigate('Booking', { station })}
+            onPress={() => canBook && navigation.navigate('Booking', isListing ? { station, listingId: id } : { station })}
             disabled={!canBook}
             icon={<ZapIcon size={18} color="#fff" strokeWidth={2.5} />}
           />

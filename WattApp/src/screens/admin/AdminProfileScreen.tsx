@@ -13,7 +13,9 @@ import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import {
   ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon,
   UserIcon, MailIcon, AwardIcon, UsersIcon, WalletIcon, TrendingUpIcon, PlugZapIcon,
+  AlertTriangleIcon,
 } from '../../components/icons';
+import NotificationBell from '../../components/NotificationBell';
 
 export default function AdminProfileScreen() {
   const { profile, session, signOut, updateProfile } = useAuth();
@@ -94,6 +96,8 @@ export default function AdminProfileScreen() {
             <Text style={styles.adminBadgeText}>{t.admin_profile_badge}</Text>
           </View>
         </View>
+
+        <NotificationBell size={40} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
@@ -159,6 +163,26 @@ export default function AdminProfileScreen() {
                 <ZapIcon size={16} color={COLORS.primary} strokeWidth={2} />
               </View>
               <Text style={styles.settingLabel}>{t.ad_fleet_title}</Text>
+            </View>
+            <Text style={styles.langToggle}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminActiveSessions')} activeOpacity={0.7}>
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.primaryBg }]}>
+                <ZapIcon size={16} color={COLORS.primary} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.admin_sessions_title}</Text>
+            </View>
+            <Text style={styles.langToggle}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminReports')} activeOpacity={0.7}>
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.errorBg }]}>
+                <AlertTriangleIcon size={16} color={COLORS.error} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.admin_reports_title}</Text>
             </View>
             <Text style={styles.langToggle}>›</Text>
           </TouchableOpacity>

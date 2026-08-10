@@ -15,10 +15,16 @@ const APP_ENV: AppEnv =
 const API_URL =
   (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
 
+// Mapbox public access token (pk.*) — tile source for every map screen, read
+// by OSMMap.tsx. Empty is a valid state (falls back to plain OpenStreetMap
+// tiles), so nothing crashes if this hasn't been configured yet.
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+
 export const ENV = {
   apiUrl:       API_URL,
   appEnv:       APP_ENV,
   isProduction: APP_ENV === 'production',
   // Host only, for display (e.g. "api.gowatt.om").
   backendHost:  API_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+  mapboxToken:  MAPBOX_TOKEN,
 };

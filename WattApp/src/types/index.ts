@@ -1,3 +1,5 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+
 export interface Profile {
   id: string;
   phone?: string;
@@ -101,6 +103,14 @@ export interface Booking {
   created_at: string;
   updated_at: string;
   station?: Station;
+  listing?: {
+    id: string;
+    address?: string;
+    station_name?: string;
+    tuya_device_id?: string;
+    power_kw?: number;
+    price_per_kwh?: number;
+  };
 }
 
 export interface ChargingSession {
@@ -123,6 +133,12 @@ export interface ChargingSession {
   created_at: string;
   station?: Station;
   listing?: { id: string; tuya_device_id: string | null; power_kw: number; price_per_kwh: number; address: string };
+  booking?: { id: string; listing_id: string | null; booked_end?: string | null };
+  overstay_grace_minutes?: number | null;
+  overstay_fee_per_minute?: number | null;
+  overstay_minutes?: number;
+  overstay_fee?: number;
+  completion_photo_base64?: string | null;
 }
 
 export interface WalletTransaction {
@@ -141,7 +157,7 @@ export interface PayoutRequest {
   id: string;
   user_id: string;
   amount: number;
-  status: 'pending' | 'paid' | 'rejected';
+  status: 'pending' | 'processing' | 'paid' | 'rejected' | 'failed';
   bank_name?: string | null;
   account_holder?: string | null;
   iban?: string | null;
@@ -180,14 +196,15 @@ export type GuestTabParamList = {
 };
 
 export type CustomerStackParamList = {
-  Tabs: undefined;
-  StationDetails: { stationId: string };
+  Tabs: NavigatorScreenParams<CustomerTabParamList> | undefined;
+  StationDetails: { stationId: string } | { listingId: string };
   CompleteProfile: { station?: Station; listingId?: string } | undefined;
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
   SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string; sessionId?: string };
   InvestorApplication: { reapply?: boolean };
+  ReportIssue: { sessionId?: string; bookingId?: string } | undefined;
   Notifications: undefined;
   MobileCharge: undefined;
   MobileChargeTracking: { requestId: string };
@@ -198,6 +215,7 @@ export type CustomerStackParamList = {
                     to: { latitude: number; longitude: number; label: string } };
   MyTrips: undefined;
   TripDetail: { tripId: string };
+  Favorites: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -239,6 +257,10 @@ export type AdminStackParamList = {
   AdminFlagged: undefined;
   AdminFleet: undefined;
   AdminMobileRequests: undefined;
+  AdminReports: undefined;
+  AdminReportDetail: { report: SupportReport };
+  AdminActiveSessions: undefined;
+  AdminInvestorEarnings: { userId: string };
   SuperAdmin: undefined;
   Notifications: undefined;
 };
@@ -253,15 +275,39 @@ export type InvestorTabParamList = {
 
 export type InvestorStackParamList = {
   InvestorTabs: undefined;
-  StationDetails: { stationId: string };
+  StationDetails: { stationId: string } | { listingId: string };
   CompleteProfile: { station?: Station; listingId?: string } | undefined;
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
   SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string; sessionId?: string };
   InvestorApplication: { reapply?: boolean };
+  ReportIssue: { sessionId?: string; bookingId?: string } | undefined;
   Notifications: undefined;
+  Favorites: undefined;
 };
+
+// ── Support reports ("report a problem") ───────────────────────────────────
+
+export type ReportCategory = 'charger_fault' | 'payment' | 'safety' | 'damage' | 'other';
+export type ReportStatus = 'open' | 'in_review' | 'resolved';
+
+export interface SupportReport {
+  id: string;
+  user_id: string;
+  category: ReportCategory;
+  description: string;
+  photo_base64?: string | null;
+  booking_id?: string | null;
+  session_id?: string | null;
+  status: ReportStatus;
+  admin_response?: string | null;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  reporter?: { full_name: string; phone: string };
+}
 
 export interface ChargerApplication {
   id: string;
@@ -414,6 +460,16 @@ export interface TripPlan {
   coordinates: Array<[number, number]>;
   nearby: TripCandidate[];
   params: TripPlanParams;
+}
+
+export interface Favorite {
+  id: string;
+  station_id: string | null;
+  listing_id: string | null;
+  created_at: string;
+  station_name: string | null;
+  listing_name: string | null;
+  listing_address: string | null;
 }
 
 export interface SavedTrip {

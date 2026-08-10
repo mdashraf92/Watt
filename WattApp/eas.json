@@ -12,7 +12,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://slow-committee-detector-objects.trycloudflare.com",
-        "EXPO_PUBLIC_APP_ENV": "preview"
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_MAPBOX_TOKEN": "pk.eyJ1IjoibWRhc2hyYWYyIiwiYSI6ImNtc2lsem94cTAxbW0yeHF0cHJ2OG1md3oifQ.GHmN4IAJDcz-7Qm10d2rKg"
       },
       "android": {
         "buildType": "apk"
@@ -25,7 +26,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://go-watt.com",
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_MAPBOX_TOKEN": "pk.eyJ1IjoibWRhc2hyYWYyIiwiYSI6ImNtc2lsem94cTAxbW0yeHF0cHJ2OG1md3oifQ.GHmN4IAJDcz-7Qm10d2rKg"
       }
     }
   },

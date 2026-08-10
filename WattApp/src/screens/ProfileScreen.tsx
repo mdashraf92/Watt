@@ -24,7 +24,8 @@ import {
   BellIcon, ShieldIcon, HelpCircleIcon, InfoIcon, GlobeIcon,
   LogOutIcon, ChevronRightIcon, UserIcon, CarIcon, PhoneIcon, MailIcon,
   AwardIcon, XIcon, CheckIcon, ZapIcon, BatteryChargingIcon, StarIcon,
-  CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon, NavigationIcon,
+  CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon, NavigationIcon, AlertTriangleIcon,
+  HeartIcon,
 } from '../components/icons';
 
 // ── Vehicle helpers ────────────────────────────────────────────
@@ -52,6 +53,7 @@ function serializeVehicle(v: VehicleData): string {
 // ── Screen ─────────────────────────────────────────────────────
 
 const AVATAR_KEY = (id: string) => `watt_avatar_${id}`;
+const INVESTOR_BANNER_DISMISSED_KEY = (id: string) => `watt_investor_banner_dismissed_${id}`;
 // The mobile-charging and trip-planner teasers that used to live here have both
 // shipped, so their waitlist/dismissal state is gone. The old AsyncStorage keys
 // (watt_coming_soon_notified_*, watt_coming_soon_hidden_*) are simply orphaned —
@@ -127,6 +129,18 @@ export default function ProfileScreen() {
 
   // Investor application — refetch every time screen is focused
   const [application, setApplication] = useState<ChargerApplication | null | undefined>(undefined);
+
+  // "Become an investor" invite is dismissible — once hidden it stays hidden
+  // (local preference, not worth a backend column for a one-way UI dismiss).
+  const [inviteDismissed, setInviteDismissed] = useState(false);
+  useEffect(() => {
+    if (!profile?.id) return;
+    AsyncStorage.getItem(INVESTOR_BANNER_DISMISSED_KEY(profile.id)).then(v => setInviteDismissed(v === '1'));
+  }, [profile?.id]);
+  const dismissInvite = () => {
+    setInviteDismissed(true);
+    if (profile?.id) AsyncStorage.setItem(INVESTOR_BANNER_DISMISSED_KEY(profile.id), '1');
+  };
 
   const fetchApplication = useCallback(() => {
     if (!profile) return;
@@ -302,11 +316,12 @@ export default function ProfileScreen() {
         </View>
 
         {/* ── Investor Application Banner ────────────────────── */}
-        {!isDriver && <InvestorBanner
+        {!isDriver && !(application === null && inviteDismissed) && <InvestorBanner
           application={application}
           t={t}
           onApply={() => navigation.navigate('InvestorApplication', {})}
           onReapply={() => navigation.navigate('InvestorApplication', { reapply: true })}
+          onDismiss={dismissInvite}
         />}
 
         {/* ── Services ───────────────────────────────────────── */}
@@ -403,12 +418,14 @@ export default function ProfileScreen() {
           <SettingRow Icon={BellIcon}       label={t.profile_notifications}  onPress={() => setNotifModal(true)} />
           <SettingRow Icon={ShieldIcon}     label={t.profile_security}       onPress={() => setSecurityModal(true)} />
           <SettingRow Icon={HistoryIcon}    label={t.profile_history_title}  onPress={() => setHistoryModal(true)} />
+          <SettingRow Icon={HeartIcon}      label={t.profile_favorites}      onPress={() => navigation.navigate('Favorites')} />
           {!isDriver && (
             <SettingRow Icon={ZapIcon}      label={t.mc_history_title}       onPress={() => navigation.navigate('MobileChargeHistory')} />
           )}
           {!isDriver && (
             <SettingRow Icon={NavigationIcon} label={t.tp_my_trips}          onPress={() => navigation.navigate('MyTrips')} />
           )}
+          <SettingRow Icon={AlertTriangleIcon} label={t.report_entry_profile} onPress={() => navigation.navigate('ReportIssue')} />
           <SettingRow Icon={HelpCircleIcon} label={t.profile_help}           onPress={() => setHelpModal(true)} />
           <SettingRow Icon={InfoIcon}       label={t.profile_about}          onPress={() => setAboutModal(true)} />
           <TouchableOpacity style={[styles.settingRow, styles.settingRowLast]} onPress={toggleLanguage} activeOpacity={0.7}>
@@ -819,24 +836,29 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-function InvestorBanner({ application, t, onApply, onReapply }: {
+function InvestorBanner({ application, t, onApply, onReapply, onDismiss }: {
   application: ChargerApplication | null | undefined;
-  t: any; onApply: () => void; onReapply: () => void;
+  t: any; onApply: () => void; onReapply: () => void; onDismiss: () => void;
 }) {
   if (application === undefined) return null; // still loading
 
   if (!application) {
+    // Compact, icon-led pill in the brand's primary green — deliberately not
+    // a full card like before, and dismissible (X) since it's an invite, not
+    // status the user needs to keep seeing.
     return (
-      <TouchableOpacity style={invStyles.applyCard} onPress={onApply} activeOpacity={0.85}>
-        <View style={invStyles.applyIconWrap}>
-          <ZapIcon size={22} color={COLORS.gold} strokeWidth={2} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={invStyles.applyTitle}>{t.profile_app_become_investor}</Text>
-          <Text style={invStyles.applySub}>{t.profile_app_become_investor_sub}</Text>
-        </View>
-        <ChevronRightIcon size={18} color={COLORS.gold} strokeWidth={2.5} />
-      </TouchableOpacity>
+      <View style={invStyles.applyPill}>
+        <TouchableOpacity style={invStyles.applyPillMain} onPress={onApply} activeOpacity={0.85}>
+          <View style={invStyles.applyIconCircle}>
+            <ZapIcon size={20} color="#fff" strokeWidth={2.2} />
+          </View>
+          <Text style={invStyles.applyPillText} numberOfLines={1}>{t.profile_app_become_investor}</Text>
+          <ChevronRightIcon size={16} color="rgba(255,255,255,0.8)" strokeWidth={2.5} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={invStyles.applyDismiss}>
+          <XIcon size={14} color="rgba(255,255,255,0.75)" strokeWidth={2.5} />
+        </TouchableOpacity>
+      </View>
     );
   }
 
@@ -1119,23 +1141,23 @@ const styles = StyleSheet.create({
 });
 
 const invStyles = StyleSheet.create({
-  // "Become an investor" card
-  applyCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  // "Become an investor" — compact icon-led pill (brand primary green),
+  // dismissible, deliberately lighter-weight than a full promo card.
+  applyPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
     marginHorizontal: 16, marginTop: 14,
-    backgroundColor: '#1a1400',
-    borderRadius: 20, padding: 16,
-    borderWidth: 1.5, borderColor: COLORS.goldTint,
-    shadowColor: COLORS.gold, shadowOpacity: 0.12, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 3,
+    backgroundColor: COLORS.primary,
+    borderRadius: 18, paddingVertical: 6, paddingRight: 8, paddingLeft: 6,
+    shadowColor: COLORS.primary, shadowOpacity: 0.25, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4,
   },
-  applyIconWrap: {
-    width: 44, height: 44, borderRadius: 14,
-    backgroundColor: 'rgba(245,158,11,0.15)',
-    borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)',
+  applyPillMain: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  applyIconCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  applyTitle: { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  applySub:   { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 17 },
+  applyPillText: { flex: 1, fontSize: 14, fontWeight: '800', color: '#fff' },
+  applyDismiss: { padding: 6 },
 
   // Application status card
   statusCard: {

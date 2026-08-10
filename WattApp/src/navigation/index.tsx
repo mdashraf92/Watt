@@ -78,6 +78,8 @@ const ProfileScreen             = lazyScreen(() => import('../screens/ProfileScr
 const InvestorApplicationScreen = lazyScreen(() => import('../screens/InvestorApplicationScreen'));
 const NotificationsScreen       = lazyScreen(() => import('../screens/NotificationsScreen'));
 const CompleteProfileScreen     = lazyScreen(() => import('../screens/CompleteProfileScreen'));
+const ReportIssueScreen         = lazyScreen(() => import('../screens/ReportIssueScreen'));
+const FavoritesScreen           = lazyScreen(() => import('../screens/FavoritesScreen'));
 
 const MobileChargeScreen         = lazyScreen(() => import('../screens/MobileChargeScreen'));
 const MobileChargeTrackingScreen = lazyScreen(() => import('../screens/MobileChargeTrackingScreen'));
@@ -105,6 +107,10 @@ const AdminAnalyticsScreen         = lazyScreen(() => import('../screens/admin/A
 const AdminFlaggedScreen           = lazyScreen(() => import('../screens/admin/AdminFlaggedScreen'));
 const AdminFleetScreen             = lazyScreen(() => import('../screens/admin/AdminFleetScreen'));
 const AdminMobileRequestsScreen    = lazyScreen(() => import('../screens/admin/AdminMobileRequestsScreen'));
+const AdminReportsScreen           = lazyScreen(() => import('../screens/admin/AdminReportsScreen'));
+const AdminReportDetailScreen      = lazyScreen(() => import('../screens/admin/AdminReportDetailScreen'));
+const AdminActiveSessionsScreen    = lazyScreen(() => import('../screens/admin/AdminActiveSessionsScreen'));
+const AdminInvestorEarningsScreen  = lazyScreen(() => import('../screens/admin/AdminInvestorEarningsScreen'));
 
 const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
 const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
@@ -447,6 +453,8 @@ function CustomerNavigator() {
       <CustomerStack.Screen name="Charging" component={ChargingScreen} />
       <CustomerStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
       <CustomerStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
+      <CustomerStack.Screen name="ReportIssue" component={ReportIssueScreen} />
+      <CustomerStack.Screen name="Favorites" component={FavoritesScreen} />
       <CustomerStack.Screen name="Notifications" component={NotificationsScreen} />
       <CustomerStack.Screen name="MobileCharge" component={MobileChargeScreen} />
       {/* Tracking and the receipt both disable the back gesture: swiping away
@@ -696,6 +704,8 @@ function InvestorNavigator() {
       <InvestorStack.Screen name="Charging" component={ChargingScreen} />
       <InvestorStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
       <InvestorStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
+      <InvestorStack.Screen name="ReportIssue" component={ReportIssueScreen} />
+      <InvestorStack.Screen name="Favorites" component={FavoritesScreen} />
       <InvestorStack.Screen name="Notifications" component={NotificationsScreen} />
     </InvestorStack.Navigator>
   );
@@ -765,6 +775,10 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminFlagged" component={AdminFlaggedScreen} />
       <AdminStack.Screen name="AdminFleet" component={AdminFleetScreen} />
       <AdminStack.Screen name="AdminMobileRequests" component={AdminMobileRequestsScreen} />
+      <AdminStack.Screen name="AdminReports" component={AdminReportsScreen} />
+      <AdminStack.Screen name="AdminReportDetail" component={AdminReportDetailScreen} />
+      <AdminStack.Screen name="AdminActiveSessions" component={AdminActiveSessionsScreen} />
+      <AdminStack.Screen name="AdminInvestorEarnings" component={AdminInvestorEarningsScreen} />
       <AdminStack.Screen name="SuperAdmin" component={SuperAdminScreen} />
       <AdminStack.Screen name="Notifications" component={NotificationsScreen} />
     </AdminStack.Navigator>

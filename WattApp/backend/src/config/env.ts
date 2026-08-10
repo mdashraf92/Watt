@@ -30,6 +30,11 @@ const schema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().default('no-reply@gowatt.om'),
 
+  // Where a new marketing-site waitlist sign-up is announced. Falls back to
+  // SMTP_FROM, so the notification is never silently dropped — but that mailbox
+  // is a no-reply, so set this to somebody who reads mail.
+  WAITLIST_NOTIFY_TO: z.string().optional(),
+
   // Self-hosted OSRM for in-app driving directions (see docs/SELF_HOSTING.md).
   // Unset → /api/routing/route returns 503 and the app falls back to a straight
   // line, so directions degrade rather than break.

@@ -14,6 +14,7 @@ import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../../i18n/govMap';
 import { ZapIcon, LocateIcon, XIcon, SearchIcon } from '../../components/icons';
+import NotificationBell from '../../components/NotificationBell';
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available,
@@ -182,35 +183,38 @@ export default function AdminMapScreen() {
 
       {/* Top overlay — Google-Maps-style search + filter */}
       <SafeAreaView edges={['top']} style={styles.topOverlay} pointerEvents="box-none">
-        {/* Floating pill search bar */}
-        <View style={[styles.searchBar, isRTL && styles.rowReverse]}>
-          <View style={styles.searchIconWrap}>
-            <SearchIcon size={19} color={COLORS.primary} strokeWidth={2.4} />
-          </View>
-          <TextInput
-            style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
-            placeholder={t.admin_map_search}
-            placeholderTextColor={COLORS.textTertiary}
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-          />
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginHorizontal: 4 }} />
-          ) : search.length > 0 ? (
-            <TouchableOpacity
-              onPress={() => setSearch('')}
-              style={styles.clearBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <XIcon size={13} color={COLORS.textSecondary} strokeWidth={2.6} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.countBadge}>
-              <ZapIcon size={11} color={COLORS.primary} strokeWidth={2.6} />
-              <Text style={styles.countBadgeText}>{visible.length}</Text>
+        {/* Floating pill search bar + notification bell */}
+        <View style={[styles.searchRow, isRTL && styles.rowReverse]}>
+          <View style={[styles.searchBar, { flex: 1 }, isRTL && styles.rowReverse]}>
+            <View style={styles.searchIconWrap}>
+              <SearchIcon size={19} color={COLORS.primary} strokeWidth={2.4} />
             </View>
-          )}
+            <TextInput
+              style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
+              placeholder={t.admin_map_search}
+              placeholderTextColor={COLORS.textTertiary}
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+            />
+            {loading ? (
+              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginHorizontal: 4 }} />
+            ) : search.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => setSearch('')}
+                style={styles.clearBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <XIcon size={13} color={COLORS.textSecondary} strokeWidth={2.6} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.countBadge}>
+                <ZapIcon size={11} color={COLORS.primary} strokeWidth={2.6} />
+                <Text style={styles.countBadgeText}>{visible.length}</Text>
+              </View>
+            )}
+          </View>
+          <NotificationBell size={48} />
         </View>
 
         {/* Category-style filter chips — full-bleed so they scroll off the true screen edges */}
@@ -336,6 +340,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingBottom: 8, gap: 10,
   },
   rowReverse: { flexDirection: 'row-reverse' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   // ── Floating pill search bar ──
   searchBar: {

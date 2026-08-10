@@ -131,7 +131,7 @@ export default function MobileChargeScreen() {
             t.charging_insufficient_title,
             `${t.charging_insufficient_msg} ${(short ?? 0).toFixed(3)} OMR`,
             [{ text: t.cancel, style: 'cancel' },
-             { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') }],
+             { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs', { screen: 'Wallet' }) }],
           );
           return;
         }
