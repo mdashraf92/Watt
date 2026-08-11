@@ -40,6 +40,13 @@ const schema = z.object({
   // line, so directions degrade rather than break.
   OSRM_URL: z.string().optional(),
 
+  // Mapbox Geocoding API, used server-side only for the trip planner's place
+  // search (separate product/billing from map tiles — see mapchossing.md for
+  // why raster tiles from Mapbox were rejected; geocoding wasn't). Unset →
+  // /api/routing/search returns [] and the search box falls back to matching
+  // against the app's own stations.
+  MAPBOX_TOKEN: z.string().optional(),
+
   THAWANI_BASE_URL: z.string().default('https://checkout.thawani.om'),
   THAWANI_SECRET_KEY: z.string().optional(),
   THAWANI_PUBLISHABLE_KEY: z.string().optional(),

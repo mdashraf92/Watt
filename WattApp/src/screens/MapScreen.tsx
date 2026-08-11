@@ -12,7 +12,7 @@ import {
   View,
   Dimensions,
 } from 'react-native';
-import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../components/OSMMap';
+import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region, OSMMapType } from '../components/OSMMap';
 import ErrorView from '../components/ErrorView';
 import * as Location from 'expo-location';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -29,7 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon } from '../components/icons';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon, LayersIcon } from '../components/icons';
 import { markerForStatus } from '../constants/mapMarkers';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -61,6 +61,7 @@ export default function MapScreen() {
   const isAuthenticated = !!session;
   const mapRef = useRef<OSMMapHandle>(null);
 
+  const [mapType, setMapType] = useState<OSMMapType>('streets');
   const [stations, setStations]         = useState<Station[]>([]);
   const [listings, setListings]         = useState<ChargerListing[]>([]);
   const [myListing, setMyListing]       = useState<ChargerListing | null>(null);
@@ -395,6 +396,7 @@ export default function MapScreen() {
         markers={mapMarkers}
         onMarkerPress={handleMarkerPress}
         showsUserLocation
+        mapType={mapType}
       />
 
       {/* Stations failed to load and we have nothing to show — offer retry */}
@@ -447,6 +449,15 @@ export default function MapScreen() {
 
         <TouchableOpacity style={styles.myLocationBtn} onPress={requestLocation}>
           <LocateIcon size={20} color={COLORS.primary} strokeWidth={2} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.myLocationBtn}
+          onPress={() => setMapType(v => (v === 'streets' ? 'satellite' : 'streets'))}
+          accessibilityRole="button"
+          accessibilityLabel={t.map_satellite_toggle}
+        >
+          <LayersIcon size={19} color={mapType === 'satellite' ? COLORS.primary : COLORS.textSecondary} strokeWidth={2} />
         </TouchableOpacity>
 
         {/* Roadside rescue. Sits on the map because that is where someone with

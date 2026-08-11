@@ -11,6 +11,7 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,15 +26,20 @@ import { useAuth } from '../context/AuthContext';
 import type { CustomerStackParamList, Station } from '../types';
 import {
   ArrowLeftIcon, MapPinIcon, LocateIcon, NavigationIcon, CarIcon, SearchIcon, XIcon,
+  SwapVerticalIcon, ChevronDownIcon,
 } from '../components/icons';
 
 type Nav = NativeStackNavigationProp<CustomerStackParamList, 'TripPlanner'>;
 
 type Point = { latitude: number; longitude: number; label: string } | null;
+type PlaceResult = { id: string; name: string; address: string; latitude: number; longitude: number };
 
 const OMAN: OSMRegion = {
   latitude: 23.588, longitude: 58.383, latitudeDelta: 3.5, longitudeDelta: 3.5,
 };
+
+const RESERVE_MIN = 5, RESERVE_MAX = 40;
+const CONSUMPTION_MIN = 10, CONSUMPTION_MAX = 35;
 
 export default function TripPlannerScreen() {
   const navigation = useNavigation<Nav>();
@@ -46,9 +52,17 @@ export default function TripPlannerScreen() {
   const [to, setTo]       = useState<Point>(null);
   // Which field the map/search is currently filling.
   const [picking, setPicking] = useState<'from' | 'to'>('to');
-  const [search, setSearch]   = useState('');
-  const [startSoc, setStartSoc] = useState(80);
+  const [search, setSearch]     = useState('');
+  const [places, setPlaces]     = useState<PlaceResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [startSoc, setStartSoc]   = useState(80);
+  const [reserveSoc, setReserveSoc] = useState(15);
+  const [consumption, setConsumption] = useState(18);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeq    = useRef(0);
 
   const align  = isRTL ? 'right' as const : 'left' as const;
   const rowDir = isRTL ? 'row-reverse' as const : 'row' as const;
@@ -72,20 +86,62 @@ export default function TripPlannerScreen() {
         label: t.tp_use_current,
       };
       which === 'from' ? setFrom(p) : setTo(p);
+      mapRef.current?.animateToRegion({ ...p, latitudeDelta: 0.05, longitudeDelta: 0.05 });
     } catch { /* leave the field empty; the user can still pick on the map */ }
   }, [t]);
 
-  const results = search.trim().length >= 2
+  // Local station match — instant, no network round trip.
+  const stationResults = search.trim().length >= 2
     ? stations.filter(s =>
         s.name.toLowerCase().includes(search.trim().toLowerCase()) ||
         (s.address ?? '').toLowerCase().includes(search.trim().toLowerCase()),
-      ).slice(0, 6)
+      ).slice(0, 5)
     : [];
+
+  // Any place in Oman, via the backend's Mapbox-geocoding proxy — debounced so
+  // typing doesn't fire a request per keystroke. Superseded requests are
+  // dropped by sequence number rather than cancelled, since the search box has
+  // no AbortController wired through `api`.
+  useEffect(() => {
+    const q = search.trim();
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.length < 2) { setPlaces([]); setSearching(false); return; }
+
+    setSearching(true);
+    const mySeq = ++searchSeq.current;
+    const near = from ?? undefined;
+    searchTimer.current = setTimeout(() => {
+      api.routing.search(q, near ? { latitude: near.latitude, longitude: near.longitude } : undefined)
+        .then(r => { if (mySeq === searchSeq.current) setPlaces(r); })
+        .catch(() => { if (mySeq === searchSeq.current) setPlaces([]); })
+        .finally(() => { if (mySeq === searchSeq.current) setSearching(false); });
+    }, 350);
+
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const flyTo = (p: { latitude: number; longitude: number }, delta = 0.05) => {
+    mapRef.current?.animateToRegion({ ...p, latitudeDelta: delta, longitudeDelta: delta });
+  };
 
   const pickStation = (s: Station) => {
     const p = { latitude: s.latitude, longitude: s.longitude, label: s.name };
     picking === 'from' ? setFrom(p) : setTo(p);
-    setSearch('');
+    setSearch(''); setPlaces([]);
+    flyTo(p, 0.03);
+  };
+
+  const pickPlace = (place: PlaceResult) => {
+    const p = { latitude: place.latitude, longitude: place.longitude, label: place.name };
+    picking === 'from' ? setFrom(p) : setTo(p);
+    setSearch(''); setPlaces([]);
+    flyTo(p, 0.03);
+  };
+
+  const swapPoints = () => {
+    setFrom(to);
+    setTo(from);
   };
 
   const plan = async () => {
@@ -97,6 +153,8 @@ export default function TripPlannerScreen() {
         to:   { latitude: to.latitude,   longitude: to.longitude },
         battery_kwh: batteryKwh,
         start_soc_pct: startSoc,
+        reserve_soc_pct: reserveSoc,
+        consumption_kwh_per_100km: consumption,
         connector_type: profile?.connector_type ?? null,
       });
       navigation.navigate('TripPlanResult', { plan: result, from, to });
@@ -147,10 +205,20 @@ export default function TripPlannerScreen() {
               onClear={() => setTo(null)}
               dir={rowDir} align={align} t={t}
             />
+
+            <TouchableOpacity
+              style={[styles.swapBtn, isRTL ? { left: 14 } : { right: 14 }]}
+              onPress={swapPoints}
+              disabled={!from && !to}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t.tp_swap}
+            >
+              <SwapVerticalIcon size={16} color={(from || to) ? COLORS.primary : COLORS.textTertiary} strokeWidth={2.2} />
+            </TouchableOpacity>
           </View>
 
-          {/* Search our own stations as destinations. No third-party geocoder is
-              wired up, so this is honest about what it can find. */}
+          {/* Search: own stations (instant) + any place in Oman (backend geocoder) */}
           <View style={[styles.searchWrap, { flexDirection: rowDir }]}>
             <SearchIcon size={17} color={COLORS.textTertiary} strokeWidth={2} />
             <TextInput
@@ -160,14 +228,16 @@ export default function TripPlannerScreen() {
               value={search}
               onChangeText={setSearch}
             />
-            {!!search && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+            {searching ? (
+              <ActivityIndicator size="small" color={COLORS.textTertiary} />
+            ) : !!search && (
+              <TouchableOpacity onPress={() => { setSearch(''); setPlaces([]); }} hitSlop={8}>
                 <XIcon size={16} color={COLORS.textTertiary} strokeWidth={2.4} />
               </TouchableOpacity>
             )}
           </View>
-          {results.map(s => (
-            <TouchableOpacity key={s.id} style={styles.resultRow} onPress={() => pickStation(s)}>
+          {stationResults.map(s => (
+            <TouchableOpacity key={`s-${s.id}`} style={styles.resultRow} onPress={() => pickStation(s)}>
               <MapPinIcon size={15} color={COLORS.primary} strokeWidth={2} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.resultName, { textAlign: align }]} numberOfLines={1}>{s.name}</Text>
@@ -175,8 +245,20 @@ export default function TripPlannerScreen() {
               </View>
             </TouchableOpacity>
           ))}
+          {places.map(p => (
+            <TouchableOpacity key={`p-${p.id}`} style={styles.resultRow} onPress={() => pickPlace(p)}>
+              <SearchIcon size={15} color={COLORS.textTertiary} strokeWidth={2} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.resultName, { textAlign: align }]} numberOfLines={1}>{p.name}</Text>
+                <Text style={[styles.resultAddr, { textAlign: align }]} numberOfLines={1}>{p.address}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+          {!searching && search.trim().length >= 2 && !stationResults.length && !places.length && (
+            <Text style={styles.noResults}>{t.tp_no_results}</Text>
+          )}
 
-          {/* Map — tapping sets whichever field is active */}
+          {/* Map — tapping/dragging sets whichever field is active */}
           <View style={styles.mapWrap}>
             <OSMMap
               ref={mapRef}
@@ -196,6 +278,15 @@ export default function TripPlannerScreen() {
                 {picking === 'from' ? t.tp_from : t.tp_to}
               </Text>
             </View>
+            <TouchableOpacity
+              style={styles.locateBtn}
+              onPress={() => useMyLocation(picking)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t.tp_recentre}
+            >
+              <LocateIcon size={18} color={COLORS.primary} strokeWidth={2.2} />
+            </TouchableOpacity>
           </View>
 
           {/* Car */}
@@ -213,33 +304,89 @@ export default function TripPlannerScreen() {
               </View>
             </TouchableOpacity>
           ) : (
-            <View style={styles.card}>
-              <View style={[styles.carRow, { flexDirection: rowDir }]}>
-                <CarIcon size={18} color={COLORS.primary} strokeWidth={2} />
-                <Text style={[styles.carName, { textAlign: align }]}>
-                  {[profile?.car_make, profile?.car_model].filter(Boolean).join(' ') || t.tp_car_title}
-                </Text>
-                <Text style={styles.carBattery}>{batteryKwh} kWh</Text>
+            <>
+              <View style={styles.card}>
+                <View style={[styles.carRow, { flexDirection: rowDir }]}>
+                  <CarIcon size={18} color={COLORS.primary} strokeWidth={2} />
+                  <Text style={[styles.carName, { textAlign: align }]}>
+                    {[profile?.car_make, profile?.car_model].filter(Boolean).join(' ') || t.tp_car_title}
+                  </Text>
+                  <Text style={styles.carBattery}>{batteryKwh} kWh</Text>
+                </View>
+
+                <View style={styles.rowDivider} />
+
+                <View style={[styles.socHead, { flexDirection: rowDir }]}>
+                  <Text style={styles.socLabel}>{t.tp_start_soc}</Text>
+                  <Text style={styles.socValue}>{startSoc}%</Text>
+                </View>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={5}
+                  maximumValue={100}
+                  step={1}
+                  value={startSoc}
+                  onValueChange={setStartSoc}
+                  minimumTrackTintColor={COLORS.primary}
+                  maximumTrackTintColor={COLORS.border}
+                  thumbTintColor={COLORS.primary}
+                />
               </View>
 
-              <View style={styles.rowDivider} />
+              {/* Advanced options — reserve buffer & consumption rate, both already
+                  supported server-side (routing.routes.ts planBody) with sane
+                  defaults, so this only needs to surface them, not add new logic. */}
+              <TouchableOpacity
+                style={[styles.advancedHead, { flexDirection: rowDir }]}
+                onPress={() => setAdvancedOpen(v => !v)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.advancedTitle, { textAlign: align }]}>{t.tp_advanced}</Text>
+                <View style={advancedOpen ? { transform: [{ rotate: '180deg' }] } : undefined}>
+                  <ChevronDownIcon size={18} color={COLORS.textSecondary} strokeWidth={2.2} />
+                </View>
+              </TouchableOpacity>
 
-              <View style={[styles.socHead, { flexDirection: rowDir }]}>
-                <Text style={styles.socLabel}>{t.tp_start_soc}</Text>
-                <Text style={styles.socValue}>{startSoc}%</Text>
-              </View>
-              <View style={[styles.socSteps, { flexDirection: rowDir }]}>
-                {[20, 40, 60, 80, 100].map(v => (
-                  <TouchableOpacity
-                    key={v}
-                    style={[styles.socChip, startSoc === v && styles.socChipOn]}
-                    onPress={() => setStartSoc(v)}
-                  >
-                    <Text style={[styles.socChipTxt, startSoc === v && styles.socChipTxtOn]}>{v}%</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+              {advancedOpen && (
+                <View style={styles.card}>
+                  <View style={[styles.socHead, { flexDirection: rowDir, paddingTop: 13 }]}>
+                    <Text style={styles.socLabel}>{t.tp_reserve_soc}</Text>
+                    <Text style={styles.socValue}>{reserveSoc}%</Text>
+                  </View>
+                  <Text style={[styles.hintTxt, { textAlign: align }]}>{t.tp_reserve_soc_hint}</Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={RESERVE_MIN}
+                    maximumValue={RESERVE_MAX}
+                    step={1}
+                    value={reserveSoc}
+                    onValueChange={setReserveSoc}
+                    minimumTrackTintColor={COLORS.primary}
+                    maximumTrackTintColor={COLORS.border}
+                    thumbTintColor={COLORS.primary}
+                  />
+
+                  <View style={styles.rowDivider} />
+
+                  <View style={[styles.socHead, { flexDirection: rowDir, paddingTop: 13 }]}>
+                    <Text style={styles.socLabel}>{t.tp_consumption}</Text>
+                    <Text style={styles.socValue}>{consumption} kWh/100km</Text>
+                  </View>
+                  <Text style={[styles.hintTxt, { textAlign: align }]}>{t.tp_consumption_hint}</Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={CONSUMPTION_MIN}
+                    maximumValue={CONSUMPTION_MAX}
+                    step={1}
+                    value={consumption}
+                    onValueChange={setConsumption}
+                    minimumTrackTintColor={COLORS.primary}
+                    maximumTrackTintColor={COLORS.border}
+                    thumbTintColor={COLORS.primary}
+                  />
+                </View>
+              )}
+            </>
           )}
 
           <GradientButton
@@ -307,6 +454,14 @@ const styles = StyleSheet.create({
   pointLabel: { fontFamily: FONTS.medium, fontSize: 11, color: COLORS.textTertiary },
   pointValue: { fontFamily: FONTS.medium, fontSize: 14, color: COLORS.text, marginTop: 2 },
 
+  swapBtn: {
+    position: 'absolute', top: '50%', marginTop: -15,
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 1 }, elevation: 2,
+  },
+
   searchWrap: {
     alignItems: 'center', gap: 9, marginTop: 12, paddingHorizontal: 14,
     backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border,
@@ -322,9 +477,13 @@ const styles = StyleSheet.create({
   },
   resultName: { fontFamily: FONTS.medium, fontSize: 13.5, color: COLORS.text },
   resultAddr: { fontFamily: FONTS.regular, fontSize: 11.5, color: COLORS.textTertiary, marginTop: 1 },
+  noResults: {
+    fontFamily: FONTS.regular, fontSize: 12.5, color: COLORS.textTertiary,
+    textAlign: 'center', marginTop: 10,
+  },
 
   mapWrap: {
-    height: 220, borderRadius: 18, overflow: 'hidden', marginTop: 14,
+    height: 260, borderRadius: 18, overflow: 'hidden', marginTop: 14,
     borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.backgroundAlt,
   },
   centrePin: {
@@ -338,6 +497,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border,
   },
   pickBadgeTxt: { fontFamily: FONTS.bold, fontSize: 11.5, color: COLORS.text },
+  locateBtn: {
+    position: 'absolute', top: 12, right: 12,
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
 
   sectionTitle: { fontFamily: FONTS.bold, fontSize: 16, color: COLORS.text, marginTop: 22, marginBottom: 10 },
   warnCard: {
@@ -353,12 +519,12 @@ const styles = StyleSheet.create({
   socHead: { alignItems: 'center', justifyContent: 'space-between', paddingTop: 13 },
   socLabel: { fontFamily: FONTS.medium, fontSize: 13, color: COLORS.textSecondary },
   socValue: { fontFamily: FONTS.bold, fontSize: 15, color: COLORS.text },
-  socSteps: { gap: 7, paddingVertical: 12 },
-  socChip: {
-    flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11,
-    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background,
+  slider: { width: '100%', height: 36, marginBottom: 6 },
+  hintTxt: { fontFamily: FONTS.regular, fontSize: 11.5, color: COLORS.textTertiary, marginTop: -4, marginBottom: 4 },
+
+  advancedHead: {
+    alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: 4, marginTop: 6,
   },
-  socChipOn: { backgroundColor: COLORS.primaryBg, borderColor: COLORS.primary },
-  socChipTxt: { fontFamily: FONTS.medium, fontSize: 12.5, color: COLORS.textSecondary },
-  socChipTxtOn: { fontFamily: FONTS.bold, color: COLORS.primary },
+  advancedTitle: { fontFamily: FONTS.bold, fontSize: 14, color: COLORS.text },
 });

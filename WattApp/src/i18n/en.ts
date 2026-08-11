@@ -240,6 +240,7 @@ const en: Translations = {
 
   // Map
   map_search: 'Search for a station...',
+  map_satellite_toggle: 'Toggle satellite view',
   map_nearby: 'Nearby Stations',
   map_stations: 'Stations',
   map_available: 'available',
@@ -1264,11 +1265,20 @@ const en: Translations = {
   tp_use_current: 'Use my location',
   tp_pick_on_map: 'Pick on map',
   tp_search_ph: 'Search a station or place',
+  tp_searching: 'Searching…',
+  tp_no_results: 'No results',
+  tp_swap: 'Swap from and to',
+  tp_recentre: 'Centre on my location',
   tp_car_title: 'Your car',
   tp_battery: 'Battery size',
   tp_start_soc: 'Charge now',
   tp_no_battery: 'Add your battery size to your car profile for an accurate plan.',
   tp_edit_car: 'Edit car',
+  tp_advanced: 'Advanced options',
+  tp_reserve_soc: 'Safety reserve',
+  tp_reserve_soc_hint: 'Minimum charge to keep in reserve when you arrive',
+  tp_consumption: 'Energy use',
+  tp_consumption_hint: "Your car's typical consumption",
   tp_plan_btn: 'Plan my trip',
   tp_planning: 'Planning…',
 

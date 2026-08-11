@@ -238,6 +238,7 @@ const ar = {
 
   // Map
   map_search: 'ابحث عن محطة...',
+  map_satellite_toggle: 'تبديل عرض القمر الصناعي',
   map_nearby: 'محطات قريبة مني',
   map_stations: 'المحطات',
   map_available: 'متاح',
@@ -1262,11 +1263,20 @@ const ar = {
   tp_use_current: 'استخدم موقعي',
   tp_pick_on_map: 'اختر على الخريطة',
   tp_search_ph: 'ابحث عن محطة أو مكان',
+  tp_searching: 'جارِ البحث…',
+  tp_no_results: 'لا توجد نتائج',
+  tp_swap: 'تبديل نقطتي البداية والوصول',
+  tp_recentre: 'التمركز على موقعي',
   tp_car_title: 'سيارتك',
   tp_battery: 'سعة البطارية',
   tp_start_soc: 'الشحن الحالي',
   tp_no_battery: 'أضف سعة بطاريتك إلى ملف سيارتك للحصول على خطة دقيقة.',
   tp_edit_car: 'تعديل السيارة',
+  tp_advanced: 'خيارات متقدمة',
+  tp_reserve_soc: 'هامش الأمان',
+  tp_reserve_soc_hint: 'أقل شحن تحتفظ به عند الوصول',
+  tp_consumption: 'استهلاك الطاقة',
+  tp_consumption_hint: 'معدل استهلاك سيارتك المعتاد',
   tp_plan_btn: 'خطّط رحلتي',
   tp_planning: 'جارٍ التخطيط…',
 

@@ -298,6 +298,15 @@ export const api = {
         coordinates: Array<[number, number]>;
         steps: Array<{ instruction: string; modifier: string | null; name: string; distance_m: number }>;
       }>('POST', '/api/routing/route', { body: { from, to } }),
+    // Free-text place search for the trip planner's from/to box. `near` biases
+    // results toward the driver's current area. Empty query → [] server-side.
+    search: (q: string, near?: { latitude: number; longitude: number }) => {
+      const params = new URLSearchParams({ q });
+      if (near) { params.set('lat', String(near.latitude)); params.set('lng', String(near.longitude)); }
+      return request<Array<{ id: string; name: string; address: string; latitude: number; longitude: number }>>(
+        'GET', `/api/routing/search?${params}`,
+      );
+    },
   },
 
   // ── Mobile charging — customer side ──────────────────────────────────────

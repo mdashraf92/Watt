@@ -6,6 +6,7 @@ import { validateBody } from '../../middleware/validate';
 import { query, withUser } from '../../db/pool';
 import { AppError, badRequest, notFound } from '../../lib/errors';
 import { osrmRoute } from './osrm';
+import { geocodeSearch } from './geocode';
 import { findCorridorChargers, planTrip, type PlanParams } from './planner';
 
 // In-app driving directions and the trip planner.
@@ -32,6 +33,23 @@ router.post('/route',
     const { from, to } = req.body;
     const route = await osrmRoute([from, to]);
     res.json({ success: true, ...route });
+  }),
+);
+
+// Free-text place search for the trip planner's "from/to" box. A GET with a
+// query string (not POST) since it's a read with no side effects and benefits
+// from being bookmarkable/cacheable like any other search endpoint.
+router.get('/search',
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    if (q.length < 2) return res.json([]);
+
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    const near = Number.isFinite(lat) && Number.isFinite(lng) ? { latitude: lat, longitude: lng } : undefined;
+
+    const results = await geocodeSearch(q, near);
+    res.json(results);
   }),
 );
 

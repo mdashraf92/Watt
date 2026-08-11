@@ -45,6 +45,8 @@ export interface OSMMapHandle {
   clearRoute(): void;
 }
 
+export type OSMMapType = 'streets' | 'satellite';
+
 interface OSMMapProps {
   style?: StyleProp<ViewStyle>;
   initialRegion: OSMRegion;
@@ -53,6 +55,8 @@ interface OSMMapProps {
   onRegionChangeComplete?: (region: OSMRegion) => void;
   showsUserLocation?: boolean;
   interactive?: boolean;            // false = static preview (no gestures)
+  /** 'satellite' requires the Mapbox token — silently stays on streets without one. */
+  mapType?: OSMMapType;
 }
 
 const deltaToZoom = (latitudeDelta: number) =>
@@ -65,7 +69,7 @@ const GLYPHS: Record<string, string> = {
   star: '<svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
 };
 
-function buildHtml(region: OSMRegion, interactive: boolean): string {
+function buildHtml(region: OSMRegion, interactive: boolean, initialMapType: OSMMapType): string {
   const zoom = deltaToZoom(region.latitudeDelta);
   const MAPBOX_TOKEN = ENV.mapboxToken;
   return `<!DOCTYPE html>
@@ -109,19 +113,34 @@ function buildHtml(region: OSMRegion, interactive: boolean): string {
     boxZoom: false, keyboard: false, tap: ${interactive},
   }).setView([${region.latitude}, ${region.longitude}], ${zoom});
 
-  ${MAPBOX_TOKEN ? `
-  L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}@2x?access_token={accessToken}', {
-    maxZoom: 22,
-    tileSize: 512,
-    zoomOffset: -1,
-    id: 'mapbox/streets-v12',
-    accessToken: '${MAPBOX_TOKEN}',
-    attribution: '&copy; Mapbox &copy; OpenStreetMap',
-  }).addTo(map);` : `
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap',
-  }).addTo(map);`}
+  var tileLayer = null;
+  var MAPBOX_TOKEN = '${MAPBOX_TOKEN}';
+
+  function tileLayerFor(type) {
+    if (MAPBOX_TOKEN) {
+      return L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}@2x?access_token={accessToken}', {
+        maxZoom: 22,
+        tileSize: 512,
+        zoomOffset: -1,
+        id: type === 'satellite' ? 'mapbox/satellite-streets-v12' : 'mapbox/streets-v12',
+        accessToken: MAPBOX_TOKEN,
+        attribution: '&copy; Mapbox &copy; OpenStreetMap',
+      });
+    }
+    // No token — satellite has no free equivalent here, so both types fall
+    // back to plain OSM tiles rather than showing a broken/blank layer.
+    return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap',
+    });
+  }
+
+  window.__setMapType = function (type) {
+    if (tileLayer) map.removeLayer(tileLayer);
+    tileLayer = tileLayerFor(type);
+    tileLayer.addTo(map);
+  };
+  window.__setMapType('${initialMapType}');
 
   var markerLayer = L.layerGroup().addTo(map);
   var userMarker = null;
@@ -209,6 +228,7 @@ const OSMMap = forwardRef<OSMMapHandle, OSMMapProps>(function OSMMap(
     onRegionChangeComplete,
     showsUserLocation = false,
     interactive = true,
+    mapType = 'streets',
   },
   ref,
 ) {
@@ -217,9 +237,9 @@ const OSMMap = forwardRef<OSMMapHandle, OSMMapProps>(function OSMMap(
   const markersRef = useRef(markers);
   markersRef.current = markers;
 
-  // HTML is generated once — later region/marker changes go through the bridge.
+  // HTML is generated once — later region/marker/map-type changes go through the bridge.
   const html = useMemo(
-    () => buildHtml(initialRegion, interactive),
+    () => buildHtml(initialRegion, interactive, mapType),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -233,6 +253,12 @@ const OSMMap = forwardRef<OSMMapHandle, OSMMapProps>(function OSMMap(
   useEffect(() => {
     if (readyRef.current) pushMarkers(markers);
   }, [JSON.stringify(markers)]);
+
+  useEffect(() => {
+    if (readyRef.current) {
+      webRef.current?.injectJavaScript(`window.__setMapType('${mapType}'); true;`);
+    }
+  }, [mapType]);
 
   useImperativeHandle(ref, () => ({
     animateToRegion(region: OSMRegion, durationMs = 600) {

@@ -3,7 +3,7 @@ import {
   ActivityIndicator, ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
-import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../../components/OSMMap';
+import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region, OSMMapType } from '../../components/OSMMap';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
@@ -13,7 +13,7 @@ import { realtime } from '../../lib/realtime';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../../i18n/govMap';
-import { ZapIcon, LocateIcon, XIcon, SearchIcon } from '../../components/icons';
+import { ZapIcon, LocateIcon, XIcon, SearchIcon, LayersIcon } from '../../components/icons';
 import NotificationBell from '../../components/NotificationBell';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -39,6 +39,7 @@ export default function AdminMapScreen() {
   };
 
   const mapRef = useRef<OSMMapHandle>(null);
+  const [mapType, setMapType] = useState<OSMMapType>('streets');
   const [stations, setStations]   = useState<Station[]>([]);
   const [loading,  setLoading]    = useState(true);
   const [selected, setSelected]   = useState<Station | null>(null);
@@ -179,6 +180,7 @@ export default function AdminMapScreen() {
           if (s) setSelected(s);
         }}
         showsUserLocation
+        mapType={mapType}
       />
 
       {/* Top overlay — Google-Maps-style search + filter */}
@@ -258,6 +260,21 @@ export default function AdminMapScreen() {
           </View>
         )}
       </SafeAreaView>
+
+      {/* Satellite toggle FAB — sits just above the locate FAB */}
+      <TouchableOpacity
+        style={[
+          styles.locateFab,
+          isRTL ? { left: 16 } : { right: 16 },
+          { bottom: (selected ? cardBottom + cardHeight + 14 : tabBarHeight + 12) + 60 },
+        ]}
+        onPress={() => setMapType(v => (v === 'streets' ? 'satellite' : 'streets'))}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={t.map_satellite_toggle}
+      >
+        <LayersIcon size={20} color={mapType === 'satellite' ? COLORS.primary : COLORS.textSecondary} strokeWidth={2.2} />
+      </TouchableOpacity>
 
       {/* Locate FAB — floating bottom corner like Google Maps (lifts above the station card) */}
       <TouchableOpacity
