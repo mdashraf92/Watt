@@ -7,6 +7,7 @@ const ar = {
   saving: 'جارٍ الحفظ...',
   cancel: 'إلغاء',
   confirm: 'تأكيد',
+  edit: 'تعديل',
   close: 'إغلاق',
   error: 'خطأ',
   // Phone (OTP) login
@@ -22,6 +23,9 @@ const ar = {
   otp_resend: 'إعادة إرسال الرمز',
   otp_error_invalid: 'الرمز غير صحيح. تحقق من الرسالة وحاول مجدداً.',
   phone_not_configured: 'تسجيل الدخول بالهاتف غير متاح حالياً. يرجى تسجيل الدخول بالبريد الإلكتروني وكلمة المرور.',
+  auth_email_otp: 'الدخول برمز عبر البريد الإلكتروني',
+  email_otp_subtitle: 'سنرسل لك رمزًا مكوّنًا من 6 أرقام عبر البريد الإلكتروني لتسجيل الدخول.',
+  email_otp_sent_to: 'تم إرسال الرمز إلى',
   error_load_title: 'تعذّر تحميل البيانات',
   error_load_msg: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
   retry: 'إعادة المحاولة',
@@ -66,6 +70,8 @@ const ar = {
   auth_browse_guest: 'تصفح كزائر',
   auth_password_label: 'كلمة المرور',
   auth_password_ph: 'أدخل كلمة المرور',
+  auth_confirm_password_label: 'تأكيد كلمة المرور',
+  auth_confirm_password_ph: 'أعد إدخال كلمة المرور',
   auth_signin_btn: 'تسجيل الدخول',
   auth_no_account: 'ليس لديك حساب؟',
   auth_signup_link: 'إنشاء حساب',
@@ -74,6 +80,7 @@ const ar = {
   auth_error_phone: 'يرجى إدخال رقم هاتف صحيح',
   auth_error_password: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف ورقم',
   auth_error_password_empty: 'يرجى إدخال كلمة المرور',
+  auth_error_password_mismatch: 'كلمتا المرور غير متطابقتين',
 
   // ── قريباً (ميزات تشويقية) ──
   coming_soon_section: 'قريباً',

@@ -9,6 +9,7 @@ const en: Translations = {
   saving: 'Saving...',
   cancel: 'Cancel',
   confirm: 'Confirm',
+  edit: 'Edit',
   error: 'Error',
   // Phone (OTP) login
   auth_phone: 'Continue with Phone',
@@ -23,6 +24,9 @@ const en: Translations = {
   otp_resend: 'Resend code',
   otp_error_invalid: 'That code isn\'t right. Check the SMS and try again.',
   phone_not_configured: 'Phone sign-in isn\'t available yet. Please sign in with your email and password.',
+  auth_email_otp: 'Sign in with Email Code',
+  email_otp_subtitle: 'We\'ll email you a 6-digit code to sign in.',
+  email_otp_sent_to: 'Code sent to',
   error_load_title: 'Couldn\'t load data',
   error_load_msg: 'Check your internet connection and try again.',
   retry: 'Retry',
@@ -68,6 +72,8 @@ const en: Translations = {
   auth_browse_guest: 'Browse as Guest',
   auth_password_label: 'Password',
   auth_password_ph: 'Enter your password',
+  auth_confirm_password_label: 'Confirm Password',
+  auth_confirm_password_ph: 'Re-enter your password',
   auth_signin_btn: 'Sign In',
   auth_no_account: "Don't have an account?",
   auth_signup_link: 'Sign Up',
@@ -76,6 +82,7 @@ const en: Translations = {
   auth_error_phone: 'Please enter a valid phone number',
   auth_error_password: 'Password must be at least 8 characters and include a letter and a number',
   auth_error_password_empty: 'Please enter your password',
+  auth_error_password_mismatch: 'Passwords do not match',
 
   // ── Coming Soon (teaser features) ──
   coming_soon_section: 'Coming Soon',

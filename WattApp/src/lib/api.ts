@@ -132,6 +132,10 @@ export const api = {
       request('POST', '/api/auth/phone/start', { auth: false, body: { phone } }),
     phoneVerify: (phone: string, code: string) =>
       request('POST', '/api/auth/phone/verify', { auth: false, body: { phone, code } }),
+    emailOtpStart: (email: string) =>
+      request('POST', '/api/auth/email-otp/start', { auth: false, body: { email } }),
+    emailOtpVerify: (email: string, code: string) =>
+      request('POST', '/api/auth/email-otp/verify', { auth: false, body: { email, code } }),
   },
 
   profile: {

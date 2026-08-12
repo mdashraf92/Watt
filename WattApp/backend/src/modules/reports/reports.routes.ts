@@ -103,6 +103,7 @@ router.post('/admin/:id/respond',
       title: 'Update on your report',
       body: req.body.message,
       data: { report_id: rows[0].id },
+      email: true,
     }).catch(() => {});
 
     res.json(rows[0]);
@@ -127,6 +128,7 @@ router.post('/admin/:id/close', requireAdmin, asyncHandler(async (req, res) => {
     title: 'Your report was resolved',
     body: 'Thanks for letting us know — this issue has been marked resolved.',
     data: { report_id: rows[0].id },
+    email: true,
   }).catch(() => {});
 
   res.json(rows[0]);

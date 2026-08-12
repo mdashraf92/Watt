@@ -126,4 +126,15 @@ router.post('/phone/verify',
   asyncHandler(async (req, res) => res.json(await svc.verifyPhoneAuth(req.body.phone, req.body.code))),
 );
 
+// ── Email OTP login (existing accounts only — see auth.service.ts) ──
+router.post('/email-otp/start',
+  validateBody(z.object({ email: z.string().email() })),
+  asyncHandler(async (req, res) => res.json(await svc.startEmailOtp(req.body.email))),
+);
+
+router.post('/email-otp/verify',
+  validateBody(z.object({ email: z.string().email(), code: z.string().min(4).max(8) })),
+  asyncHandler(async (req, res) => res.json(await svc.verifyEmailOtp(req.body.email, req.body.code))),
+);
+
 export default router;

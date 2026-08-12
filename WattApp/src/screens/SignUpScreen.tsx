@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
@@ -29,10 +29,14 @@ export default function SignUpScreen() {
   const [fullName,      setFullName]      = useState('');
   const [email,         setEmail]         = useState('');
   const [password,      setPassword]      = useState('');
+  const [confirmPassword,      setConfirmPassword]      = useState('');
   const [showPass,      setShowPass]      = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [loading,       setLoading]       = useState(false);
   const [emailError,    setEmailError]    = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   const validateEmail = (value: string) => {
     if (!value.trim() || !EMAIL_REGEX.test(value.trim())) {
@@ -52,10 +56,20 @@ export default function SignUpScreen() {
     return true;
   };
 
+  const validateConfirmPassword = (value: string, against: string = password) => {
+    if (value !== against) {
+      setConfirmPasswordError(t.auth_error_password_mismatch);
+      return false;
+    }
+    setConfirmPasswordError(null);
+    return true;
+  };
+
   const handleSignUp = async () => {
     if (!fullName.trim()) { Alert.alert(t.error, t.auth_error_name); return; }
     if (!validateEmail(email)) return;
     if (!validatePassword(password)) return;
+    if (!validateConfirmPassword(confirmPassword)) return;
     try {
       setLoading(true);
       await signUp(email.trim().toLowerCase(), password, fullName.trim());
@@ -137,12 +151,16 @@ export default function SignUpScreen() {
                 placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry={!showPass}
                 value={password}
-                onChangeText={v => { setPassword(v); if (passwordError) validatePassword(v); }}
+                onChangeText={v => {
+                  setPassword(v);
+                  if (passwordError) validatePassword(v);
+                  if (confirmPasswordError) validateConfirmPassword(confirmPassword, v);
+                }}
                 autoComplete="new-password"
                 textContentType="newPassword"
                 autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleSignUp}
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                 onBlur={() => { if (password) validatePassword(password); }}
               />
               <TouchableOpacity onPress={() => setShowPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -152,6 +170,34 @@ export default function SignUpScreen() {
               </TouchableOpacity>
             </View>
             {passwordError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{passwordError}</Text> : null}
+          </View>
+
+          {/* Confirm Password */}
+          <View style={s.field}>
+            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_confirm_password_label}</Text>
+            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse, confirmPasswordError ? s.inputBoxError : null]}>
+              <TextInput
+                ref={confirmPasswordRef}
+                style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
+                placeholder={t.auth_confirm_password_ph}
+                placeholderTextColor={COLORS.textTertiary}
+                secureTextEntry={!showConfirmPass}
+                value={confirmPassword}
+                onChangeText={v => { setConfirmPassword(v); if (confirmPasswordError) validateConfirmPassword(v); }}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSignUp}
+                onBlur={() => { if (confirmPassword) validateConfirmPassword(confirmPassword); }}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                {showConfirmPass
+                  ? <EyeOffIcon size={20} color={COLORS.textTertiary} strokeWidth={2} />
+                  : <EyeIcon    size={20} color={COLORS.textTertiary} strokeWidth={2} />}
+              </TouchableOpacity>
+            </View>
+            {confirmPasswordError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{confirmPasswordError}</Text> : null}
           </View>
 
           {/* Create Account */}

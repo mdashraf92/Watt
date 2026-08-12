@@ -16,6 +16,7 @@ import { useLang } from '../context/LanguageContext';
 import { api } from '../lib/api';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
+import Constants from 'expo-constants';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
 import type { ChargingSession, ChargerApplication, CustomerStackParamList } from '../types';
@@ -305,7 +306,9 @@ export default function ProfileScreen() {
           <Text style={styles.heroName}>
             {profile.full_name || t.profile_dev_name}
           </Text>
-          <Text style={styles.heroPhone}>{profile.phone}</Text>
+          {(profile.phone || session?.user?.email) ? (
+            <Text style={styles.heroPhone}>{profile.phone || session?.user?.email}</Text>
+          ) : null}
         </LinearGradient>
 
         {/* ── Stats ─────────────────────────────────────────── */}
@@ -587,7 +590,7 @@ export default function ProfileScreen() {
             <Text style={styles.sectionMini}>{t.security_account}</Text>
             <View style={styles.infoCard}>
               <Text style={styles.infoCardLabel}>{t.security_email_label}</Text>
-              <Text style={styles.infoCardValue}>{profile?.phone || '—'}</Text>
+              <Text style={styles.infoCardValue}>{session?.user?.email || profile?.phone || '—'}</Text>
             </View>
             <Text style={styles.sectionMini}>{t.security_protection}</Text>
             <ProtRow emoji="🔐" label={t.security_ssl}      sub={t.security_ssl_sub} />
@@ -689,7 +692,7 @@ export default function ProfileScreen() {
               <Text style={styles.aboutAppName}>GO WATT</Text>
               <Text style={styles.aboutTagline}>{t.about_tagline}</Text>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionText}>{t.about_version} 1.0.0</Text>
+                <Text style={styles.versionText}>{t.about_version} {Constants.expoConfig?.version ?? '1.0.0'}</Text>
               </View>
             </View>
             <Text style={styles.aboutDesc}>{t.about_desc}</Text>
@@ -756,6 +759,7 @@ function SettingRow({ Icon, label, onPress }: { Icon: any; label: string; onPres
 }
 
 function VehicleCard({ vehicle, onEdit }: { vehicle: VehicleData; onEdit: () => void }) {
+  const { t } = useLang();
   return (
     <View style={styles.vehicleCard}>
       <View style={styles.vehicleCardLeft}>
@@ -778,7 +782,7 @@ function VehicleCard({ vehicle, onEdit }: { vehicle: VehicleData; onEdit: () => 
         </View>
       </View>
       <TouchableOpacity onPress={onEdit} style={styles.vehicleEditBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.vehicleEditText}>Edit</Text>
+        <Text style={styles.vehicleEditText}>{t.edit}</Text>
       </TouchableOpacity>
     </View>
   );

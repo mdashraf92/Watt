@@ -60,6 +60,15 @@ function requireConfigured() {
   if (!thawani.thawaniConfigured()) throw new AppError(503, 'not_configured', 'Payments not configured');
 }
 
+// Wallet top-up bounds. Deliberately stricter than — and layered on top of —
+// thawani.validateAmount()'s general gateway limits (0.1-500 OMR), which stay
+// loose because /cards/charge reuses the same check for covering a small
+// insufficient-balance shortfall (as low as 0.1 OMR). The 1-50 rule is a
+// product decision for this one flow, so it lives here, not in the shared
+// Thawani integration.
+const TOPUP_MIN_OMR = 1;
+const TOPUP_MAX_OMR = 50;
+
 // Create a Thawani checkout session for a wallet top-up. Bound to the user's
 // Thawani customer so their saved cards are offered on the hosted page, and so
 // `save_card` can tokenise the card they use.
@@ -69,6 +78,9 @@ router.post('/create',
     requireConfigured();
     const err = thawani.validateAmount(req.body.amount);
     if (err) throw new AppError(400, 'bad_request', err);
+    if (req.body.amount < TOPUP_MIN_OMR || req.body.amount > TOPUP_MAX_OMR) {
+      throw new AppError(400, 'bad_request', `Top-up amount must be between ${TOPUP_MIN_OMR} and ${TOPUP_MAX_OMR} OMR`);
+    }
 
     const customerId = await ensureCustomer(req.user!.id);
     const created = await thawani.createCheckout(req.user!.id, req.body.amount, {

@@ -199,6 +199,7 @@ router.post('/applications/:id/:action',
             ? 'Congratulations — you can now set up your charger and start earning.'
             : (app.admin_comment || 'Contact support if you have questions about this decision.'),
           data: { application_id: req.params.id },
+          email: true,
         }).catch(() => {});
       }
     }

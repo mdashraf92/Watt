@@ -558,7 +558,7 @@ export default function MapScreen() {
           <View style={styles.selectedCardRow}>
             <View style={styles.selectedInfo}>
               <View style={styles.selectedNameRow}>
-                <View style={[styles.statusDot, { backgroundColor: selectedListing.is_available ? COLORS.available : COLORS.offline }]} />
+                <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[(selectedListing as any).status] ?? (selectedListing.is_available ? COLORS.available : COLORS.offline) }]} />
                 <Text style={styles.selectedName} numberOfLines={1}>
                   {myListing?.id === selectedListing.id
                     ? `⭐ ${selectedListing.station_name ?? t.map_my_charger_label}`

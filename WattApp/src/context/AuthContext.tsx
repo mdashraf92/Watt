@@ -44,6 +44,8 @@ interface AuthContextType {
   signInWithApple:    () => Promise<void>;
   signInWithPhone:    (phone: string) => Promise<void>;
   verifyPhoneOtp:     (phone: string, token: string) => Promise<void>;
+  signInWithEmailOtp: (email: string) => Promise<void>;
+  verifyEmailOtp:     (email: string, code: string) => Promise<void>;
   sendPasswordReset:  (email: string) => Promise<void>;
   completePasswordRecovery: (newPassword: string) => Promise<void>;
   cancelPasswordRecovery:   () => Promise<void>;
@@ -166,6 +168,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await afterAuth(r);
   };
 
+  // Email OTP: a second, self-controlled login channel for accounts already
+  // registered by email — useful while SMS (Omantel) is still pending. Never
+  // creates an account; the server silently no-ops start() for an unknown
+  // email so this can't be used to probe which addresses are registered.
+  const signInWithEmailOtp = async (email: string) => {
+    await api.auth.emailOtpStart(email);
+  };
+  const verifyEmailOtp = async (email: string, code: string) => {
+    const r = await api.auth.emailOtpVerify(email, code);
+    await afterAuth(r);
+  };
+
   const sendPasswordReset = async (email: string) => {
     const clean = email.trim().toLowerCase();
     const { exists } = await api.auth.checkEmail(clean);
@@ -218,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       session, profile, loading, profileError, recoveryMode,
       signIn, signUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
+      signInWithEmailOtp, verifyEmailOtp,
       sendPasswordReset, completePasswordRecovery, cancelPasswordRecovery,
       signOut, deactivateAccount, deleteAccount, refreshProfile, updateProfile,
     }}>

@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword, hashToken } from '../../lib/password';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
 import { AppError, badRequest, conflict, unauthorized } from '../../lib/errors';
 import { sendSms } from '../../integrations/sms';
+import { sendEmail } from '../../integrations/email';
 import { env, isProd } from '../../config/env';
 
 const REFRESH_DAYS = 30;
@@ -252,4 +253,104 @@ export async function verifyPhoneAuth(rawPhone: string, code: string) {
   const user = await findOrCreateUserByPhone(phone);
   const tokens = await issueTokens(user.id, user.role);
   return { user: { id: user.id, phone, role: user.role }, ...tokens };
+}
+
+// ── Email OTP login ──────────────────────────────────────────────────────────
+// A second, fully self-controlled OTP channel — useful while Omantel's SMS
+// whitelist is still pending. Unlike phone OTP this never creates an account:
+// email sign-up is already its own flow (register()), so a code here only
+// ever logs an *existing* email account in.
+
+function otpEmailHtml(code: string): string {
+  return `<!doctype html><html><body style="margin:0;background:#F6F8F7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#16241D">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:480px;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E4E9E6">
+        <tr><td style="background:#214A38;padding:28px 28px 24px">
+          <span style="color:#FFFFFF;font-size:22px;font-weight:800;letter-spacing:3px">GO WATT</span>
+        </td></tr>
+        <tr><td style="padding:28px">
+          <h1 style="margin:0 0 8px;font-size:20px;color:#16241D">Your sign-in code</h1>
+          <p style="margin:0 0 22px;font-size:14px;line-height:22px;color:#5A6B62">
+            Enter this code in the app to sign in. It expires in <strong>${OTP_TTL_MIN} minutes</strong>.
+          </p>
+          <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#378B5A;text-align:center;padding:16px;background:#F0F7F3;border-radius:12px">${code}</div>
+          <p style="margin:22px 0 0;font-size:12px;line-height:18px;color:#95A29B">
+            If you didn't request this, you can safely ignore this email.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table></body></html>`;
+}
+
+export async function startEmailOtp(rawEmail: string) {
+  const email = rawEmail.trim().toLowerCase();
+
+  const { rows: recent } = await pool.query(
+    `select count(*)::int as n from public.email_otps
+     where email = $1 and created_at > now() - interval '15 minutes'`,
+    [email],
+  );
+  if ((recent[0]?.n ?? 0) >= OTP_MAX_SENDS_15M)
+    throw badRequest('Too many code requests. Please try again in a few minutes.');
+
+  // Don't reveal whether the account exists — same stance as forgot-password.
+  // If there's no account, silently skip sending; the caller always gets ok.
+  const user = await getUserByEmail(email);
+  if (user) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await pool.query(`update public.email_otps set consumed = true where email = $1 and consumed = false`, [email]);
+    await pool.query(
+      `insert into public.email_otps (email, code_hash, expires_at)
+       values ($1, $2, now() + interval '${OTP_TTL_MIN} minutes')`,
+      [email, hashToken(code)],
+    );
+    sendEmail(email, 'Your GO WATT sign-in code', otpEmailHtml(code))
+      // eslint-disable-next-line no-console
+      .catch((e) => console.error('[email-otp] send failed:', e?.message ?? e));
+    if (!isProd) {
+      // eslint-disable-next-line no-console
+      console.warn(`[otp] non-prod: email code for ${email} is ${code}`);
+    }
+  }
+  return { ok: true };
+}
+
+export async function verifyEmailOtp(rawEmail: string, code: string) {
+  const email = rawEmail.trim().toLowerCase();
+
+  if (!isProd && code.trim() === env.DEV_OTP_CODE) {
+    const user = await getUserByEmail(email);
+    if (!user) throw badRequest('No account found for this email.');
+    // eslint-disable-next-line no-console
+    console.warn(`[otp] non-prod DEV_OTP_CODE accepted for ${email}`);
+    await pool.query(`update public.email_otps set consumed = true where email = $1 and consumed = false`, [email]);
+    const role = user.role ?? 'customer';
+    const tokens = await issueTokens(user.id, role);
+    return { user: { id: user.id, email: user.email, role }, ...tokens };
+  }
+
+  const { rows } = await pool.query(
+    `select id, code_hash, expires_at, attempts from public.email_otps
+     where email = $1 and consumed = false order by created_at desc limit 1`,
+    [email],
+  );
+  const row = rows[0];
+  if (!row || new Date(row.expires_at) < new Date())
+    throw badRequest('Code expired. Please request a new one.');
+  if (row.attempts >= OTP_MAX_ATTEMPTS)
+    throw badRequest('Too many attempts. Please request a new code.');
+
+  if (hashToken(code.trim()) !== row.code_hash) {
+    await pool.query(`update public.email_otps set attempts = attempts + 1 where id = $1`, [row.id]);
+    throw badRequest('Incorrect code. Please try again.');
+  }
+  await pool.query(`update public.email_otps set consumed = true where id = $1`, [row.id]);
+
+  const user = await getUserByEmail(email);
+  if (!user) throw badRequest('No account found for this email.');
+  const role = user.role ?? 'customer';
+  const tokens = await issueTokens(user.id, role);
+  return { user: { id: user.id, email: user.email, role }, ...tokens };
 }

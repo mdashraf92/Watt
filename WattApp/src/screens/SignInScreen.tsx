@@ -11,7 +11,7 @@ import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { EyeIcon, EyeOffIcon, PhoneIcon } from '../components/icons';
+import { EyeIcon, EyeOffIcon, PhoneIcon, MailIcon } from '../components/icons';
 import AuthHeader from '../components/AuthHeader';
 import GradientButton from '../components/GradientButton';
 
@@ -22,7 +22,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export default function SignInScreen() {
   const navigation = useNavigation<Nav>();
   const { t, toggleLanguage, isRTL } = useLang();
-  const { signIn, sendPasswordReset, signInWithPhone, verifyPhoneOtp } = useAuth();
+  const { signIn, sendPasswordReset, signInWithPhone, verifyPhoneOtp, signInWithEmailOtp, verifyEmailOtp } = useAuth();
 
   const [email,         setEmail]         = useState('');
   const [password,      setPassword]      = useState('');
@@ -38,6 +38,15 @@ export default function SignInScreen() {
   const [otpCode,      setOtpCode]      = useState('');
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [phoneError,   setPhoneError]   = useState<string | null>(null);
+
+  // Email OTP login — a second, self-controlled channel for accounts already
+  // registered by email (useful while SMS/Omantel is still pending).
+  const [emailOtpVisible, setEmailOtpVisible] = useState(false);
+  const [emailOtpStep,    setEmailOtpStep]    = useState<'email' | 'otp'>('email');
+  const [otpEmail,        setOtpEmail]        = useState('');
+  const [emailOtpCode,    setEmailOtpCode]    = useState('');
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+  const [emailOtpError,   setEmailOtpError]   = useState<string | null>(null);
 
   // Forgot password
   const [forgotVisible, setForgotVisible] = useState(false);
@@ -105,6 +114,39 @@ export default function SignInScreen() {
       setPhoneError(t.otp_error_invalid);
     } finally {
       setPhoneLoading(false);
+    }
+  };
+
+  // ── Email OTP flow ──
+  const openEmailOtp = () => {
+    setOtpEmail(''); setEmailOtpCode(''); setEmailOtpError(null); setEmailOtpStep('email');
+    setEmailOtpVisible(true);
+  };
+
+  const handleSendEmailOtp = async () => {
+    const clean = otpEmail.trim();
+    if (!clean || !EMAIL_REGEX.test(clean)) { setEmailOtpError(t.auth_error_email); return; }
+    setEmailOtpLoading(true); setEmailOtpError(null);
+    try {
+      await signInWithEmailOtp(clean);
+      setEmailOtpStep('otp');
+    } catch (e: any) {
+      setEmailOtpError(e?.message ?? t.error);
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (emailOtpCode.replace(/\D/g, '').length !== 6) { setEmailOtpError(t.otp_error_invalid); return; }
+    setEmailOtpLoading(true); setEmailOtpError(null);
+    try {
+      await verifyEmailOtp(otpEmail.trim(), emailOtpCode.trim());
+      setEmailOtpVisible(false);
+    } catch (e: any) {
+      setEmailOtpError(e?.message ?? t.otp_error_invalid);
+    } finally {
+      setEmailOtpLoading(false);
     }
   };
 
@@ -227,6 +269,14 @@ export default function SignInScreen() {
             <Text style={s.socialText}>{t.auth_phone}</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[s.socialBtn, isSocialLoading && s.btnOff]}
+            onPress={openEmailOtp} disabled={isSocialLoading} activeOpacity={0.85}
+          >
+            <MailIcon size={19} color={COLORS.primary} strokeWidth={2} />
+            <Text style={s.socialText}>{t.auth_email_otp}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={s.guestBtn} onPress={() => navigation.navigate('GuestTabs')} activeOpacity={0.7}>
             <Text style={s.guestText}>{isRTL ? `← ${t.auth_browse_guest}` : `${t.auth_browse_guest} →`}</Text>
           </TouchableOpacity>
@@ -283,6 +333,65 @@ export default function SignInScreen() {
                   {phoneError ? <Text style={s.fieldErr}>{phoneError}</Text> : null}
                   <GradientButton label={t.otp_verify_btn} onPress={handleVerifyOtp} loading={phoneLoading} />
                   <TouchableOpacity onPress={handleSendCode} disabled={phoneLoading} style={{ alignSelf: 'center', padding: 6 }}>
+                    <Text style={s.forgotLinkText}>{t.otp_resend}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* ── Email OTP login modal ── */}
+      <Modal visible={emailOtpVisible} transparent animationType="slide" onRequestClose={() => setEmailOtpVisible(false)}>
+        <View style={s.modalOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => !emailOtpLoading && setEmailOtpVisible(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={s.sheet}>
+              <View style={s.sheetHandle} />
+              {emailOtpStep === 'email' ? (
+                <>
+                  <Text style={[s.sheetTitle, isRTL && s.rtlText]}>{t.auth_email_otp}</Text>
+                  <Text style={[s.sheetSub, isRTL && s.rtlText]}>{t.email_otp_subtitle}</Text>
+                  <View style={[s.inputBox, emailOtpError ? s.inputBoxError : null]}>
+                    <TextInput
+                      style={[s.input, isRTL && s.rtlText]}
+                      placeholder={t.auth_email_ph}
+                      placeholderTextColor={COLORS.textTertiary}
+                      value={otpEmail}
+                      onChangeText={v => { setOtpEmail(v); if (emailOtpError) setEmailOtpError(null); }}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      autoCorrect={false}
+                      returnKeyType="send"
+                      onSubmitEditing={handleSendEmailOtp}
+                      autoFocus
+                    />
+                  </View>
+                  {emailOtpError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{emailOtpError}</Text> : null}
+                  <GradientButton label={t.phone_send_btn} onPress={handleSendEmailOtp} loading={emailOtpLoading} />
+                </>
+              ) : (
+                <>
+                  <Text style={s.sheetTitle}>{t.phone_otp_title}</Text>
+                  <Text style={s.sheetSub}>{t.email_otp_sent_to} {otpEmail}</Text>
+                  <View style={[s.inputBox, emailOtpError ? s.inputBoxError : null]}>
+                    <TextInput
+                      style={[s.input, s.otpInput]}
+                      placeholder="••••••"
+                      placeholderTextColor={COLORS.textTertiary}
+                      value={emailOtpCode}
+                      onChangeText={v => { setEmailOtpCode(v.replace(/\D/g, '').slice(0, 6)); if (emailOtpError) setEmailOtpError(null); }}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      returnKeyType="done"
+                      onSubmitEditing={handleVerifyEmailOtp}
+                      autoFocus
+                    />
+                  </View>
+                  {emailOtpError ? <Text style={s.fieldErr}>{emailOtpError}</Text> : null}
+                  <GradientButton label={t.otp_verify_btn} onPress={handleVerifyEmailOtp} loading={emailOtpLoading} />
+                  <TouchableOpacity onPress={handleSendEmailOtp} disabled={emailOtpLoading} style={{ alignSelf: 'center', padding: 6 }}>
                     <Text style={s.forgotLinkText}>{t.otp_resend}</Text>
                   </TouchableOpacity>
                 </>
