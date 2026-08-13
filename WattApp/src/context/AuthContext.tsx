@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Linking } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { api, ApiError, setOnSessionLost } from '../lib/api';
 import { tokenStore } from '../lib/tokenStore';
 import { realtime } from '../lib/realtime';
@@ -9,30 +9,11 @@ import type { Profile } from '../types';
 // Minimal session shape the app relies on (screens use session.user.id / !!session).
 export type AppSession = { user: { id: string; email: string | null } } | null;
 
-function parseAuthParams(url: string): Record<string, string> {
-  const params: Record<string, string> = {};
-  const collect = (str: string) => {
-    for (const pair of str.split('&')) {
-      const eq = pair.indexOf('=');
-      if (eq < 0) continue;
-      const k = decodeURIComponent(pair.slice(0, eq));
-      const v = decodeURIComponent(pair.slice(eq + 1));
-      if (k) params[k] = v;
-    }
-  };
-  const q = url.indexOf('?');
-  const h = url.indexOf('#');
-  if (q >= 0) collect(url.slice(q + 1, h >= 0 ? h : undefined));
-  if (h >= 0) collect(url.slice(h + 1));
-  return params;
-}
-
 interface AuthContextType {
   session:    AppSession;
   profile:    Profile | null;
   loading:    boolean;
   profileError: boolean;
-  recoveryMode: boolean;
   signOut:           () => Promise<void>;
   refreshProfile:    () => Promise<void>;
   updateProfile:     (data: Partial<Profile>) => Promise<void>;
@@ -48,8 +29,7 @@ interface AuthContextType {
   signInWithEmailOtp: (email: string) => Promise<void>;
   verifyEmailOtp:     (email: string, code: string) => Promise<void>;
   sendPasswordReset:  (email: string) => Promise<void>;
-  completePasswordRecovery: (newPassword: string) => Promise<void>;
-  cancelPasswordRecovery:   () => Promise<void>;
+  resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,8 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile,      setProfile]      = useState<Profile | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [profileError, setProfileError] = useState(false);
-  const [recoveryMode, setRecoveryMode] = useState(false);
-  const resetToken = useRef<string | null>(null);   // from the reset-password deep link
 
   // Load the current user's profile from the backend and set session state.
   const loadProfile = useCallback(async (opts: { silent?: boolean } = {}) => {
@@ -110,23 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, [loadProfile]);
-
-  // ── Password-reset deep link (watt://reset-password?token=…) ────
-  useEffect(() => {
-    const handleUrl = (url: string | null) => {
-      if (!url || !url.includes('reset-password')) return;
-      const p = parseAuthParams(url);
-      if (p.token) {
-        resetToken.current = p.token;
-        setRecoveryMode(true);
-      } else if (p.error_description) {
-        Alert.alert('Reset link problem', p.error_description);
-      }
-    };
-    Linking.getInitialURL().then(handleUrl);
-    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
-    return () => sub.remove();
-  }, []);
 
   // ── Auth actions ────────────────────────────────────────────────
   const afterAuth = async (r: any) => {
@@ -188,6 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await afterAuth(r);
   };
 
+  // Password reset is a typed code entered in-app, not an emailed link — see
+  // auth.service.ts for why (Gmail strips non-http hrefs from email buttons).
   const sendPasswordReset = async (email: string) => {
     const clean = email.trim().toLowerCase();
     const { exists } = await api.auth.checkEmail(clean);
@@ -199,16 +162,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.auth.forgotPassword(clean);
   };
 
-  const completePasswordRecovery = async (newPassword: string) => {
-    if (!resetToken.current) throw new Error('This reset link is no longer valid. Please request a new one.');
-    await api.auth.resetPassword(resetToken.current, newPassword);
-    resetToken.current = null;
-    setRecoveryMode(false);
-  };
-
-  const cancelPasswordRecovery = async () => {
-    resetToken.current = null;
-    setRecoveryMode(false);
+  const resetPasswordWithCode = async (email: string, code: string, newPassword: string) => {
+    await api.auth.resetPassword(email.trim().toLowerCase(), code.trim(), newPassword);
   };
 
   const signOut = async () => { await doSignOut(); };
@@ -238,10 +193,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, profile, loading, profileError, recoveryMode,
+      session, profile, loading, profileError,
       signIn, signUp, verifySignUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
       signInWithEmailOtp, verifyEmailOtp,
-      sendPasswordReset, completePasswordRecovery, cancelPasswordRecovery,
+      sendPasswordReset, resetPasswordWithCode,
       signOut, deactivateAccount, deleteAccount, refreshProfile, updateProfile,
     }}>
       {children}

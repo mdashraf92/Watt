@@ -37,7 +37,6 @@ import type {
 import LandingScreen       from '../screens/SplashScreen';
 import SignInScreen        from '../screens/SignInScreen';
 import SignUpScreen        from '../screens/SignUpScreen';
-import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 // ── Lazy loading ──────────────────────────────────────────────
 // Post-login screens are code-split with React.lazy so their (often large)
@@ -826,11 +825,7 @@ const ceStyles = StyleSheet.create({
 // ── ROOT ──────────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { session, profile, loading, profileError, recoveryMode, refreshProfile, signOut } = useAuth();
-
-  // Password-reset deep link takes precedence over all normal routing:
-  // the recovery session must not drop the user into the app.
-  if (recoveryMode) return <ResetPasswordScreen />;
+  const { session, profile, loading, profileError, refreshProfile, signOut } = useAuth();
 
   const isLoggedIn    = !!session;
   const activeProfile = profile;

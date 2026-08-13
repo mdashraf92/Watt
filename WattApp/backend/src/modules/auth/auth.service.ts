@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { pool, withUser } from '../../db/pool';
 import { hashPassword, verifyPassword, hashToken } from '../../lib/password';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
@@ -201,35 +201,97 @@ export async function changePassword(userId: string, current: string, next: stri
   await pool.query(`update public.auth_refresh_tokens set revoked = true where user_id = $1`, [userId]);
 }
 
-// ── Password reset (email link) ─────────────────────────────────────────────
-export async function requestPasswordReset(email: string): Promise<string | null> {
-  const u = await getUserByEmail(email);
-  if (!u) return null;                              // don't reveal whether the email exists
-  const token = randomBytes(32).toString('hex');
-  await pool.query(
-    `insert into public.auth_tokens (user_id, purpose, token_hash, expires_at)
-     values ($1,'reset',$2, now() + interval '1 hour')`,
-    [u.id, hashToken(token)],
-  );
-  return token;                                     // caller emails the reset link
+// ── Password reset (in-app code) ─────────────────────────────────────────────
+// A typed code entered directly in the app, not an emailed link — links to a
+// custom scheme (watt://) or Expo Go (exp://) turned out to be unreliable in
+// practice (Gmail strips non-http hrefs from clickable buttons entirely), and
+// this sidesteps the problem the same way phone/email login already do.
+
+function resetOtpEmailHtml(code: string): string {
+  return `<!doctype html><html><body style="margin:0;background:#F6F8F7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#16241D">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:480px;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E4E9E6">
+        <tr><td style="background:#214A38;padding:28px 28px 24px">
+          <span style="color:#FFFFFF;font-size:22px;font-weight:800;letter-spacing:3px">GO WATT</span>
+        </td></tr>
+        <tr><td style="padding:28px">
+          <h1 style="margin:0 0 8px;font-size:20px;color:#16241D">Reset your password</h1>
+          <p style="margin:0 0 22px;font-size:14px;line-height:22px;color:#5A6B62">
+            Enter this code in the app to choose a new password. It expires in <strong>${OTP_TTL_MIN} minutes</strong>.
+          </p>
+          <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#378B5A;text-align:center;padding:16px;background:#F0F7F3;border-radius:12px">${code}</div>
+          <p style="margin:22px 0 0;font-size:12px;line-height:18px;color:#95A29B">
+            If you didn't request this, you can safely ignore this email — your password won't change.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table></body></html>`;
 }
 
-export async function resetPassword(token: string, newPassword: string) {
-  const h = hashToken(token);
+export async function requestPasswordReset(rawEmail: string): Promise<void> {
+  const email = rawEmail.trim().toLowerCase();
+
+  const { rows: recent } = await pool.query(
+    `select count(*)::int as n from public.password_reset_otps
+     where email = $1 and created_at > now() - interval '15 minutes'`,
+    [email],
+  );
+  if ((recent[0]?.n ?? 0) >= OTP_MAX_SENDS_15M)
+    throw badRequest('Too many code requests. Please try again in a few minutes.');
+
+  // Don't reveal whether the account exists — if not, silently skip sending.
+  const u = await getUserByEmail(email);
+  if (u) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await pool.query(`update public.password_reset_otps set consumed = true where email = $1 and consumed = false`, [email]);
+    await pool.query(
+      `insert into public.password_reset_otps (email, code_hash, expires_at)
+       values ($1, $2, now() + interval '${OTP_TTL_MIN} minutes')`,
+      [email, hashToken(code)],
+    );
+    sendEmail(email, 'Your GO WATT password reset code', resetOtpEmailHtml(code))
+      // eslint-disable-next-line no-console
+      .catch((e) => console.error('[reset-otp] send failed:', e?.message ?? e));
+    if (!isProd) {
+      // eslint-disable-next-line no-console
+      console.warn(`[otp] non-prod: reset code for ${email} is ${code}`);
+    }
+  }
+}
+
+export async function resetPassword(rawEmail: string, code: string, newPassword: string) {
+  const email = rawEmail.trim().toLowerCase();
+
   const { rows } = await pool.query(
-    `select id, user_id, expires_at, used from public.auth_tokens
-     where token_hash = $1 and purpose = 'reset' limit 1`,
-    [h],
+    `select id, code_hash, expires_at, attempts from public.password_reset_otps
+     where email = $1 and consumed = false order by created_at desc limit 1`,
+    [email],
   );
   const row = rows[0];
-  if (!row || row.used || new Date(row.expires_at) < new Date())
-    throw badRequest('Invalid or expired reset token');
+  const devBypass = !isProd && code.trim() === env.DEV_OTP_CODE;
+
+  if (!devBypass) {
+    if (!row || new Date(row.expires_at) < new Date())
+      throw badRequest('Code expired. Please request a new one.');
+    if (row.attempts >= OTP_MAX_ATTEMPTS)
+      throw badRequest('Too many attempts. Please request a new code.');
+    if (hashToken(code.trim()) !== row.code_hash) {
+      await pool.query(`update public.password_reset_otps set attempts = attempts + 1 where id = $1`, [row.id]);
+      throw badRequest('Incorrect code. Please try again.');
+    }
+  }
+
+  const u = await getUserByEmail(email);
+  if (!u) throw badRequest('No account found for this email.');
+
   await withUser(null, async (client) => {
     await client.query(`update auth.users set encrypted_password = $1, updated_at = now() where id = $2`,
-      [await hashPassword(newPassword), row.user_id]);
-    await client.query(`update public.auth_tokens set used = true where id = $1`, [row.id]);
-    await client.query(`update public.auth_refresh_tokens set revoked = true where user_id = $1`, [row.user_id]);
+      [await hashPassword(newPassword), u.id]);
+    await client.query(`update public.auth_refresh_tokens set revoked = true where user_id = $1`, [u.id]);
   });
+  if (row) await pool.query(`update public.password_reset_otps set consumed = true where id = $1`, [row.id]);
 }
 
 export async function emailExists(email: string): Promise<boolean> {

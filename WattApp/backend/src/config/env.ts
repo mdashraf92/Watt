@@ -19,11 +19,6 @@ const schema = z.object({
   // that hosted checkouts like Thawani require to be valid http(s) URLs).
   PUBLIC_URL: z.string().default('https://go-watt.com'),
 
-  // Base of the password-reset link emailed to users. The app deep-links on
-  // `watt://reset-password?token=…`. Swap to an https:// universal link once the
-  // domain + associated-domains are set up.
-  PASSWORD_RESET_URL: z.string().default('watt://reset-password'),
-
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),

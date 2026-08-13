@@ -124,8 +124,8 @@ export const api = {
       request('POST', '/api/auth/logout', { auth: false, body: { refresh_token } }),
     forgotPassword: (email: string) =>
       request('POST', '/api/auth/forgot-password', { auth: false, body: { email } }),
-    resetPassword: (token: string, new_password: string) =>
-      request('POST', '/api/auth/reset-password', { auth: false, body: { token, new_password } }),
+    resetPassword: (email: string, code: string, new_password: string) =>
+      request('POST', '/api/auth/reset-password', { auth: false, body: { email, code, new_password } }),
     changePassword: (current_password: string, new_password: string) =>
       request('POST', '/api/auth/change-password', { body: { current_password, new_password } }),
     checkEmail: (email: string) =>
