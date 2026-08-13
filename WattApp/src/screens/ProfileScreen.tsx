@@ -71,6 +71,9 @@ export default function ProfileScreen() {
   // the customer routes below. Gate on role instead of forking the screen —
   // navigating to a route that isn't registered throws at runtime.
   const isDriver = profile?.role === 'operator';
+  // Already an investor (role granted directly, or application approved) —
+  // never show the "become an investor" invite/status card for them.
+  const isInvestor = profile?.role === 'investor';
 
   // Modal visibility
   const [editModal,     setEditModal]     = useState(false);
@@ -319,7 +322,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* ── Investor Application Banner ────────────────────── */}
-        {!isDriver && !(application === null && inviteDismissed) && <InvestorBanner
+        {!isDriver && !isInvestor && !(application === null && inviteDismissed) && <InvestorBanner
           application={application}
           t={t}
           onApply={() => navigation.navigate('InvestorApplication', {})}

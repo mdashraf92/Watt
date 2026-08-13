@@ -285,6 +285,15 @@ export type InvestorStackParamList = {
   ReportIssue: { sessionId?: string; bookingId?: string } | undefined;
   Notifications: undefined;
   Favorites: undefined;
+  MobileCharge: undefined;
+  MobileChargeTracking: { requestId: string };
+  MobileChargeSummary: { requestId: string; kwh: number; cost: number };
+  MobileChargeHistory: undefined;
+  TripPlanner: undefined;
+  TripPlanResult: { plan: TripPlan; from: { latitude: number; longitude: number; label: string };
+                    to: { latitude: number; longitude: number; label: string } };
+  MyTrips: undefined;
+  TripDetail: { tripId: string };
 };
 
 // ── Support reports ("report a problem") ───────────────────────────────────

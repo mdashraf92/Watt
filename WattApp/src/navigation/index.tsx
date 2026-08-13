@@ -706,6 +706,14 @@ function InvestorNavigator() {
       <InvestorStack.Screen name="ReportIssue" component={ReportIssueScreen} />
       <InvestorStack.Screen name="Favorites" component={FavoritesScreen} />
       <InvestorStack.Screen name="Notifications" component={NotificationsScreen} />
+      <InvestorStack.Screen name="MobileCharge" component={MobileChargeScreen} />
+      <InvestorStack.Screen name="MobileChargeTracking" component={MobileChargeTrackingScreen} options={{ gestureEnabled: false }} />
+      <InvestorStack.Screen name="MobileChargeSummary" component={MobileChargeSummaryScreen} options={{ gestureEnabled: false }} />
+      <InvestorStack.Screen name="MobileChargeHistory" component={MobileChargeHistoryScreen} />
+      <InvestorStack.Screen name="TripPlanner" component={TripPlannerScreen} />
+      <InvestorStack.Screen name="TripPlanResult" component={TripPlanResultScreen} />
+      <InvestorStack.Screen name="MyTrips" component={MyTripsScreen} />
+      <InvestorStack.Screen name="TripDetail" component={TripDetailScreen} />
     </InvestorStack.Navigator>
   );
 }
