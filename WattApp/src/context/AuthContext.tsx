@@ -40,6 +40,7 @@ interface AuthContextType {
   deleteAccount:     () => Promise<void>;
   signIn:            (email: string, password: string) => Promise<void>;
   signUp:            (email: string, password: string, fullName: string) => Promise<void>;
+  verifySignUp:      (email: string, code: string) => Promise<void>;
   signInWithGoogle:   () => Promise<void>;
   signInWithApple:    () => Promise<void>;
   signInWithPhone:    (phone: string) => Promise<void>;
@@ -139,16 +140,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await afterAuth(r);
   };
 
+  // Sign-up is verify-then-create: signUp only sends a code (no account yet);
+  // verifySignUp creates the account once that code is confirmed. Catches a
+  // mistyped email at sign-up instead of silently creating an account nobody
+  // can ever verify or recover.
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      const r = await api.auth.register(email.trim().toLowerCase(), password, fullName);
-      await afterAuth(r);
+      await api.auth.registerStart(email.trim().toLowerCase(), password, fullName);
     } catch (e) {
       if (e instanceof ApiError && e.code === 'conflict') {
         throw new Error('This email is already registered. Please sign in instead.');
       }
       throw e;
     }
+  };
+  const verifySignUp = async (email: string, code: string) => {
+    const r = await api.auth.registerVerify(email.trim().toLowerCase(), code);
+    await afterAuth(r);
   };
 
   const notAvailable = (what: string) => async () => {
@@ -231,7 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, profile, loading, profileError, recoveryMode,
-      signIn, signUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
+      signIn, signUp, verifySignUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
       signInWithEmailOtp, verifyEmailOtp,
       sendPasswordReset, completePasswordRecovery, cancelPasswordRecovery,
       signOut, deactivateAccount, deleteAccount, refreshProfile, updateProfile,

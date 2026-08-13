@@ -83,6 +83,8 @@ const en: Translations = {
   auth_error_password: 'Password must be at least 8 characters and include a letter and a number',
   auth_error_password_empty: 'Please enter your password',
   auth_error_password_mismatch: 'Passwords do not match',
+  signup_otp_title: 'Verify your email',
+  signup_otp_subtitle: 'Enter the 6-digit code we emailed to',
 
   // ── Coming Soon (teaser features) ──
   coming_soon_section: 'Coming Soon',

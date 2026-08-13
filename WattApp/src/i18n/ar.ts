@@ -81,6 +81,8 @@ const ar = {
   auth_error_password: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف ورقم',
   auth_error_password_empty: 'يرجى إدخال كلمة المرور',
   auth_error_password_mismatch: 'كلمتا المرور غير متطابقتين',
+  signup_otp_title: 'تحقق من بريدك الإلكتروني',
+  signup_otp_subtitle: 'أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه إلى',
 
   // ── قريباً (ميزات تشويقية) ──
   coming_soon_section: 'قريباً',

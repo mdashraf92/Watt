@@ -54,11 +54,21 @@ const loginBody = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-router.post('/register',
+// Sign-up is verify-then-create: /start emails a code and creates nothing yet;
+// /verify only creates the account once that code is confirmed. Catches a
+// mistyped email at sign-up instead of silently creating an unreachable account.
+router.post('/register/start',
   validateBody(emailPw.extend({ full_name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
     const { email, password, full_name } = req.body;
-    res.status(201).json(await svc.register(email, password, full_name));
+    res.json(await svc.startSignup(email, password, full_name));
+  }),
+);
+
+router.post('/register/verify',
+  validateBody(z.object({ email: z.string().email(), code: z.string().min(4).max(8) })),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(await svc.completeSignup(req.body.email, req.body.code));
   }),
 );
 

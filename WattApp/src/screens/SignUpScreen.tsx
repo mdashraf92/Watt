@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Pressable, Modal,
   StyleSheet, KeyboardAvoidingView, Platform,
   Alert, ActivityIndicator,
 } from 'react-native';
@@ -24,7 +24,7 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 export default function SignUpScreen() {
   const navigation = useNavigation<Nav>();
   const { t, toggleLanguage, isRTL } = useLang();
-  const { signUp } = useAuth();
+  const { signUp, verifySignUp } = useAuth();
 
   const [fullName,      setFullName]      = useState('');
   const [email,         setEmail]         = useState('');
@@ -37,6 +37,13 @@ export default function SignUpScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const confirmPasswordRef = useRef<TextInput>(null);
+
+  // Email verification — sign-up sends a code before the account exists;
+  // the account is only created once this code is confirmed.
+  const [otpVisible, setOtpVisible] = useState(false);
+  const [otpCode,    setOtpCode]    = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError,   setOtpError]   = useState<string | null>(null);
 
   const validateEmail = (value: string) => {
     if (!value.trim() || !EMAIL_REGEX.test(value.trim())) {
@@ -73,10 +80,31 @@ export default function SignUpScreen() {
     try {
       setLoading(true);
       await signUp(email.trim().toLowerCase(), password, fullName.trim());
+      setOtpCode(''); setOtpError(null); setOtpVisible(true);
     } catch (e: any) {
       Alert.alert(t.error, e?.message ?? t.auth_error_credentials);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpLoading(true); setOtpError(null);
+    try { await signUp(email.trim().toLowerCase(), password, fullName.trim()); }
+    catch (e: any) { setOtpError(e?.message ?? t.error); }
+    finally { setOtpLoading(false); }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.replace(/\D/g, '').length !== 6) { setOtpError(t.otp_error_invalid); return; }
+    setOtpLoading(true); setOtpError(null);
+    try {
+      await verifySignUp(email.trim().toLowerCase(), otpCode.trim());
+      setOtpVisible(false);   // session established — navigator switches automatically
+    } catch (e: any) {
+      setOtpError(e?.message ?? t.otp_error_invalid);
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -217,6 +245,39 @@ export default function SignUpScreen() {
         </View>
 
       </KeyboardAvoidingView>
+
+      {/* ── Email verification modal — account is created only after this ── */}
+      <Modal visible={otpVisible} transparent animationType="slide" onRequestClose={() => setOtpVisible(false)}>
+        <View style={s.modalOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => !otpLoading && setOtpVisible(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={s.sheet}>
+              <View style={s.sheetHandle} />
+              <Text style={[s.sheetTitle, isRTL && s.rtlText]}>{t.signup_otp_title}</Text>
+              <Text style={[s.sheetSub, isRTL && s.rtlText]}>{t.signup_otp_subtitle} {email.trim()}</Text>
+              <View style={[s.inputBox, otpError ? s.inputBoxError : null]}>
+                <TextInput
+                  style={[s.input, s.otpInput]}
+                  placeholder="••••••"
+                  placeholderTextColor={COLORS.textTertiary}
+                  value={otpCode}
+                  onChangeText={v => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); if (otpError) setOtpError(null); }}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  returnKeyType="done"
+                  onSubmitEditing={handleVerifyOtp}
+                  autoFocus
+                />
+              </View>
+              {otpError ? <Text style={s.fieldErr}>{otpError}</Text> : null}
+              <GradientButton label={t.otp_verify_btn} onPress={handleVerifyOtp} loading={otpLoading} />
+              <TouchableOpacity onPress={handleResendOtp} disabled={otpLoading} style={{ alignSelf: 'center', padding: 6 }}>
+                <Text style={s.switchLink}>{t.otp_resend}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -280,4 +341,17 @@ const s = StyleSheet.create({
   // ── RTL helpers ──
   rtlText:    { textAlign: 'right' },
   rowReverse: { flexDirection: 'row-reverse' },
+
+  // ── Modal ──
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheet: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 28,
+    gap: 14,
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.borderStrong, alignSelf: 'center', marginBottom: 4 },
+  sheetTitle:  { fontFamily: FONTS.bold, fontSize: 22, color: COLORS.text },
+  sheetSub:    { fontFamily: FONTS.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
+  otpInput:    { textAlign: 'center', fontSize: 24, letterSpacing: 12, fontFamily: FONTS.bold },
 });
