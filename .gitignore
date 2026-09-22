@@ -23,12 +23,23 @@ marketing/index.html
 WattApp/db/dumps/
 *.dump
 
+# ── Dependencies ───────────────────────────────────────────────────────────
+node_modules/
+
 # ── Build output ───────────────────────────────────────────────────────────
+# NOTE: `build/` here is why the website's build scripts live in site/tools/
+# rather than site/build/ — the latter would be silently ignored.
 build/
 dist/
+
+# ── Website build artefacts ────────────────────────────────────────────────
+# The built site IS committed (it is what go-watt.com serves), so css/, js/,
+# fonts/, i18n/ and data/ at the repo root are deliberately NOT ignored.
+site/.cache/
 
 # ── Vendor documents ───────────────────────────────────────────────────────
 # Integration specs supplied by providers under confidentiality. This repo is
 # public, so keep them local — Infocomm's SMS spec is marked "Company
 # Confidential". Thawani's OpenAPI file is published by Thawani and may stay.
 iSmartSMS*.pdf
+.gstack/
