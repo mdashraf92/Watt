@@ -87,6 +87,11 @@ export default function TripPlanResultScreen() {
   const mins  = plan.total_minutes % 60;
   const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
+  // Clock time you actually arrive — more useful than a duration alone when
+  // deciding whether a trip is worth starting now.
+  const eta = new Date(Date.now() + plan.total_minutes * 60_000);
+  const etaStr = eta.toLocaleTimeString(isRTL ? 'ar-OM' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={[styles.header, { flexDirection: rowDir }]}>
@@ -111,6 +116,24 @@ export default function TripPlanResultScreen() {
           <Metric Icon={ClockIcon} label={t.tp_summary_time} value={timeStr} />
           <View style={styles.metricDivider} />
           <Metric Icon={WalletIcon} label={t.tp_summary_cost} value={`${plan.total_cost.toFixed(3)}`} />
+        </View>
+
+        {/* Arrival at a glance — clock time and the battery you land on */}
+        <View style={[styles.etaCard, { flexDirection: rowDir }]}>
+          <View style={styles.etaHalf}>
+            <Text style={styles.etaLabel}>{t.tp_eta_label}</Text>
+            <Text style={styles.etaValue}>{etaStr}</Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.etaHalf}>
+            <Text style={styles.etaLabel}>{t.tp_arrive_battery_label}</Text>
+            <Text style={[
+              styles.etaValue,
+              { color: plan.feasible ? COLORS.primary : COLORS.error },
+            ]}>
+              {plan.arrive_soc_pct}%
+            </Text>
+          </View>
         </View>
 
         {/* Infeasible — stated plainly, with the numbers that make it true. */}
@@ -269,6 +292,14 @@ const styles = StyleSheet.create({
   metricValue: { fontFamily: FONTS.bold, fontSize: 15, color: COLORS.text },
   metricLabel: { fontFamily: FONTS.regular, fontSize: 11, color: COLORS.textTertiary },
   metricDivider: { width: 1, height: 34, backgroundColor: COLORS.border },
+
+  etaCard: {
+    backgroundColor: COLORS.card, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border,
+    paddingVertical: 16, alignItems: 'center',
+  },
+  etaHalf: { flex: 1, alignItems: 'center', gap: 3 },
+  etaLabel: { fontFamily: FONTS.regular, fontSize: 11.5, color: COLORS.textTertiary },
+  etaValue: { fontFamily: FONTS.bold, fontSize: 22, color: COLORS.text },
 
   gapCard: {
     backgroundColor: '#fdf2f2', borderRadius: 18, borderWidth: 1, borderColor: '#f6cfcf', padding: 18,

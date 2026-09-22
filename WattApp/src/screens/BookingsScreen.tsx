@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, Modal, Platform,
-  ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform,
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -95,6 +95,7 @@ export default function BookingsScreen() {
   const [filter,        setFilter]        = useState('all');
   const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
   const [cancelReason,  setCancelReason]  = useState('');
+  const [cancelNote,    setCancelNote]    = useState('');
   const [cancelling,    setCancelling]    = useState(false);
 
   // ── Data fetch ───────────────────────────────────────────────
@@ -163,14 +164,21 @@ export default function BookingsScreen() {
 
   const openCancel = (booking: Booking) => {
     setCancelReason('');
+    setCancelNote('');
     setCancelBooking(booking);
   };
 
+  // "Other" is only a real reason once they say what it is.
+  const needsNote = cancelReason === t.bookings_cancel_reason_other;
+  const canCancel = !!cancelReason && (!needsNote || cancelNote.trim().length > 0);
+
   const confirmCancel = async () => {
-    if (!cancelBooking || !cancelReason) return;
+    if (!cancelBooking || !canCancel) return;
     setCancelling(true);
     try {
-      await api.bookings.cancel(cancelBooking.id, cancelReason);
+      const note = cancelNote.trim();
+      const reason = note ? `${cancelReason}: ${note}` : cancelReason;
+      await api.bookings.cancel(cancelBooking.id, reason);
       setCancelBooking(null);
       Alert.alert('', t.bookings_cancel_success);
       fetchBookings(true);
@@ -392,6 +400,7 @@ export default function BookingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => !cancelling && setCancelBooking(null)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
 
@@ -406,12 +415,12 @@ export default function BookingsScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Station name */}
-              {cancelBooking?.station && (
+              {/* Station name — only when we actually have one to show */}
+              {!!(cancelBooking?.station && stationDisplayName(cancelBooking.station, isRTL)) && (
                 <View style={styles.cancelStationRow}>
                   <ZapIcon size={14} color={COLORS.primary} strokeWidth={2} />
                   <Text style={styles.cancelStationName} numberOfLines={1}>
-                    {stationDisplayName(cancelBooking.station, isRTL)}
+                    {stationDisplayName(cancelBooking!.station, isRTL)}
                   </Text>
                 </View>
               )}
@@ -419,32 +428,52 @@ export default function BookingsScreen() {
               {/* Reason label */}
               <Text style={styles.reasonLabel}>{t.bookings_cancel_reason_label}</Text>
 
-              {/* Reason chips */}
+              {/* Reason chips. The tick is rendered in a fixed-width slot rather
+                  than inserted on selection — inserting it re-flows the row and
+                  squeezes the label until it truncates. */}
               <View style={styles.reasonGrid}>
-                {CANCEL_REASONS.map(r => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.reasonChip, cancelReason === r && styles.reasonChipActive]}
-                    onPress={() => setCancelReason(r)}
-                  >
-                    {cancelReason === r && (
-                      <CheckIcon size={12} color={COLORS.error} strokeWidth={3} />
-                    )}
-                    <Text style={[styles.reasonText, cancelReason === r && styles.reasonTextActive]}>
-                      {r}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {CANCEL_REASONS.map(r => {
+                  const on = cancelReason === r;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.reasonChip, on && styles.reasonChipActive]}
+                      onPress={() => setCancelReason(r)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.reasonTick}>
+                        {on && <CheckIcon size={12} color={COLORS.error} strokeWidth={3} />}
+                      </View>
+                      <Text style={[styles.reasonText, on && styles.reasonTextActive]}>
+                        {r}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+
+              {/* Free-text detail — required for "Other", optional otherwise. */}
+              {!!cancelReason && (
+                <TextInput
+                  style={[styles.reasonInput, isRTL && { textAlign: 'right' }]}
+                  value={cancelNote}
+                  onChangeText={setCancelNote}
+                  placeholder={needsNote ? t.bookings_cancel_note_required_ph : t.bookings_cancel_note_ph}
+                  placeholderTextColor={COLORS.textTertiary}
+                  multiline
+                  textAlignVertical="top"
+                  maxLength={300}
+                />
+              )}
 
               {/* Confirm button */}
               <TouchableOpacity
                 style={[
                   styles.cancelConfirmBtn,
-                  (!cancelReason || cancelling) && styles.cancelConfirmBtnDisabled,
+                  (!canCancel || cancelling) && styles.cancelConfirmBtnDisabled,
                 ]}
                 onPress={confirmCancel}
-                disabled={!cancelReason || cancelling}
+                disabled={!canCancel || cancelling}
               >
                 {cancelling
                   ? <ActivityIndicator color="#fff" />
@@ -452,6 +481,7 @@ export default function BookingsScreen() {
                 }
               </TouchableOpacity>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -647,7 +677,7 @@ const styles = StyleSheet.create({
   cancelStationName: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.text },
 
   reasonLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 12 },
-  reasonGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  reasonGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   reasonChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 10,
@@ -655,8 +685,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   reasonChipActive: { borderColor: COLORS.error, backgroundColor: COLORS.errorBg },
-  reasonText:       { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  // Fixed slot so selecting a chip never changes its width (and so never
+  // truncates the label).
+  reasonTick:       { width: 12, alignItems: 'center', justifyContent: 'center' },
+  reasonText:       { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, flexShrink: 0 },
   reasonTextActive: { color: COLORS.error },
+  reasonInput: {
+    backgroundColor: COLORS.background, borderRadius: 14,
+    borderWidth: 1.5, borderColor: COLORS.border,
+    padding: 12, minHeight: 76, marginBottom: 20,
+    fontSize: 14, color: COLORS.text,
+  },
 
   cancelConfirmBtn:         { backgroundColor: COLORS.error, borderRadius: 18, paddingVertical: 16, alignItems: 'center' },
   cancelConfirmBtnDisabled: { opacity: 0.45 },

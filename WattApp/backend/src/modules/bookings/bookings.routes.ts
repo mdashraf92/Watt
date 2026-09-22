@@ -11,10 +11,16 @@ const router = Router();
 // List the current user's bookings (+ station name for display).
 router.get('/', requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await query(
-    `select b.*, json_build_object('name', s.name, 'name_ar', s.name_ar,
+    // A booking is against either a public station or a private listing, so the
+    // name has to fall back to the listing's own — otherwise listing bookings
+    // render with a blank station name everywhere this list is used.
+    `select b.*, json_build_object(
+              'name',        coalesce(s.name, cl.station_name, cl.address),
+              'name_ar',     s.name_ar,
               'governorate', s.governorate) as station
      from public.bookings b
      left join public.stations s on s.id = b.station_id
+     left join public.charger_listings cl on cl.id = b.listing_id
      where b.user_id = $1
      order by b.booked_at desc`,
     [req.user!.id],

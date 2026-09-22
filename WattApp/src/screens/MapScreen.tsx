@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,7 +29,8 @@ import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon, LayersIcon } from '../components/icons';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon, SlidersIcon } from '../components/icons';
+import MapFilterSheet, { DEFAULT_FILTERS, FAST_KW, activeFilterCount, type MapFilters } from '../components/MapFilterSheet';
 import { markerForStatus } from '../constants/mapMarkers';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -61,7 +62,9 @@ export default function MapScreen() {
   const isAuthenticated = !!session;
   const mapRef = useRef<OSMMapHandle>(null);
 
-  const [mapType, setMapType] = useState<OSMMapType>('streets');
+  const [filters, setFilters]           = useState<MapFilters>(DEFAULT_FILTERS);
+  const [filterSheet, setFilterSheet]   = useState(false);
+  const mapType = filters.mapType;
   const [stations, setStations]         = useState<Station[]>([]);
   const [listings, setListings]         = useState<ChargerListing[]>([]);
   const [myListing, setMyListing]       = useState<ChargerListing | null>(null);
@@ -200,22 +203,50 @@ export default function MapScreen() {
       .catch(() => {});
   }, [profile?.id]);
 
+  // Text search and the filter sheet are applied together: the list and the pins
+  // must always agree, so there is one derivation rather than two.
   useEffect(() => {
     const q = search.toLowerCase();
-    setFiltered(
-      q ? stations.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        (s.name_ar ?? '').includes(q) ||
-        s.governorate.toLowerCase().includes(q)
-      ) : stations
-    );
-  }, [search, stations]);
+    let next = q
+      ? stations.filter(s =>
+          s.name.toLowerCase().includes(q) ||
+          (s.name_ar ?? '').includes(q) ||
+          s.governorate.toLowerCase().includes(q))
+      : stations;
+
+    if (filters.speed === 'fast')     next = next.filter(s => (s.power_kw ?? 0) >= FAST_KW);
+    if (filters.speed === 'standard') next = next.filter(s => (s.power_kw ?? 0) < FAST_KW);
+
+    // No AC/DC column exists, and power is what actually distinguishes them
+    // here: everything on AC in this fleet is 22 kW or below.
+    if (filters.current === 'dc') next = next.filter(s => (s.power_kw ?? 0) >= FAST_KW);
+    if (filters.current === 'ac') next = next.filter(s => (s.power_kw ?? 0) < FAST_KW);
+
+    if (filters.connectors.length) {
+      next = next.filter(s => !!s.connector_types?.some(ct => filters.connectors.includes(ct)));
+    }
+
+    if (filters.hideOffline) next = next.filter(s => s.status !== 'offline');
+    if (filters.favouritesOnly) next = next.filter(s => favStationIds.has(s.id));
+
+    setFiltered(next);
+  }, [search, stations, filters, favStationIds]);
+
+  const filterCount = activeFilterCount(filters);
+
+  // Only offer connector filters the fleet can actually satisfy.
+  const availableConnectors = useMemo(() => {
+    const set = new Set<string>();
+    stations.forEach(s => s.connector_types?.forEach(c => set.add(c)));
+    return Array.from(set).sort();
+  }, [stations]);
 
   const fetchStations = async () => {
     try {
       const data = await api.stations.list();
       setStations(data as Station[]);
-      setFiltered(data as Station[]);
+      // `filtered` is derived by the effect above; setting it here too would
+      // briefly show unfiltered pins.
       setLoadError(false);
     } catch {
       setLoadError(true);
@@ -451,13 +482,19 @@ export default function MapScreen() {
           <LocateIcon size={20} color={COLORS.primary} strokeWidth={2} />
         </TouchableOpacity>
 
+        {/* Filters (map layer lives inside the sheet now, alongside the rest) */}
         <TouchableOpacity
           style={styles.myLocationBtn}
-          onPress={() => setMapType(v => (v === 'streets' ? 'satellite' : 'streets'))}
+          onPress={() => setFilterSheet(true)}
           accessibilityRole="button"
-          accessibilityLabel={t.map_satellite_toggle}
+          accessibilityLabel={t.filters_title}
         >
-          <LayersIcon size={19} color={mapType === 'satellite' ? COLORS.primary : COLORS.textSecondary} strokeWidth={2} />
+          <SlidersIcon size={19} color={filterCount > 0 ? COLORS.primary : COLORS.textSecondary} strokeWidth={2} />
+          {filterCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{filterCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Roadside rescue. Sits on the map because that is where someone with
@@ -672,6 +709,15 @@ export default function MapScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <MapFilterSheet
+        visible={filterSheet}
+        filters={filters}
+        availableConnectors={availableConnectors}
+        resultCount={filtered.length}
+        onClose={() => setFilterSheet(false)}
+        onApply={(f) => { setFilters(f); setFilterSheet(false); }}
+      />
     </View>
   );
 }
@@ -708,6 +754,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: COLORS.card,
   },
   bellBadgeText: { fontFamily: FONTS.bold, fontSize: 9, color: '#fff', lineHeight: 12 },
+  filterBadge: {
+    position: 'absolute', top: 4, right: 4,
+    minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4,
+    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: COLORS.card,
+  },
+  filterBadgeText: { fontFamily: FONTS.bold, fontSize: 9, color: '#fff', lineHeight: 12 },
   rowRev: { flexDirection: 'row-reverse' },
   routeBanner: {
     position: 'absolute', top: 110, left: 16, right: 16,

@@ -70,6 +70,8 @@ export interface Station {
   rating: number;
   total_ratings: number;
   power_kw: number;
+  /** Distinct connector types across this station's connectors (map filter). */
+  connector_types?: string[];
   image_url?: string;
   amenities?: string[];
   operating_hours: string;

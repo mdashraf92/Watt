@@ -415,6 +415,29 @@ export function LayersIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconP
   );
 }
 
+export function MapIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+      <Path d="M8 2v16" />
+      <Path d="M16 6v16" />
+    </Svg>
+  );
+}
+
+export function SlidersIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 21v-7" /><Path d="M4 10V3" />
+      <Path d="M12 21v-9" /><Path d="M12 8V3" />
+      <Path d="M20 21v-5" /><Path d="M20 12V3" />
+      <Path d="M1 14h6" /><Path d="M9 8h6" /><Path d="M17 16h6" />
+    </Svg>
+  );
+}
+
 export function GiftIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"

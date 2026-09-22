@@ -8,7 +8,21 @@ const router = Router();
 
 // List stations (public to signed-in users).
 router.get('/', requireAuth, asyncHandler(async (_req, res) => {
-  const { rows } = await query(`select * from public.stations order by name`);
+  // connector_types is aggregated here rather than fetched per station, so the
+  // map's connector filter can run client-side over the one list it already has.
+  const { rows } = await query(
+    `select s.*,
+            -- ::text so the driver hands back a real array; enum arrays come
+            -- through as an unparsed "{Type2}" string otherwise.
+            coalesce(
+              (select json_agg(distinct c.connector_type::text)
+                 from public.connectors c
+                where c.station_id = s.id),
+              '[]'::json
+            ) as connector_types
+       from public.stations s
+      order by s.name`,
+  );
   res.json(rows);
 }));
 

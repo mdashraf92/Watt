@@ -23,10 +23,11 @@ import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { vehicleLabel } from '../lib/vehicle';
 import type { CustomerStackParamList, Station } from '../types';
 import {
   ArrowLeftIcon, MapPinIcon, LocateIcon, NavigationIcon, CarIcon, SearchIcon, XIcon,
-  SwapVerticalIcon, ChevronDownIcon,
+  SwapVerticalIcon, ChevronDownIcon, CheckIcon,
 } from '../components/icons';
 
 type Nav = NativeStackNavigationProp<CustomerStackParamList, 'TripPlanner'>;
@@ -60,6 +61,13 @@ export default function TripPlannerScreen() {
   const [consumption, setConsumption] = useState(18);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
+  // The map sits inside a ScrollView, so it must not swallow drags until the
+  // user explicitly asks to use it — otherwise the page cannot be scrolled past
+  // it. Panning also no longer overwrites the point on every frame: the centre
+  // is only committed when they confirm.
+  const [mapActive, setMapActive] = useState(false);
+  // Seeded so "confirm" always has a centre to commit, even if they never pan.
+  const pendingRegion = useRef<OSMRegion>(OMAN);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchSeq    = useRef(0);
@@ -258,35 +266,65 @@ export default function TripPlannerScreen() {
             <Text style={styles.noResults}>{t.tp_no_results}</Text>
           )}
 
-          {/* Map — tapping/dragging sets whichever field is active */}
+          {/* Map — locked by default so the page scrolls; unlock to drag the pin */}
           <View style={styles.mapWrap}>
-            <OSMMap
-              ref={mapRef}
-              style={StyleSheet.absoluteFill}
-              initialRegion={OMAN}
-              markers={markers}
-              onRegionChangeComplete={(r) => {
-                const p = { latitude: r.latitude, longitude: r.longitude, label: t.tp_pick_on_map };
-                picking === 'from' ? setFrom(p) : setTo(p);
-              }}
-            />
-            <View pointerEvents="none" style={styles.centrePin}>
-              <MapPinIcon size={34} color={picking === 'from' ? COLORS.primaryDark : COLORS.gold} strokeWidth={2.2} />
+            <View style={StyleSheet.absoluteFill} pointerEvents={mapActive ? 'auto' : 'none'}>
+              <OSMMap
+                ref={mapRef}
+                style={StyleSheet.absoluteFill}
+                initialRegion={OMAN}
+                markers={markers}
+                onRegionChangeComplete={(r) => { pendingRegion.current = r; }}
+              />
             </View>
+
+            {mapActive && (
+              <View pointerEvents="none" style={styles.centrePin}>
+                <MapPinIcon size={34} color={picking === 'from' ? COLORS.primaryDark : COLORS.gold} strokeWidth={2.2} />
+              </View>
+            )}
+
             <View style={styles.pickBadge}>
               <Text style={styles.pickBadgeTxt}>
                 {picking === 'from' ? t.tp_from : t.tp_to}
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.locateBtn}
-              onPress={() => useMyLocation(picking)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={t.tp_recentre}
-            >
-              <LocateIcon size={18} color={COLORS.primary} strokeWidth={2.2} />
-            </TouchableOpacity>
+
+            {mapActive ? (
+              <>
+                <TouchableOpacity
+                  style={styles.locateBtn}
+                  onPress={() => useMyLocation(picking)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.tp_recentre}
+                >
+                  <LocateIcon size={18} color={COLORS.primary} strokeWidth={2.2} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={() => {
+                    const r = pendingRegion.current;
+                    const p = { latitude: r.latitude, longitude: r.longitude, label: t.tp_pick_on_map };
+                    picking === 'from' ? setFrom(p) : setTo(p);
+                    setMapActive(false);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <CheckIcon size={16} color="#fff" strokeWidth={2.6} />
+                  <Text style={styles.confirmBtnTxt}>{t.tp_confirm_point}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.unlockBtn}
+                onPress={() => setMapActive(true)}
+                activeOpacity={0.85}
+              >
+                <MapPinIcon size={16} color={COLORS.primary} strokeWidth={2.4} />
+                <Text style={styles.unlockBtnTxt}>{t.tp_use_map}</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Car */}
@@ -309,7 +347,7 @@ export default function TripPlannerScreen() {
                 <View style={[styles.carRow, { flexDirection: rowDir }]}>
                   <CarIcon size={18} color={COLORS.primary} strokeWidth={2} />
                   <Text style={[styles.carName, { textAlign: align }]}>
-                    {[profile?.car_make, profile?.car_model].filter(Boolean).join(' ') || t.tp_car_title}
+                    {vehicleLabel(profile?.car_make, profile?.car_model) || t.tp_car_title}
                   </Text>
                   <Text style={styles.carBattery}>{batteryKwh} kWh</Text>
                 </View>
@@ -504,6 +542,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, elevation: 3,
   },
+  unlockBtn: {
+    position: 'absolute', bottom: 12, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: COLORS.card, borderRadius: 22,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderWidth: 1, borderColor: COLORS.border,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 3 }, elevation: 4,
+  },
+  unlockBtnTxt: { fontFamily: FONTS.bold, fontSize: 13, color: COLORS.text },
+  confirmBtn: {
+    position: 'absolute', bottom: 12, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: COLORS.primary, borderRadius: 22,
+    paddingHorizontal: 18, paddingVertical: 11,
+    shadowColor: COLORS.primary, shadowOpacity: 0.35, shadowOffset: { width: 0, height: 3 }, elevation: 5,
+  },
+  confirmBtnTxt: { fontFamily: FONTS.bold, fontSize: 13, color: '#fff' },
 
   sectionTitle: { fontFamily: FONTS.bold, fontSize: 16, color: COLORS.text, marginTop: 22, marginBottom: 10 },
   warnCard: {

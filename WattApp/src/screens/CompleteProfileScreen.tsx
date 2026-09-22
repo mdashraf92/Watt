@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -14,6 +14,9 @@ import { COLORS } from '../constants/colors';
 import { ArrowLeftIcon, CheckIcon, ZapIcon } from '../components/icons';
 import GradientButton from '../components/GradientButton';
 import PaymentMethodsSection from '../components/PaymentMethodsSection';
+import SearchablePicker from '../components/SearchablePicker';
+import { evMakes, evModelsFor, evYears, findEv } from '../data/evCatalog';
+import { parseVehicle, serializeVehicle } from '../lib/vehicle';
 
 type Nav   = NativeStackNavigationProp<CustomerStackParamList, 'CompleteProfile'>;
 type Route = RouteProp<CustomerStackParamList, 'CompleteProfile'>;
@@ -33,12 +36,50 @@ export default function CompleteProfileScreen() {
   const [subStep, setSubStep] = useState<0 | 1>(0);   // 0 = car, 1 = payment
 
   const [carMake,   setCarMake]   = useState(profile?.car_make ?? '');
-  const [carModel,  setCarModel]  = useState(profile?.car_model ?? '');
+  const [carModel,  setCarModel]  = useState(() => parseVehicle(profile?.car_model).model);
+  const [carYear,   setCarYear]   = useState(() => parseVehicle(profile?.car_model).year);
   const [battery,   setBattery]   = useState(profile?.battery_kwh ? String(profile.battery_kwh) : '');
   const [connector, setConnector] = useState<string>(profile?.connector_type ?? '');
+  const [autoFilled, setAutoFilled] = useState(false);
   const [saving,    setSaving]    = useState(false);
 
   useFocusEffect(useCallback(() => { refreshProfile(); }, []));
+
+  // ── Car picker options ───────────────────────────────────────
+  const makeOptions  = useMemo(() => evMakes().map(m => ({ value: m, label: m })), []);
+  const modelOptions = useMemo(
+    () => evModelsFor(carMake).map(e => ({
+      value: e.model,
+      label: e.model,
+      sub: `${e.batteryKwh} kWh · ${e.connector}`,
+    })),
+    [carMake],
+  );
+  const yearOptions = useMemo(
+    () => evYears(findEv(carMake, carModel)).map(y => ({ value: y, label: y })),
+    [carMake, carModel],
+  );
+
+  // Changing the make invalidates the model (and so the year).
+  const pickMake = (m: string) => {
+    setCarMake(m);
+    setCarModel('');
+    setAutoFilled(false);
+  };
+
+  // Picking a known model is what fills battery + connector. Values stay
+  // editable afterwards — the catalog is a starting point, not the truth.
+  const pickModel = (m: string) => {
+    setCarModel(m);
+    const entry = findEv(carMake, m);
+    if (entry) {
+      setBattery(String(entry.batteryKwh));
+      setConnector(entry.connector);
+      setAutoFilled(true);
+    } else {
+      setAutoFilled(false);
+    }
+  };
 
   const carValid = !!connector && parseFloat(battery) > 0;
 
@@ -48,7 +89,11 @@ export default function CompleteProfileScreen() {
     try {
       await updateProfile({
         car_make:       carMake.trim() || undefined,
-        car_model:      carModel.trim() || undefined,
+        // Stored in the same shape the Profile screen's editor writes, so the
+        // two screens round-trip each other instead of clobbering.
+        car_model:      carModel.trim()
+          ? serializeVehicle({ model: carModel.trim(), connector, year: carYear })
+          : undefined,
         battery_kwh:    parseFloat(battery),
         connector_type: connector,
         profile_prompted: true,
@@ -86,6 +131,43 @@ export default function CompleteProfileScreen() {
 
           {subStep === 0 ? (
             <>
+              {/* Pick the car first: choosing a known model fills in battery and
+                  connector below, which are the two fields people get wrong. */}
+              <SearchablePicker
+                label={t.cp_make}
+                value={carMake}
+                options={makeOptions}
+                onChange={pickMake}
+                placeholder={t.cp_make_ph}
+                allowCustom
+              />
+              <View style={{ height: 12 }} />
+              <SearchablePicker
+                label={t.cp_model}
+                value={carModel}
+                options={modelOptions}
+                onChange={pickModel}
+                placeholder={t.cp_model_ph}
+                allowCustom
+                disabled={!carMake}
+                disabledHint={t.cp_pick_make_first}
+              />
+              <View style={{ height: 12 }} />
+              <SearchablePicker
+                label={t.cp_year}
+                value={carYear}
+                options={yearOptions}
+                onChange={setCarYear}
+                placeholder={t.cp_year_ph}
+              />
+
+              {autoFilled && (
+                <View style={s.autoFillNote}>
+                  <ZapIcon size={14} color={COLORS.primary} strokeWidth={2.2} />
+                  <Text style={[s.autoFillText, align]}>{t.cp_autofilled}</Text>
+                </View>
+              )}
+
               {/* Connector type */}
               <Text style={[s.label, align]}>{t.cp_connector}</Text>
               <View style={s.chipRow}>
@@ -113,13 +195,6 @@ export default function CompleteProfileScreen() {
                 placeholderTextColor={COLORS.textTertiary}
                 keyboardType="decimal-pad"
               />
-
-              {/* Car make / model (optional) */}
-              <Text style={[s.label, align]}>{t.cp_car_optional}</Text>
-              <TextInput style={s.input} value={carMake} onChangeText={setCarMake}
-                placeholder={t.cp_make_ph} placeholderTextColor={COLORS.textTertiary} />
-              <TextInput style={s.input} value={carModel} onChangeText={setCarModel}
-                placeholder={t.cp_model_ph} placeholderTextColor={COLORS.textTertiary} />
             </>
           ) : (
             <PaymentMethodsSection showWalletRow quickTopUpAmount={10} />
@@ -159,6 +234,13 @@ const s = StyleSheet.create({
   chipText: { fontSize: 14, fontWeight: '700', color: COLORS.text },
   chipTextActive: { color: COLORS.primary },
   input: { backgroundColor: COLORS.card, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.border, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: COLORS.text, marginBottom: 10 },
+  autoFillNote: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: COLORS.primaryBg, borderRadius: 12,
+    borderWidth: 1, borderColor: COLORS.primaryTint,
+    padding: 12, marginTop: 14,
+  },
+  autoFillText: { flex: 1, fontSize: 12.5, color: COLORS.textSecondary, lineHeight: 18 },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border },
   primaryBtn: { backgroundColor: COLORS.primary, borderRadius: 18, paddingVertical: 17, alignItems: 'center' },
