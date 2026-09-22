@@ -1,6 +1,6 @@
 const ar = {
   // Common
-  app_name: 'جو واط',
+  app_name: 'Go Watt',
   app_tagline: 'شبكة شحن السيارات الكهربائية',
   back: '←',
   save: 'حفظ التغييرات',
@@ -53,7 +53,7 @@ const ar = {
   splash_tap_hint: 'اضغط في أي مكان للمتابعة',
 
   // Auth - Role Select
-  auth_role_title: 'مرحباً بك في جو واط',
+  auth_role_title: 'مرحباً بك في Go Watt',
   auth_role_subtitle: 'كيف تريد استخدام التطبيق؟',
   auth_role_customer_title: 'أريد الشحن',
   auth_role_customer_sub: 'ابحث عن شواحن قريبة واحجز بسهولة',
@@ -62,7 +62,7 @@ const ar = {
 
   // Auth - Sign In
   auth_signin_title: 'تسجيل الدخول',
-  auth_signin_subtitle: 'مرحباً بعودتك إلى جو واط',
+  auth_signin_subtitle: 'مرحباً بعودتك إلى Go Watt',
   auth_phone_label: 'رقم الهاتف',
   auth_phone_ph: '+968 9xxx xxxx',
   auth_email_label: 'البريد الإلكتروني',
@@ -116,7 +116,7 @@ const ar = {
 
   // Auth - Sign Up
   auth_signup_title: 'إنشاء حساب',
-  auth_signup_subtitle: 'انضم إلى شبكة جو واط',
+  auth_signup_subtitle: 'انضم إلى شبكة Go Watt',
   auth_name_label: 'الاسم الكامل',
   auth_name_ph: 'محمد أحمد',
   auth_signup_btn: 'إنشاء الحساب',
@@ -137,7 +137,7 @@ const ar = {
 
   // Reset password (deep link screen)
   reset_title: 'تعيين كلمة مرور جديدة',
-  reset_subtitle: 'اختر كلمة مرور جديدة لحساب جو واط الخاص بك.',
+  reset_subtitle: 'اختر كلمة مرور جديدة لحساب Go Watt الخاص بك.',
   reset_new_label: 'كلمة المرور الجديدة',
   reset_new_ph: 'أدخل كلمة المرور الجديدة',
   reset_confirm_label: 'تأكيد كلمة المرور',
@@ -439,7 +439,7 @@ const ar = {
   pay_now: 'ادفع الآن',
   pay_later: 'ادفع لاحقاً',
   pay_later_note: 'تعذّر إتمام الدفع الآن. تم تسجيل المبلغ وسيتم تسويته من محفظتك لاحقاً.',
-  inv_price_admin_note: 'يتم تحديد السعر من قبل جو واط — تواصل مع الدعم لمناقشة الأسعار.',
+  inv_price_admin_note: 'يتم تحديد السعر من قبل Go Watt — تواصل مع الدعم لمناقشة الأسعار.',
   booking_debt_title: 'رصيد مستحق',
   booking_debt_msg: 'يرجى تسوية رصيدك غير المدفوع قبل الحجز مرة أخرى:',
   admin_price_section: 'التسعير (ريال عماني لكل كيلوواط/ساعة)',
@@ -664,7 +664,7 @@ const ar = {
   about_title: 'عن التطبيق',
   about_version: 'الإصدار',
   about_tagline: 'شبكة شحن السيارات الكهربائية في عُمان',
-  about_desc: 'جو واط هي منصة متكاملة لشحن السيارات الكهربائية في سلطنة عُمان. نهدف إلى بناء أكبر شبكة شحن موثوقة وذكية في المنطقة.',
+  about_desc: 'Go Watt هي منصة متكاملة لشحن السيارات الكهربائية في سلطنة عُمان. نهدف إلى بناء أكبر شبكة شحن موثوقة وذكية في المنطقة.',
   about_legal: 'قانوني',
   about_terms: 'شروط الاستخدام',
   about_privacy: 'سياسة الخصوصية',
@@ -725,7 +725,7 @@ const ar = {
   payout_bank_saved: 'تم حفظ تفاصيل البنك.',
   payout_amount: 'المبلغ المراد سحبه (ر.ع)',
   payout_request_btn: 'طلب سحب',
-  payout_note: 'ستقوم جو واط بتحويل المبلغ إلى حسابك البنكي خلال أيام عمل قليلة.',
+  payout_note: 'ستقوم Go Watt بتحويل المبلغ إلى حسابك البنكي خلال أيام عمل قليلة.',
   payout_min_note: 'الحد الأدنى للسحب هو 1 ر.ع.',
   payout_exceeds: 'المبلغ يتجاوز رصيدك المتاح.',
   payout_fill_all: 'يرجى تعبئة جميع تفاصيل البنك.',
@@ -777,7 +777,7 @@ const ar = {
   inv_earn_today: 'أرباح اليوم',
   inv_earn_month: 'هذا الشهر (ر.ع)',
   inv_sessions_month: 'الجلسات',
-  inv_device_locked_note: '🔒 موثّق من جو واط — معرّف الجهاز مقفل. تواصل مع الدعم لتغيير الجهاز أو نقله.',
+  inv_device_locked_note: '🔒 موثّق من Go Watt — معرّف الجهاز مقفل. تواصل مع الدعم لتغيير الجهاز أو نقله.',
   inv_charge_starting: 'جارٍ تشغيل الشاحن...',
   inv_tab_my_charger: 'شاحني',
 
@@ -928,7 +928,7 @@ const ar = {
   inv_app_submitting: 'جارٍ الإرسال...',
   inv_app_validation: 'يرجى تعبئة جميع الحقول المطلوبة',
   inv_app_success_title: 'تم إرسال طلبك!',
-  inv_app_success_sub: 'سيقوم فريق جو واط بمراجعة طلبك والتواصل معك قريباً',
+  inv_app_success_sub: 'سيقوم فريق Go Watt بمراجعة طلبك والتواصل معك قريباً',
   inv_app_back: 'العودة للملف الشخصي',
   inv_app_status_pending: 'قيد المراجعة',
   inv_app_status_under_review: 'قيد المراجعة',
@@ -936,7 +936,7 @@ const ar = {
   inv_app_status_rejected: 'لم يُقبل',
   inv_app_status_needs_info: 'مطلوب معلومات إضافية',
   inv_app_reapply: 'إرسال طلب جديد',
-  inv_app_admin_note: 'ملاحظة من فريق جو واط:',
+  inv_app_admin_note: 'ملاحظة من فريق Go Watt:',
   inv_app_view_status: 'عرض حالة الطلب',
   inv_app_status_title: 'حالة الطلب',
   inv_app_submitted_on: 'تم التقديم في',
@@ -996,7 +996,7 @@ const ar = {
   guest_create_account: 'إنشاء حساب جديد',
 
   // Guest — profile screen
-  guest_profile_name: 'زائر جو واط',
+  guest_profile_name: 'زائر Go Watt',
   guest_profile_tagline: 'سجّل للحصول على تجربة كاملة',
   guest_feature_sessions: 'حجز جلسات الشحن وإدارتها',
   guest_feature_stations: 'حفظ المحطات المفضلة',
@@ -1005,10 +1005,10 @@ const ar = {
 
   // Profile — investor application statuses (new)
   profile_app_under_review: 'الطلب قيد المراجعة',
-  profile_app_under_review_sub: 'تم الإرسال · سيتواصل معك فريق جو واط خلال 48 ساعة',
+  profile_app_under_review_sub: 'تم الإرسال · سيتواصل معك فريق Go Watt خلال 48 ساعة',
   profile_app_not_approved: 'لم يُقبل الطلب',
   profile_app_not_approved_sub: 'اضغط لإرسال طلب جديد',
-  profile_app_needs_info_title: 'فريق جو واط يحتاج مزيداً من المعلومات',
+  profile_app_needs_info_title: 'فريق Go Watt يحتاج مزيداً من المعلومات',
   profile_app_needs_info_default: 'راجع طلبك وأرسله مجدداً مع المعلومات المطلوبة.',
   profile_app_reapply: 'إرسال طلب محدّث ←',
   profile_app_become_investor: 'كن مستثمراً في Go Watt',
@@ -1096,14 +1096,14 @@ const ar = {
 
   // Investor welcome modal (shown once after admin approval)
   inv_welcome_title: '🎉 تمت الموافقة على طلبك!',
-  inv_welcome_subtitle: 'أصبحت مستثمراً في جو واط',
+  inv_welcome_subtitle: 'أصبحت مستثمراً في Go Watt',
   inv_welcome_body: 'تم تثبيت موقع شاحنك على الخريطة. أكمل الإعداد لتبدأ باستقبال الحجوزات وتحقيق الدخل.',
   inv_welcome_charger_label: 'موقع شاحنك',
   inv_welcome_btn: 'متابعة',
 
   // Session Summary / Receipt
   session_summary_title: 'اكتمل الشحن!',
-  session_summary_sub: 'شكراً على استخدام جو واط',
+  session_summary_sub: 'شكراً على استخدام Go Watt',
   session_summary_kwh: 'الطاقة المُوصلة',
   session_summary_cost: 'التكلفة الإجمالية',
   session_summary_duration: 'مدة الجلسة',

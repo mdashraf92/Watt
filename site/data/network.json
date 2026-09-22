@@ -1,0 +1,131 @@
+{
+  "_README": [
+    "Everything the page claims about the network lives here. The proof band, the map",
+    "pins and the governorate filter are all generated from this file — there are no",
+    "coverage numbers written into the markup.",
+    "",
+    "RULE: if you cannot point at a row in the production database or a signed",
+    "agreement, it does not go in this file. The page is read by partners and is",
+    "subject to Omani advertising rules.",
+    "",
+    "PROVENANCE OF WHAT IS HERE NOW (verified 6 Aug 2026 against",
+    "WattApp/db/dumps/gowatt_public.sql):",
+    "  public.stations       — 0 rows. There are no company-operated stations yet.",
+    "  public.charger_listings — 3 rows, all Type 2 / 7.4 kW. Those 3 are `chargers`",
+    "                          below. Coordinates are rounded to 3 decimals (~100 m)",
+    "                          deliberately: the product only reveals a host's exact",
+    "                          address after a booking is confirmed.",
+    "",
+    "AWAITING REAL NUMBERS FROM THE FOUNDER (see WEBSITE.md §Editing claims).",
+    "Each `pending` entry below is NOT rendered until it is filled in and its",
+    "`pending` flag is removed — so the page never shows a placeholder. Fill in:",
+    "  - crNumber          Oman Commercial Registration number",
+    "  - supportResponse   the support response time you are willing to commit to",
+    "  - partners          malls / fleets / petrol stations with a signed agreement",
+    "  - any additional stations once public.stations has rows"
+  ],
+
+  "updated": "2026-08-06",
+  "mapCenter": { "lat": 23.05, "lng": 57.9, "zoom": 7 },
+
+  "company": {
+    "legalNameEn": "GO WATT",
+    "legalNameAr": "Go Watt",
+    "crNumber": null,
+    "crNumberPending": true,
+    "countryEn": "Sultanate of Oman",
+    "countryAr": "سلطنة عُمان"
+  },
+
+  "proof": [
+    {
+      "id": "chargers",
+      "kind": "count",
+      "value": 3,
+      "labelKey": "proof_chargers",
+      "noteKey": "proof_chargers_note",
+      "source": "public.charger_listings"
+    },
+    {
+      "id": "governorates",
+      "kind": "count",
+      "value": 2,
+      "labelKey": "proof_govs",
+      "noteKey": "proof_govs_note",
+      "source": "charger_listings.governorate"
+    },
+    {
+      "id": "connector",
+      "kind": "text",
+      "textKey": "proof_connector_value",
+      "labelKey": "proof_connector",
+      "noteKey": "proof_connector_note",
+      "source": "charger_listings.charger_type"
+    },
+    {
+      "id": "price",
+      "kind": "price",
+      "value": 0.025,
+      "labelKey": "proof_price",
+      "noteKey": "proof_price_note",
+      "source": "charger_listings.price_per_kwh"
+    }
+  ],
+
+  "supportResponse": { "hours": null, "pending": true },
+
+  "partners": [],
+
+  "governorates": [
+    { "id": "muscat", "nameAr": "مسقط", "nameEn": "Muscat", "status": "live" },
+    { "id": "dakhiliyah", "nameAr": "الداخلية", "nameEn": "Ad Dakhiliyah", "status": "live" },
+    { "id": "batinah-north", "nameAr": "شمال الباطنة", "nameEn": "North Al Batinah", "status": "planned" },
+    { "id": "batinah-south", "nameAr": "جنوب الباطنة", "nameEn": "South Al Batinah", "status": "planned" },
+    { "id": "sharqiyah-north", "nameAr": "شمال الشرقية", "nameEn": "North Ash Sharqiyah", "status": "planned" },
+    { "id": "sharqiyah-south", "nameAr": "جنوب الشرقية", "nameEn": "South Ash Sharqiyah", "status": "planned" },
+    { "id": "dhofar", "nameAr": "ظفار", "nameEn": "Dhofar", "status": "planned" },
+    { "id": "wusta", "nameAr": "الوسطى", "nameEn": "Al Wusta", "status": "planned" },
+    { "id": "dhahirah", "nameAr": "الظاهرة", "nameEn": "Ad Dhahirah", "status": "planned" },
+    { "id": "buraimi", "nameAr": "البريمي", "nameEn": "Al Buraimi", "status": "planned" },
+    { "id": "musandam", "nameAr": "مسندم", "nameEn": "Musandam", "status": "planned" }
+  ],
+
+  "chargers": [
+    {
+      "id": "samail",
+      "nameAr": "سمائل",
+      "nameEn": "Samail",
+      "governorate": "dakhiliyah",
+      "lat": 23.299,
+      "lng": 57.957,
+      "kw": 7.4,
+      "connector": "Type 2",
+      "kind": "host",
+      "hours": "08:00 – 22:00"
+    },
+    {
+      "id": "farfara",
+      "nameAr": "الفرفارة",
+      "nameEn": "Al Farfara",
+      "governorate": "dakhiliyah",
+      "lat": 23.416,
+      "lng": 58.107,
+      "kw": 7.4,
+      "connector": "Type 2",
+      "kind": "host",
+      "hours": "08:00 – 22:00"
+    },
+    {
+      "id": "seeb",
+      "nameAr": "السيب",
+      "nameEn": "Seeb",
+      "governorate": "muscat",
+      "lat": 23.613,
+      "lng": 58.211,
+      "kw": 7.4,
+      "connector": "Type 2",
+      "kind": "host",
+      "hours": "24/7"
+    }
+  ]
+}
