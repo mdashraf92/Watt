@@ -32,6 +32,8 @@ import jobsRoutes from './modules/jobs/jobs.routes';
 import waitlistRoutes from './modules/waitlist/waitlist.routes';
 import reportsRoutes from './modules/reports/reports.routes';
 import sessionsAdminRoutes from './modules/sessions/admin.routes';
+import packagesRoutes from './modules/packages/packages.routes';
+import packagesAdminRoutes from './modules/packages/admin.routes';
 
 export function createApp() {
   const app = express();
@@ -75,6 +77,8 @@ export function createApp() {
   app.use('/api/waitlist', waitlistRoutes);   // public POST from the marketing site; admin-only reads
   app.use('/api/reports', reportsRoutes);   // "report a problem" — own reports + /admin inbox
   app.use('/api/admin', sessionsAdminRoutes);   // active-session oversight (force-stop / refund)
+  app.use('/api/packages', packagesRoutes);     // venue bundles — buy and redeem
+  app.use('/api/admin', packagesAdminRoutes);   // venue bundles — catalog + refunds
 
   app.use(notFoundHandler);
   app.use(errorHandler);
