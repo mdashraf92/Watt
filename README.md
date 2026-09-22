@@ -13,7 +13,7 @@ and the **backend API** (`WattApp/backend/`, Node + Postgres).
 
 - **Node.js 18+** and npm
 - **Expo Go** app (or a dev build) on your phone — for the mobile app
-- **Docker** — for the local Postgres database
+- **PostgreSQL** installed locally, with `psql` on PATH — for the database
 - A phone and PC on the **same Wi‑Fi network**
 
 ---
@@ -87,42 +87,58 @@ curl http://localhost:8090/health
 
 ---
 
-## 4) Local database (Docker Postgres)
+## 4) Local database (native PostgreSQL)
 
-Run Postgres locally on port **55432** and restore the dumps from `WattApp/db/dumps/`.
+Postgres runs as a normal Windows service — there is no container. On this machine
+`psql` lives under the versioned install directory and is not on PATH by default:
 
-```bash
-# Start a local Postgres 15
-docker run -d --name gowatt-db \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 55432:5432 postgres:15
-
-# Restore data (auth users first, then app data)
-psql "postgresql://postgres:postgres@localhost:55432/postgres" -f WattApp/db/dumps/gowatt_auth_users.sql
-psql "postgresql://postgres:postgres@localhost:55432/postgres" -f WattApp/db/dumps/gowatt_public.sql
+```powershell
+# Add psql to PATH for the session (adjust the version to the one you installed)
+$env:PATH = "C:\Program Files\PostgreSQL\18\bin;$env:PATH"
+psql --version
 ```
 
-Then set the backend's connection string in `WattApp/backend/.env`:
+Create the database and restore the dumps from `WattApp/db/dumps/` (auth users
+first, then app data — the app data references those user rows):
+
+```powershell
+createdb -U postgres gowatt
+psql -U postgres -d gowatt -f WattApp/db/dumps/gowatt_auth_users.sql
+psql -U postgres -d gowatt -f WattApp/db/dumps/gowatt_public.sql
+```
+
+Then point the backend at it in `WattApp/backend/.env`:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:55432/postgres
+DATABASE_URL=postgresql://postgres:<password>@localhost:5432/gowatt
 ```
 
-> For deploying the full stack on a real server, see `WattApp/deploy/README.md`.
+> **Check what `.env` already says before changing it.** It may point somewhere
+> other than the local instance — a tunnel to the staging or production database,
+> for example. Migrations are additive and idempotent, but run them against a
+> local database first; a tunnel is not the place to discover a bad constraint.
+
+Applying a migration (each file in `WattApp/backend/sql/` is safe to re-run):
+
+```powershell
+psql -U postgres -d gowatt -f WattApp/backend/sql/backend-packages.sql
+```
+
+> For deploying the full stack on a real Linux server, see
+> `WattApp/deploy/README.md`. That kit does use Docker — on the server, not here.
 
 ---
 
 ## Typical local run order
 
 ```bash
-# 1. database
-docker start gowatt-db                     # (first time: the docker run above)
+# 1. database — already running as a Windows service, nothing to start
 
 # 2. backend  (terminal A)
 cd WattApp/backend && npm run dev           # → http://localhost:8090
 
 # 3. mobile app (terminal B)
-cd WattApp && npx expo start -c             # scan the QR on your phone
+cd WattApp && npm run start:clear           # scan the QR on your phone
 
 # 4. website (optional)
 npx serve .                                 # or just open index.html
