@@ -1,4 +1,9 @@
 node_modules/
 dist/
+# .env was ignored but .env.bak, .env.local and friends were not — a backup
+# taken while changing the connection string is still a file full of
+# credentials. Ignore the whole family and keep only the example.
 .env
+.env.*
+!.env.example
 *.log

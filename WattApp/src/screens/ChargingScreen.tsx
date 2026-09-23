@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { useCharging } from '../context/ChargingContext';
 import { COLORS } from '../constants/colors';
-import { HomeIcon, ZapIcon } from '../components/icons';
+import { HomeIcon, ZapIcon, AlertTriangleIcon } from '../components/icons';
 
 type Nav   = NativeStackNavigationProp<MainStackParamList, 'Charging'>;
 type Route = RouteProp<MainStackParamList, 'Charging'>;
@@ -61,6 +61,9 @@ export default function ChargingScreen() {
   const [pricePerKwh,    setPricePerKwh]    = useState(PRICE_PER_KWH_DEFAULT);
   const [livePowerKw,    setLivePowerKw]    = useState<number | null>(null);
   const [isRealData,     setIsRealData]     = useState(false);
+  const [overstay,       setOverstay]       = useState<{ state: 'none' | 'grace' | 'fee'; graceMinutesLeft: number; fee: number }>(
+    { state: 'none', graceMinutesLeft: 0, fee: 0 },
+  );
 
   // Real hardware readings accumulated from the Tuya device.
   // metering=true once the device reports power/energy; kwh is then
@@ -107,6 +110,25 @@ export default function ChargingScreen() {
       if (elapsed - lastSyncRef.current >= 30) {
         lastSyncRef.current = elapsed;
         api.sessions.progress(sessionId, kwh, c).catch(() => {});
+      }
+
+      // Overstay banner — informational only; the real fee is always computed
+      // server-side at session end (see _finalize_charging_session).
+      const bookedEnd = (session as any).booking?.booked_end;
+      if (bookedEnd) {
+        const grace = (session as any).overstay_grace_minutes ?? 10;
+        const rate  = (session as any).overstay_fee_per_minute ?? 0;
+        const graceEndMs = new Date(bookedEnd).getTime() + grace * 60_000;
+        const now = Date.now();
+        if (now < new Date(bookedEnd).getTime()) {
+          setOverstay({ state: 'none', graceMinutesLeft: 0, fee: 0 });
+        } else if (now < graceEndMs) {
+          const left = Math.max(1, Math.ceil((graceEndMs - now) / 60_000));
+          setOverstay({ state: 'grace', graceMinutesLeft: left, fee: 0 });
+        } else {
+          const overMinutes = Math.ceil((now - graceEndMs) / 60_000);
+          setOverstay({ state: 'fee', graceMinutesLeft: 0, fee: overMinutes * rate });
+        }
       }
     };
     tick();
@@ -325,6 +347,29 @@ export default function ChargingScreen() {
       {/* ── Station name ───────────────────────── */}
       <Text style={styles.stationName} numberOfLines={1}>{stationName}</Text>
 
+      {/* ── Report an issue ────────────────────── */}
+      <TouchableOpacity
+        style={styles.reportLink}
+        onPress={() => navigation.navigate('ReportIssue', { sessionId })}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <AlertTriangleIcon size={12} color="rgba(255,255,255,0.5)" strokeWidth={2} />
+        <Text style={styles.reportLinkText}>{t.report_entry_charging}</Text>
+      </TouchableOpacity>
+
+      {/* ── Overstay banner ─────────────────────── */}
+      {overstay.state !== 'none' && (
+        <View style={[styles.overstayBanner, overstay.state === 'fee' && styles.overstayBannerFee]}>
+          <AlertTriangleIcon size={14} color={overstay.state === 'fee' ? '#fff' : COLORS.primaryDark} strokeWidth={2.2} />
+          <Text style={[styles.overstayText, overstay.state === 'fee' && styles.overstayTextFee]}>
+            {overstay.state === 'grace'
+              ? t.overstay_grace_body.replace('{min}', String(overstay.graceMinutesLeft))
+              : t.overstay_fee_body.replace('{fee}', overstay.fee.toFixed(3))}
+          </Text>
+        </View>
+      )}
+
       {/* ── Charging animation ─────────────────── */}
       <View style={styles.animWrap}>
         {/* Radar ping ring */}
@@ -454,7 +499,30 @@ const styles = StyleSheet.create({
   // Station name
   stationName: {
     fontSize: 13, color: 'rgba(255,255,255,0.5)',
-    marginBottom: 8, paddingHorizontal: 32, textAlign: 'center',
+    marginBottom: 4, paddingHorizontal: 32, textAlign: 'center',
+  },
+  reportLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginBottom: 8, paddingVertical: 2,
+  },
+  reportLinkText: {
+    fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '600',
+  },
+
+  overstayBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 24, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 14, backgroundColor: 'rgba(244,165,60,0.18)',
+    borderWidth: 1, borderColor: 'rgba(244,165,60,0.4)',
+  },
+  overstayBannerFee: {
+    backgroundColor: COLORS.error, borderColor: COLORS.error,
+  },
+  overstayText: {
+    flex: 1, fontSize: 12, fontWeight: '600', color: '#fff', lineHeight: 17,
+  },
+  overstayTextFee: {
+    color: '#fff',
   },
 
   // Animation

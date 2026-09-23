@@ -11,12 +11,14 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import { api } from '../../lib/api';
 import type { ChargerApplication, AdminTabParamList, AdminStackParamList } from '../../types';
 import {
   TrendingUpIcon, PhoneIcon, SearchIcon, XIcon, ChevronRightIcon,
 } from '../../components/icons';
+import NotificationBell from '../../components/NotificationBell';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList, 'AdminInvestors'>,
@@ -37,14 +39,20 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
 
 export default function AdminInvestorsScreen() {
   const { t } = useLang();
+  const { profile } = useAuth();
   const navigation = useNavigation<Nav>();
   const tabBarHeight = useTabBarHeight();
+  // Superadmin's version of this screen is the active-investor roster, not the
+  // application review queue — pending/rejected/needs_info applications are
+  // an admin operational concern, not something superadmin needs cluttering
+  // their view of who is actually live on the platform.
+  const isSuperadmin = profile?.role === 'superadmin';
 
   const [applications, setApplications] = useState<ChargerApplication[]>([]);
   const [filtered, setFiltered]         = useState<ChargerApplication[]>([]);
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState('');
-  const [filter, setFilter]             = useState<StatusFilter>('all');
+  const [filter, setFilter]             = useState<StatusFilter>(isSuperadmin ? 'approved' : 'all');
 
   const fetchApplications = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -70,8 +78,12 @@ export default function AdminInvestorsScreen() {
   );
 
   useEffect(() => {
-    let list = applications;
-    if (filter !== 'all') list = list.filter(a => a.status === filter);
+    // Superadmin's list is locked to active investors regardless of `filter`
+    // state — there is no UI to change it away from that (chips are hidden).
+    let list = isSuperadmin
+      ? applications.filter(a => a.status === 'approved')
+      : applications;
+    if (!isSuperadmin && filter !== 'all') list = list.filter(a => a.status === filter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(a =>
@@ -81,7 +93,7 @@ export default function AdminInvestorsScreen() {
       );
     }
     setFiltered(list);
-  }, [applications, filter, search]);
+  }, [applications, filter, search, isSuperadmin]);
 
   const statusLabel = (status: string) => {
     const map: Record<string, string> = {
@@ -105,31 +117,38 @@ export default function AdminInvestorsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t.admin_investors_title}</Text>
-        <View style={styles.headerIcon}>
-          <TrendingUpIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
-        </View>
+        <Text style={styles.headerTitle}>{isSuperadmin ? t.admin_inv_title_active : t.admin_investors_title}</Text>
+        <NotificationBell size={40} />
       </View>
 
       {/* Stats bar */}
       <View style={styles.statsBar}>
-        <View style={styles.statChip}>
-          <Text style={styles.statNum}>{applications.length}</Text>
-          <Text style={styles.statLbl}>{t.admin_inv_total}</Text>
-        </View>
-        {(['pending', 'approved', 'rejected'] as StatusFilter[]).map(s => (
-          <View key={s} style={styles.statChip}>
-            <Text style={styles.statNum}>
-              {applications.filter(a =>
-                a.status === s || (s === 'pending' && a.status === 'under_review')
-              ).length}
-            </Text>
-            <View style={styles.statLblRow}>
-              <View style={[styles.statDot, { backgroundColor: STATUS_COLORS[s]?.text }]} />
-              <Text style={styles.statLbl}>{statusLabel(s)}</Text>
-            </View>
+        {isSuperadmin ? (
+          <View style={styles.statChip}>
+            <Text style={styles.statNum}>{applications.filter(a => a.status === 'approved').length}</Text>
+            <Text style={styles.statLbl}>{t.admin_inv_status_approved}</Text>
           </View>
-        ))}
+        ) : (
+          <>
+            <View style={styles.statChip}>
+              <Text style={styles.statNum}>{applications.length}</Text>
+              <Text style={styles.statLbl}>{t.admin_inv_total}</Text>
+            </View>
+            {(['pending', 'approved', 'rejected'] as StatusFilter[]).map(s => (
+              <View key={s} style={styles.statChip}>
+                <Text style={styles.statNum}>
+                  {applications.filter(a =>
+                    a.status === s || (s === 'pending' && a.status === 'under_review')
+                  ).length}
+                </Text>
+                <View style={styles.statLblRow}>
+                  <View style={[styles.statDot, { backgroundColor: STATUS_COLORS[s]?.text }]} />
+                  <Text style={styles.statLbl}>{statusLabel(s)}</Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
       </View>
 
       {/* Search */}
@@ -150,26 +169,29 @@ export default function AdminInvestorsScreen() {
         ) : null}
       </View>
 
-      {/* Filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filterContent}
-      >
-        {FILTERS.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-            onPress={() => setFilter(f.key)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Filter chips — superadmin's list is locked to active investors, so
+          there's nothing to switch between. */}
+      {!isSuperadmin && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterBar}
+          contentContainerStyle={styles.filterContent}
+        >
+          {FILTERS.map(f => (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+              onPress={() => setFilter(f.key)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* List */}
       {loading ? (

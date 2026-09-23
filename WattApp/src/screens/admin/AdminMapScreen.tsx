@@ -3,17 +3,18 @@ import {
   ActivityIndicator, ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
-import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../../components/OSMMap';
+import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region, OSMMapType } from '../../components/OSMMap';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
-import type { Station } from '../../types';
+import type { MobileChargeRequest, ServiceVan, Station } from '../../types';
 import { api } from '../../lib/api';
 import { realtime } from '../../lib/realtime';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../../i18n/govMap';
-import { ZapIcon, LocateIcon, XIcon, SearchIcon } from '../../components/icons';
+import { ZapIcon, LocateIcon, XIcon, SearchIcon, LayersIcon } from '../../components/icons';
+import NotificationBell from '../../components/NotificationBell';
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available,
@@ -38,12 +39,18 @@ export default function AdminMapScreen() {
   };
 
   const mapRef = useRef<OSMMapHandle>(null);
+  const [mapType, setMapType] = useState<OSMMapType>('streets');
   const [stations, setStations]   = useState<Station[]>([]);
   const [loading,  setLoading]    = useState(true);
   const [selected, setSelected]   = useState<Station | null>(null);
   const [search,   setSearch]     = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | string>('all');
   const [cardHeight, setCardHeight] = useState(0);
+  // Live fleet overlay. Vans move constantly, so this polls rather than riding
+  // the realtime broadcast — their positions are deliberately kept off it.
+  const [fleet, setFleet] = useState<{ vans: ServiceVan[]; requests: Array<MobileChargeRequest & { customer_name: string }> }>(
+    { vans: [], requests: [] },
+  );
   const tabBarHeight = useTabBarHeight();
   const cardBottom = tabBarHeight + 12;
 
@@ -56,7 +63,14 @@ export default function AdminMapScreen() {
         prev.map(s => s.id === row.id ? { ...s, ...row } : s)
       );
     });
-    return unsub;
+
+    const pullFleet = () => {
+      api.fleet.live().then(setFleet).catch(() => { /* overlay is optional */ });
+    };
+    pullFleet();
+    const fleetTimer = setInterval(pullFleet, 20_000);
+
+    return () => { unsub(); clearInterval(fleetTimer); };
   }, []);
 
   const fetchStations = async () => {
@@ -137,50 +151,72 @@ export default function AdminMapScreen() {
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={OMAN_REGION}
-        markers={visible.map((s): OSMMarkerSpec => ({
-          id: s.id,
-          latitude: s.latitude, longitude: s.longitude,
-          color: STATUS_COLOR[s.status] ?? COLORS.offline,
-          icon: 'zap',
-        }))}
+        markers={[
+          ...visible.map((s): OSMMarkerSpec => ({
+            id: s.id,
+            latitude: s.latitude, longitude: s.longitude,
+            color: STATUS_COLOR[s.status] ?? COLORS.offline,
+            icon: 'zap',
+          })),
+          // Vans on duty, and callouts still waiting for one. Prefixed ids keep
+          // them from colliding with station ids in onMarkerPress.
+          ...fleet.vans
+            .filter(v => v.last_lat != null && v.last_lng != null)
+            .map((v): OSMMarkerSpec => ({
+              id: `van:${v.id}`,
+              latitude: v.last_lat!, longitude: v.last_lng!,
+              color: v.status === 'on_job' ? COLORS.gold : COLORS.primary,
+              icon: 'home',
+            })),
+          ...fleet.requests.map((r): OSMMarkerSpec => ({
+            id: `mcr:${r.id}`,
+            latitude: r.pickup_lat, longitude: r.pickup_lng,
+            color: COLORS.error,
+            icon: 'star',
+          })),
+        ]}
         onMarkerPress={(id) => {
           const s = stations.find(x => x.id === id);
           if (s) setSelected(s);
         }}
         showsUserLocation
+        mapType={mapType}
       />
 
       {/* Top overlay — Google-Maps-style search + filter */}
       <SafeAreaView edges={['top']} style={styles.topOverlay} pointerEvents="box-none">
-        {/* Floating pill search bar */}
-        <View style={[styles.searchBar, isRTL && styles.rowReverse]}>
-          <View style={styles.searchIconWrap}>
-            <SearchIcon size={19} color={COLORS.primary} strokeWidth={2.4} />
-          </View>
-          <TextInput
-            style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
-            placeholder={t.admin_map_search}
-            placeholderTextColor={COLORS.textTertiary}
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-          />
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginHorizontal: 4 }} />
-          ) : search.length > 0 ? (
-            <TouchableOpacity
-              onPress={() => setSearch('')}
-              style={styles.clearBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <XIcon size={13} color={COLORS.textSecondary} strokeWidth={2.6} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.countBadge}>
-              <ZapIcon size={11} color={COLORS.primary} strokeWidth={2.6} />
-              <Text style={styles.countBadgeText}>{visible.length}</Text>
+        {/* Floating pill search bar + notification bell */}
+        <View style={[styles.searchRow, isRTL && styles.rowReverse]}>
+          <View style={[styles.searchBar, { flex: 1 }, isRTL && styles.rowReverse]}>
+            <View style={styles.searchIconWrap}>
+              <SearchIcon size={19} color={COLORS.primary} strokeWidth={2.4} />
             </View>
-          )}
+            <TextInput
+              style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
+              placeholder={t.admin_map_search}
+              placeholderTextColor={COLORS.textTertiary}
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+            />
+            {loading ? (
+              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginHorizontal: 4 }} />
+            ) : search.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => setSearch('')}
+                style={styles.clearBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <XIcon size={13} color={COLORS.textSecondary} strokeWidth={2.6} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.countBadge}>
+                <ZapIcon size={11} color={COLORS.primary} strokeWidth={2.6} />
+                <Text style={styles.countBadgeText}>{visible.length}</Text>
+              </View>
+            )}
+          </View>
+          <NotificationBell size={48} />
         </View>
 
         {/* Category-style filter chips — full-bleed so they scroll off the true screen edges */}
@@ -224,6 +260,21 @@ export default function AdminMapScreen() {
           </View>
         )}
       </SafeAreaView>
+
+      {/* Satellite toggle FAB — sits just above the locate FAB */}
+      <TouchableOpacity
+        style={[
+          styles.locateFab,
+          isRTL ? { left: 16 } : { right: 16 },
+          { bottom: (selected ? cardBottom + cardHeight + 14 : tabBarHeight + 12) + 60 },
+        ]}
+        onPress={() => setMapType(v => (v === 'streets' ? 'satellite' : 'streets'))}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={t.map_satellite_toggle}
+      >
+        <LayersIcon size={20} color={mapType === 'satellite' ? COLORS.primary : COLORS.textSecondary} strokeWidth={2.2} />
+      </TouchableOpacity>
 
       {/* Locate FAB — floating bottom corner like Google Maps (lifts above the station card) */}
       <TouchableOpacity
@@ -306,6 +357,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingBottom: 8, gap: 10,
   },
   rowReverse: { flexDirection: 'row-reverse' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   // ── Floating pill search bar ──
   searchBar: {

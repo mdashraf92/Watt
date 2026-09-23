@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
-import { ArrowLeftIcon, ShieldIcon, UsersIcon, XIcon } from '../../components/icons';
+import { ArrowLeftIcon, ShieldIcon, UsersIcon, XIcon, ZapIcon } from '../../components/icons';
 
 type Admin = { id: string; full_name: string; email: string | null; phone: string; role: string; created_at: string };
 
@@ -26,6 +26,23 @@ export default function SuperAdminScreen() {
   const [payoutThresh,  setPayoutThresh]  = useState('20.000');
   const [payoutProvider, setPayoutProvider] = useState('');
 
+  // Overstay settings — own endpoint pair, not part of app_config's generic
+  // whitelist (see sql/backend-overstay-and-refund.sql design note).
+  const [graceMinutes, setGraceMinutes] = useState('10');
+  const [feePerMinute, setFeePerMinute] = useState('0');
+  const [maxMinutes,   setMaxMinutes]   = useState('60');
+  const [savingOverstay, setSavingOverstay] = useState(false);
+
+  // Mobile-charging (roadside rescue) pricing — same reasoning, own endpoint pair.
+  const [mobileEnabled,   setMobileEnabled]   = useState(true);
+  const [calloutFee,      setCalloutFee]      = useState('5');
+  const [mobilePricePerKwh, setMobilePricePerKwh] = useState('0.120');
+  const [mobileMinKwh,    setMobileMinKwh]    = useState('5');
+  const [mobileMaxKwh,    setMobileMaxKwh]    = useState('30');
+  const [mobileCancelFee, setMobileCancelFee] = useState('0');
+  const [serviceRadius,   setServiceRadius]   = useState('60');
+  const [savingMobile,    setSavingMobile]    = useState(false);
+
   // Admin management
   const [admins, setAdmins]       = useState<Admin[]>([]);
   const [newContact, setNewContact] = useState('');
@@ -34,9 +51,11 @@ export default function SuperAdminScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cfg, adm] = await Promise.all([
+      const [cfg, adm, overstay, mobile] = await Promise.all([
         api.superadmin.settings(),
         api.superadmin.admins(),
+        api.superadmin.overstaySettings().catch(() => null),
+        api.superadmin.mobileSettings().catch(() => null),
       ]);
       if (cfg) {
         const rate = parseFloat(cfg.host_commission_rate ?? '0');
@@ -45,6 +64,20 @@ export default function SuperAdminScreen() {
         setPayoutEnabled((cfg.payout_auto_enabled ?? 'false') === 'true');
         setPayoutThresh(cfg.payout_threshold ?? '20.000');
         setPayoutProvider(cfg.payout_provider ?? '');
+      }
+      if (overstay) {
+        setGraceMinutes(String(overstay.overstay_grace_minutes));
+        setFeePerMinute(String(overstay.overstay_fee_per_minute));
+        setMaxMinutes(String(overstay.overstay_max_minutes));
+      }
+      if (mobile) {
+        setMobileEnabled(mobile.mobile_enabled);
+        setCalloutFee(String(mobile.mobile_callout_fee));
+        setMobilePricePerKwh(String(mobile.mobile_price_per_kwh));
+        setMobileMinKwh(String(mobile.mobile_min_kwh));
+        setMobileMaxKwh(String(mobile.mobile_max_kwh));
+        setMobileCancelFee(String(mobile.mobile_cancel_fee));
+        setServiceRadius(String(mobile.mobile_service_radius_km));
       }
       setAdmins((adm ?? []) as Admin[]);
     } finally {
@@ -74,6 +107,67 @@ export default function SuperAdminScreen() {
   const togglePayout = async (val: boolean) => {
     setPayoutEnabled(val);
     await saveSetting('payout_auto_enabled', val ? 'true' : 'false');
+  };
+
+  const saveOverstay = async () => {
+    setSavingOverstay(true);
+    try {
+      const s = await api.superadmin.setOverstaySettings({
+        overstay_grace_minutes: Math.max(0, parseInt(graceMinutes, 10) || 0),
+        overstay_fee_per_minute: Math.max(0, parseFloat(feePerMinute) || 0),
+        overstay_max_minutes: Math.max(0, parseInt(maxMinutes, 10) || 0),
+      });
+      setGraceMinutes(String(s.overstay_grace_minutes));
+      setFeePerMinute(String(s.overstay_fee_per_minute));
+      setMaxMinutes(String(s.overstay_max_minutes));
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
+    } finally {
+      setSavingOverstay(false);
+    }
+  };
+
+  const saveMobile = async () => {
+    setSavingMobile(true);
+    try {
+      const s = await api.superadmin.setMobileSettings({
+        mobile_enabled: mobileEnabled,
+        mobile_callout_fee: Math.max(0, parseFloat(calloutFee) || 0),
+        mobile_price_per_kwh: Math.max(0.001, parseFloat(mobilePricePerKwh) || 0.12),
+        mobile_min_kwh: Math.max(0.1, parseFloat(mobileMinKwh) || 5),
+        mobile_max_kwh: Math.max(0.1, parseFloat(mobileMaxKwh) || 30),
+        mobile_cancel_fee: Math.max(0, parseFloat(mobileCancelFee) || 0),
+        mobile_service_radius_km: Math.max(0.1, parseFloat(serviceRadius) || 60),
+      });
+      setCalloutFee(String(s.mobile_callout_fee));
+      setMobilePricePerKwh(String(s.mobile_price_per_kwh));
+      setMobileMinKwh(String(s.mobile_min_kwh));
+      setMobileMaxKwh(String(s.mobile_max_kwh));
+      setMobileCancelFee(String(s.mobile_cancel_fee));
+      setServiceRadius(String(s.mobile_service_radius_km));
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
+    } finally {
+      setSavingMobile(false);
+    }
+  };
+
+  const toggleMobileEnabled = async (val: boolean) => {
+    setMobileEnabled(val);
+    try {
+      await api.superadmin.setMobileSettings({
+        mobile_enabled: val,
+        mobile_callout_fee: parseFloat(calloutFee) || 0,
+        mobile_price_per_kwh: parseFloat(mobilePricePerKwh) || 0.12,
+        mobile_min_kwh: parseFloat(mobileMinKwh) || 5,
+        mobile_max_kwh: parseFloat(mobileMaxKwh) || 30,
+        mobile_cancel_fee: parseFloat(mobileCancelFee) || 0,
+        mobile_service_radius_km: parseFloat(serviceRadius) || 60,
+      });
+    } catch (e: any) {
+      setMobileEnabled(!val);
+      Alert.alert(t.error, e.message);
+    }
   };
 
   const makeAdmin = async () => {
@@ -176,6 +270,106 @@ export default function SuperAdminScreen() {
                   <SaveChip onPress={() => saveSetting('payout_provider', payoutProvider.trim())} busy={saving === 'payout_provider'} label={t.sa_save} />
                 </View>
               </SettingRow>
+            </View>
+
+            {/* ── Overstay ── */}
+            <View style={s.card}>
+              <View style={s.cardHead}>
+                <ShieldIcon size={18} color="#7C3AED" strokeWidth={2} />
+                <Text style={s.cardTitle}>{t.sa_overstay_title}</Text>
+              </View>
+
+              <SettingRow label={t.sa_overstay_grace} hint={t.sa_overstay_grace_hint}>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={graceMinutes} onChangeText={setGraceMinutes}
+                    keyboardType="number-pad" maxLength={4} />
+                  <Text style={s.unit}>min</Text>
+                </View>
+              </SettingRow>
+
+              <SettingRow label={t.sa_overstay_fee} hint={t.sa_overstay_fee_hint}>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={feePerMinute} onChangeText={setFeePerMinute}
+                    keyboardType="decimal-pad" maxLength={6} />
+                  <Text style={s.unit}>OMR/min</Text>
+                </View>
+              </SettingRow>
+
+              <SettingRow label={t.sa_overstay_max} hint={t.sa_overstay_max_hint} last>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={maxMinutes} onChangeText={setMaxMinutes}
+                    keyboardType="number-pad" maxLength={4} />
+                  <Text style={s.unit}>min</Text>
+                </View>
+              </SettingRow>
+
+              <View style={{ marginTop: 14, alignItems: 'flex-start' }}>
+                <SaveChip onPress={saveOverstay} busy={savingOverstay} label={t.sa_save} />
+              </View>
+            </View>
+
+            {/* ── Mobile charging (roadside rescue) pricing ── */}
+            <View style={s.card}>
+              <View style={s.cardHead}>
+                <ZapIcon size={18} color="#7C3AED" strokeWidth={2} />
+                <Text style={s.cardTitle}>{t.sa_mobile_title}</Text>
+              </View>
+
+              <SettingRow label={t.sa_mobile_enabled} hint={t.sa_mobile_enabled_hint}>
+                <Switch
+                  value={mobileEnabled}
+                  onValueChange={toggleMobileEnabled}
+                  trackColor={{ false: COLORS.border, true: '#7C3AED' }}
+                  thumbColor="#fff"
+                />
+              </SettingRow>
+
+              <SettingRow label={t.sa_mobile_callout_fee} hint={t.sa_mobile_callout_fee_hint}>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={calloutFee} onChangeText={setCalloutFee}
+                    keyboardType="decimal-pad" maxLength={6} />
+                  <Text style={s.unit}>OMR</Text>
+                </View>
+              </SettingRow>
+
+              <SettingRow label={t.sa_mobile_price} hint={t.sa_mobile_price_hint}>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={mobilePricePerKwh} onChangeText={setMobilePricePerKwh}
+                    keyboardType="decimal-pad" maxLength={6} />
+                  <Text style={s.unit}>OMR/kWh</Text>
+                </View>
+              </SettingRow>
+
+              <SettingRow label={t.sa_mobile_cancel_fee} hint={t.sa_mobile_cancel_fee_hint}>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={mobileCancelFee} onChangeText={setMobileCancelFee}
+                    keyboardType="decimal-pad" maxLength={6} />
+                  <Text style={s.unit}>OMR</Text>
+                </View>
+              </SettingRow>
+
+              <SettingRow label={t.sa_mobile_min_max_kwh} hint={t.sa_mobile_min_max_kwh_hint}>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={mobileMinKwh} onChangeText={setMobileMinKwh}
+                    keyboardType="decimal-pad" maxLength={4} />
+                  <Text style={s.unit}>–</Text>
+                  <TextInput style={s.smallInput} value={mobileMaxKwh} onChangeText={setMobileMaxKwh}
+                    keyboardType="decimal-pad" maxLength={4} />
+                  <Text style={s.unit}>kWh</Text>
+                </View>
+              </SettingRow>
+
+              <SettingRow label={t.sa_mobile_radius} hint={t.sa_mobile_radius_hint} last>
+                <View style={s.inlineRow}>
+                  <TextInput style={s.smallInput} value={serviceRadius} onChangeText={setServiceRadius}
+                    keyboardType="decimal-pad" maxLength={4} />
+                  <Text style={s.unit}>km</Text>
+                </View>
+              </SettingRow>
+
+              <View style={{ marginTop: 14, alignItems: 'flex-start' }}>
+                <SaveChip onPress={saveMobile} busy={savingMobile} label={t.sa_save} />
+              </View>
             </View>
 
             {/* ── Admin management ── */}

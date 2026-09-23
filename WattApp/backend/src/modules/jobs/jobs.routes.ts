@@ -7,6 +7,8 @@ import * as tuya from '../../integrations/tuya';
 import * as thawani from '../../integrations/thawani';
 import { sendPush } from '../../integrations/push';
 import { notify } from '../../integrations/notify';
+import { runDispatch } from '../mobile/dispatch';
+import { pollPackageCharging } from '../packages/charging';
 
 // Cron endpoints — called on a timer (server crontab / systemd timer) with the
 // x-job-secret header. Not part of the public app API.
@@ -18,18 +20,41 @@ function requireJobSecret(req: Request, _res: Response, next: NextFunction) {
 }
 router.use(requireJobSecret);
 
+router.post('/package-charging', asyncHandler(async (_req, res) => {
+  res.json({ results: await pollPackageCharging() });
+}));
+
 // Every ~1 min: stop sessions whose booking window has ended, bill them, push.
+//
+// Overstay-aware: a session isn't force-finalized the instant its booking ends
+// any more — it's left running through the grace period and up to
+// overstay_max_minutes past that (so the customer has a real chance to come
+// back and stop cleanly, and any overstay fee has time to reflect what
+// actually happened). Only once that combined window is exceeded does this
+// job step in. See sql/backend-overstay-and-refund.sql.
 router.post('/auto-shutoff', asyncHandler(async (_req, res) => {
   const { rows: expired } = await query(`select * from public.expired_active_sessions`);
+  const { rows: cfg } = await pool.query(
+    `select key, value from public.app_config where key in ('overstay_grace_minutes','overstay_max_minutes')`,
+  );
+  const cfgMap = Object.fromEntries(cfg.map((r: any) => [r.key, Number(r.value)]));
+  const graceMin = cfgMap.overstay_grace_minutes ?? 10;
+  const maxMin   = cfgMap.overstay_max_minutes ?? 60;
+  const cutoffMs = (graceMin + maxMin) * 60_000;
+
   const results: any[] = [];
   for (const row of expired as any[]) {
+    // Still within grace + max-overstay — leave it running.
+    if (Date.now() - new Date(row.booking_ends_at).getTime() < cutoffMs) continue;
     try {
       // Turn off the physical switch if it's on.
       if (row.tuya_device_id && row.switch_status && tuya.tuyaConfigured()) {
         await tuya.setSwitch(row.tuya_device_id, false).catch(() => {});
         await pool.query(`update public.charger_listings set switch_status=false where id=$1`, [row.listing_id]);
       }
-      // Estimate kWh up to booking end (prefer synced meter reading).
+      // Estimate kWh up to booking end (prefer synced meter reading) — unchanged;
+      // the overstay FEE (not kWh) is what accounts for the extra time, computed
+      // server-side inside _finalize_charging_session from the real end time below.
       const { rows: lr } = await pool.query(`select power_kw from public.charger_listings where id=$1`, [row.listing_id]);
       const power = Number(lr[0]?.power_kw ?? 22);
       const hours = Math.max(0, (new Date(row.booking_ends_at).getTime() - new Date(row.started_at).getTime()) / 3_600_000);
@@ -38,10 +63,12 @@ router.post('/auto-shutoff', asyncHandler(async (_req, res) => {
       const kwh = Math.min(synced > 0 ? synced : est, est * 1.25);
 
       // Finalize through the shared billing function (releases hold, caps at hold,
-      // debits customer, pays host — atomic + idempotent).
+      // debits customer, pays host — atomic + idempotent). Passing null lets it
+      // default to the real current time, so the overstay-minutes calculation
+      // measures against when this actually ran, not the original booking end.
       const { rows: fin } = await pool.query(
         `select public._finalize_charging_session($1,$2,$3,$4,$5) as result`,
-        [row.session_id, kwh, null, 'Charging session (auto-stop)', row.booking_ends_at],
+        [row.session_id, kwh, null, 'Charging session (auto-stop)', null],
       );
       const cost = Number(fin[0]?.result?.cost ?? 0);
       await notify({
@@ -59,6 +86,13 @@ router.post('/auto-shutoff', asyncHandler(async (_req, res) => {
     }
   }
   res.json({ processed: results.length, results });
+}));
+
+// Every ~30 s: re-offer mobile-charge jobs whose offer timed out, and give up
+// on requests no van took (releasing the customer's hold). Requests are also
+// dispatched immediately on creation — this tick only handles the timeouts.
+router.post('/mobile-dispatch', asyncHandler(async (_req, res) => {
+  res.json(await runDispatch());
 }));
 
 // Every ~10 min: release no-show bookings (frees the slot).
@@ -153,6 +187,35 @@ router.post('/reminders', asyncHandler(async (_req, res) => {
       if (r.created) results.push({ session_id: s.session_id, kind: 'charge_end_soon' });
     } catch (e: any) {
       results.push({ session_id: s.session_id, kind: 'charge_end_soon', error: e.message });
+    }
+  }
+
+  // ── Overstay started ─────────────────────────────────────────────────────
+  // Fires once a session's booked window has actually passed. Deliberately a
+  // wide "already past end" match (not a narrow minute), same reasoning as
+  // above — the dedupe key guarantees exactly one push per session.
+  const { rows: overstaying } = await query(
+    `select cs.id as session_id, cs.user_id, b.booked_end
+       from public.charging_sessions cs
+       join public.bookings b on b.id = cs.booking_id
+      where cs.status = 'active'
+        and b.booked_end < now()
+      limit 200`,
+  );
+  for (const s of overstaying as any[]) {
+    try {
+      const r = await notify({
+        userIds: [s.user_id],
+        category: 'charging',
+        kind: 'overstay_started',
+        title: 'Your booked time has ended',
+        body: 'You can stay a short grace period, but overstay charges may apply after that.',
+        data: { session_id: s.session_id, booked_end: s.booked_end },
+        dedupeKey: `overstay_started:${s.session_id}`,
+      });
+      if (r.created) results.push({ session_id: s.session_id, kind: 'overstay_started' });
+    } catch (e: any) {
+      results.push({ session_id: s.session_id, kind: 'overstay_started', error: e.message });
     }
   }
 

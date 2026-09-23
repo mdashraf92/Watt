@@ -43,10 +43,14 @@ src/
     profile/            get/update/delete own profile
     stations/           list/detail/reviews/availability
     sessions/           🔴 start / complete / rate  (calls SQL functions)
+    mobile/             🔴 mobile charging — customer, operator (driver), admin fleet, dispatch
+    routing/            OSRM proxy, corridor search, trip planner, saved trips
   app.ts / index.ts      assembly + startup
 sql/
-  backend-compat.sql     auth.uid()/auth.role() reading our session setting
-  backend-tables.sql     refresh-token + reset/verify token tables
+  backend-compat.sql          auth.uid()/auth.role() reading our session setting
+  backend-tables.sql          refresh-token + reset/verify token tables
+  backend-mobile-charging.sql vans, callout requests, money functions, dispatch
+  backend-trips.sql           saved trips + their charging stops
 ```
 
 ## What's implemented vs. remaining
@@ -70,21 +74,45 @@ Integrations + realtime + cron — **now implemented**:
 - ✅ **Push + Email** — Expo push + SMTP; host push on new booking, customer push on
   auto-stop, password-reset emails
 - ✅ **Realtime** — Socket.IO over Postgres LISTEN/NOTIFY (`sql/backend-realtime.sql`)
-- ✅ **Cron jobs** (`/api/jobs/*`, x-job-secret) — auto-shutoff, no-show, disburse
+- ✅ **Cron jobs** (`/api/jobs/*`, x-job-secret) — auto-shutoff, no-show, disburse, mobile-dispatch
+- ✅ **Mobile charging** (`/api/mobile/*`, `/api/operator/*`, `/api/admin/vans`) — 🔴 money.
+  Callout fee + per-kWh, wallet hold at request, settled on completion. Nearest-van
+  dispatch with a timed offer. Driver GPS goes over per-job socket rooms, never the
+  broadcast channel — see `realtime/socket.ts`.
+- ✅ **Trip planner** (`/api/routing/plan`, `/api/routing/trips/*`) — battery-aware stop
+  planning over the OSRM route, saved trips, and next-stop booking
 
-### One-time DB prep (all three)
+### One-time DB prep
 ```bash
 psql "$DATABASE_URL" -f sql/backend-compat.sql
 psql "$DATABASE_URL" -f sql/backend-tables.sql
 psql "$DATABASE_URL" -f sql/backend-realtime.sql
+psql "$DATABASE_URL" -f sql/backend-saved-cards.sql       # saved credit/debit cards
+psql "$DATABASE_URL" -f sql/backend-mobile-charging.sql  # mobile charging + 'operator' role
+psql "$DATABASE_URL" -f sql/backend-trips.sql            # trip planner
 ```
+
+`backend-mobile-charging.sql` also replaces `get_admin_analytics()` to add a `mobile`
+key. Station revenue figures are untouched — mobile charging is reported alongside
+them, not folded in, so historical numbers keep their meaning.
 
 ### Scheduling the cron jobs (server crontab)
 ```
 * * * * *    curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/auto-shutoff
 */10 * * * * curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/no-show
 0 6 * * *    curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/disburse
+# Mobile charging: re-offers timed-out jobs and releases the hold on requests no van
+# took. New requests are dispatched immediately on creation, so this only covers the
+# timeouts — but without it, an unanswered offer stalls and the customer's money stays
+# held. Every 30 s via two staggered entries, since cron's floor is one minute.
+* * * * *    curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/mobile-dispatch
+* * * * *    sleep 30; curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/mobile-dispatch
 ```
+
+### Trip planner needs OSRM
+`/api/routing/plan` returns **503 `not_configured`** until `OSRM_URL` points at a routing
+instance (see `../docs/SELF_HOSTING.md`). Mobile charging does not depend on it; only
+the trip planner and in-app directions do.
 
 **The backend API is now feature-complete.** Next: the app-side — replace
 `@supabase/supabase-js` with an API client that calls these endpoints (see `../docs/C-server.md` §9).

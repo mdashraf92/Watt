@@ -10,6 +10,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { Booking, MainStackParamList } from '../types';
 import { api, ApiError } from '../lib/api';
 import { realtime } from '../lib/realtime';
+import { payWithSavedCard } from '../lib/cardPay';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { stationDisplayName } from '../i18n/govMap';
@@ -104,17 +105,34 @@ export default function ActiveBookingScreen() {
       } catch (startErr: any) {
         const short = parseInsufficient(startErr instanceof ApiError ? startErr.message : startErr?.message);
         if (startErr instanceof ApiError && startErr.code === 'insufficient_balance' || short != null) {
-          Alert.alert(
-            t.charging_insufficient_title,
-            `${t.charging_insufficient_msg} ${(short ?? 0).toFixed(3)} OMR`,
-            [
-              { text: t.cancel, style: 'cancel' },
-              { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
-            ],
-          );
-          return;
+          // Paying by card? Take the shortfall from the saved card and retry,
+          // instead of sending them off to top up by hand.
+          const shortfall = Math.max(short ?? 0, 0.1);
+          const methods = await api.payments.methods().catch(() => null);
+          if (methods?.method === 'card' && methods.cards.length > 0) {
+            const outcome = await payWithSavedCard(shortfall).catch((e: any) => {
+              Alert.alert(t.error, e?.message ?? t.wallet_payment_error);
+              return { paid: false } as const;
+            });
+            if (outcome.paid) {
+              startRes = await api.sessions.start(booking.id);
+            } else {
+              return;
+            }
+          } else {
+            Alert.alert(
+              t.charging_insufficient_title,
+              `${t.charging_insufficient_msg} ${(short ?? 0).toFixed(3)} OMR`,
+              [
+                { text: t.cancel, style: 'cancel' },
+                { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs', { screen: 'Wallet' }) },
+              ],
+            );
+            return;
+          }
+        } else {
+          throw startErr;
         }
-        throw startErr;
       }
       const sessionId = startRes.session_id as string;
 
@@ -219,7 +237,11 @@ export default function ActiveBookingScreen() {
             Icon={MapPinIcon}
             iconColor="#7c3aed" iconBg="#f5f3ff"
             label={t.active_station}
-            value={booking.station ? stationDisplayName(booking.station, isRTL) : '—'}
+            value={
+              booking.station
+                ? stationDisplayName(booking.station, isRTL)
+                : booking.listing?.station_name || booking.listing?.address || '—'
+            }
           />
           <InfoRow
             Icon={CalendarIcon}

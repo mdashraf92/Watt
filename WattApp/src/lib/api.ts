@@ -1,5 +1,10 @@
 import { ENV } from '../config/env';
 import { tokenStore } from './tokenStore';
+import type {
+  AdminVenuePackage, PackageDraft, VenueOperations, VenueStaffMember, PackageDeviceConfig,
+  MobileChargeConfig, MobileChargeRequest, OperatorJob, SavedTrip, ServiceVan, TripPlan, SupportReport,
+  PackageChargingState, PackageChargingRun, PackageBenefit, ChargerListing, VenuePackage, Entitlement, PurchaseResult, RedeemResult,
+} from '../types';
 
 // ── GO WATT API client (replaces supabase-js) ───────────────────────────────
 // Talks to the custom backend. Handles JWT access/refresh tokens, transparent
@@ -13,6 +18,22 @@ export class ApiError extends Error {
 }
 
 const BASE = () => ENV.apiUrl; // e.g. https://api.gowatt.om
+
+export type SavedCard = {
+  card_token: string;
+  brand: string | null;
+  last4: string | null;
+  expiry: string | null;
+  is_default: boolean;
+};
+export type CardChargeResult =
+  | { status: 'paid'; balance: number; reference: string }
+  | { status: 'action_required'; reference: string; redirect_url: string | null };
+export type PaymentMethods = {
+  method: 'wallet' | 'card';
+  cards: SavedCard[];
+  available: boolean;   // false when the gateway isn't configured on the server
+};
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 interface Opts { auth?: boolean; body?: any; query?: Record<string, any>; }
@@ -94,16 +115,18 @@ export const api = {
   request,
 
   auth: {
-    register: (email: string, password: string, full_name: string) =>
-      request('POST', '/api/auth/register', { auth: false, body: { email, password, full_name } }),
+    registerStart: (email: string, password: string, full_name: string) =>
+      request('POST', '/api/auth/register/start', { auth: false, body: { email, password, full_name } }),
+    registerVerify: (email: string, code: string) =>
+      request('POST', '/api/auth/register/verify', { auth: false, body: { email, code } }),
     login: (email: string, password: string) =>
       request('POST', '/api/auth/login', { auth: false, body: { email, password } }),
     logout: (refresh_token?: string) =>
       request('POST', '/api/auth/logout', { auth: false, body: { refresh_token } }),
     forgotPassword: (email: string) =>
       request('POST', '/api/auth/forgot-password', { auth: false, body: { email } }),
-    resetPassword: (token: string, new_password: string) =>
-      request('POST', '/api/auth/reset-password', { auth: false, body: { token, new_password } }),
+    resetPassword: (email: string, code: string, new_password: string) =>
+      request('POST', '/api/auth/reset-password', { auth: false, body: { email, code, new_password } }),
     changePassword: (current_password: string, new_password: string) =>
       request('POST', '/api/auth/change-password', { body: { current_password, new_password } }),
     checkEmail: (email: string) =>
@@ -112,6 +135,10 @@ export const api = {
       request('POST', '/api/auth/phone/start', { auth: false, body: { phone } }),
     phoneVerify: (phone: string, code: string) =>
       request('POST', '/api/auth/phone/verify', { auth: false, body: { phone, code } }),
+    emailOtpStart: (email: string) =>
+      request('POST', '/api/auth/email-otp/start', { auth: false, body: { email } }),
+    emailOtpVerify: (email: string, code: string) =>
+      request('POST', '/api/auth/email-otp/verify', { auth: false, body: { email, code } }),
   },
 
   profile: {
@@ -130,6 +157,7 @@ export const api = {
 
   chargers: {
     listAvailable: () => request('GET', '/api/chargers'),
+    get:           (id: string) => request<ChargerListing>('GET', `/api/chargers/${id}`),
     reviews:       (id: string) => request('GET', `/api/chargers/${id}/reviews`),
   },
 
@@ -143,7 +171,7 @@ export const api = {
 
   sessions: {
     list:     () => request('GET', '/api/sessions'),
-    active:   () => request<{ id: string; station: { name: string | null } | null; listing: { station_name: string | null; address: string | null } | null } | null>('GET', '/api/sessions/active'),
+    active:   () => request<{ id: string; entitlement_id?: string | null; station: { name: string | null } | null; listing: { station_name: string | null; address: string | null } | null } | null>('GET', '/api/sessions/active'),
     get:      (id: string) => request('GET', `/api/sessions/${id}`),
     start:    (booking_id: string) => request('POST', '/api/sessions/start', { body: { booking_id } }),
     progress: (id: string, kwh_delivered: number, cost: number) =>
@@ -152,6 +180,9 @@ export const api = {
       request('POST', `/api/sessions/${id}/complete`, { body: p }),
     rate:     (id: string, rating: number, comment?: string) =>
       request('POST', `/api/sessions/${id}/rate`, { body: { rating, comment } }),
+    uploadPhoto: (id: string, photo_base64: string) =>
+      request<{ id: string; completion_photo_base64: string; completion_photo_taken_at: string }>(
+        'POST', `/api/sessions/${id}/photo`, { body: { photo_base64 } }),
   },
 
   wallet: {
@@ -166,6 +197,12 @@ export const api = {
       charger_type: string; power_kw?: number | null;
       electricity_form_name: string; commercial_registration: string; id_card_number: string;
     }) => request('POST', '/api/applications', { body: data }),
+  },
+
+  reports: {
+    create: (b: { category: string; description: string; photo_base64?: string | null; booking_id?: string | null; session_id?: string | null }) =>
+      request<SupportReport>('POST', '/api/reports', { body: b }),
+    list: () => request<SupportReport[]>('GET', '/api/reports'),
   },
 
   favorites: {
@@ -183,6 +220,15 @@ export const api = {
   },
 
   admin: {
+    venueOperations: (id: string) => request<VenueOperations>('GET', `/api/admin/packages/venues/${id}/operations`),
+    setPackageVenue: (id: string, is_package_venue: boolean) => request('PUT', `/api/admin/packages/venues/${id}`, { body: { is_package_venue } }),
+    findVenueStaff: (phone: string) => request<VenueStaffMember[]>('GET', '/api/admin/packages/staff-search', { query: { phone } }),
+    setVenueStaff: (station_id: string, user_id: string, enabled: boolean) => request('PUT', '/api/admin/packages/staff', { body: { station_id, user_id, enabled } }),
+    savePackageDevice: (body: Pick<PackageDeviceConfig, 'connector_id' | 'device_id' | 'switch_code' | 'energy_code' | 'energy_scale' | 'enabled'>) => request('PUT', '/api/admin/packages/devices', { body }),
+    packages: () => request<AdminVenuePackage[]>('GET', '/api/admin/packages'),
+    createPackage: (body: PackageDraft) => request<AdminVenuePackage>('POST', '/api/admin/packages', { body }),
+    updatePackage: (id: string, body: Partial<PackageDraft> & { is_active?: boolean; expected_version: string }) =>
+      request<AdminVenuePackage>('PATCH', `/api/admin/packages/${id}`, { body }),
     analytics:    () => request('GET', '/api/admin/analytics'),
     counts:       () => request<{ stations: number; users: number }>('GET', '/api/admin/counts'),
     flagged:      () => request('GET', '/api/admin/flagged'),
@@ -201,6 +247,13 @@ export const api = {
       request('PATCH', `/api/admin/listings/${id}`, { body: patch }),
     application:  (id: string, action: 'accept' | 'reject' | 'review') =>
       request('POST', `/api/admin/applications/${id}/${action}`, { body: {} }),
+    investorEarnings: (userId: string) => request<InvestorEarningsReport>('GET', `/api/admin/investors/${userId}/earnings`),
+    reports:       (status?: string) => request<SupportReport[]>('GET', '/api/reports/admin', { query: { status } }),
+    reportRespond: (id: string, message: string) => request<SupportReport>('POST', `/api/reports/admin/${id}/respond`, { body: { message } }),
+    reportClose:   (id: string) => request<SupportReport>('POST', `/api/reports/admin/${id}/close`),
+    activeSessions: () => request<AdminActiveSession[]>('GET', '/api/admin/sessions/active'),
+    forceStopSession: (id: string, mode: 'bill' | 'refund', reason?: string) =>
+      request('POST', `/api/admin/sessions/${id}/force-stop`, { body: { mode, reason } }),
   },
 
   superadmin: {
@@ -208,6 +261,12 @@ export const api = {
     setAdmin:    (identifier: string, make: boolean) => request('POST', '/api/superadmin/admins', { body: { identifier, make } }),
     settings:    () => request('GET', '/api/superadmin/settings'),
     setSetting:  (key: string, value: string) => request('PUT', '/api/superadmin/settings', { body: { key, value } }),
+    overstaySettings: () => request<OverstaySettings>('GET', '/api/superadmin/overstay-settings'),
+    setOverstaySettings: (s: OverstaySettings) =>
+      request<OverstaySettings>('PUT', '/api/superadmin/overstay-settings', { body: s }),
+    mobileSettings: () => request<MobileSettings>('GET', '/api/superadmin/mobile-settings'),
+    setMobileSettings: (s: MobileSettings) =>
+      request<MobileSettings>('PUT', '/api/superadmin/mobile-settings', { body: s }),
   },
 
   host: {
@@ -220,8 +279,21 @@ export const api = {
   },
 
   payments: {
-    create: (amount: number) => request('POST', '/api/payments/create', { body: { amount } }),
+    create: (amount: number, save_card = false) =>
+      request('POST', '/api/payments/create', { body: { amount, save_card } }),
     verify: (session_id: string) => request('POST', '/api/payments/verify', { body: { session_id } }),
+
+    // Saved credit / debit cards (Thawani tokens — the app never sees a PAN).
+    methods: () => request<PaymentMethods>('GET', '/api/payments/methods'),
+    addCard: () => request<{ pay_url: string; session_id: string; amount: number }>('POST', '/api/payments/cards/add'),
+    setDefaultCard: (token: string) => request('POST', `/api/payments/cards/${encodeURIComponent(token)}/default`),
+    removeCard: (token: string) => request('DELETE', `/api/payments/cards/${encodeURIComponent(token)}`),
+    setMethod: (method: 'wallet' | 'card') => request('POST', '/api/payments/method', { body: { method } }),
+    chargeCard: (amount: number) =>
+      request<CardChargeResult>('POST', '/api/payments/cards/charge', { body: { amount } }),
+    verifyCardCharge: (reference: string) =>
+      request<{ status: 'paid' | 'pending' | 'failed'; balance?: number }>(
+        'POST', '/api/payments/cards/charge/verify', { body: { reference } }),
   },
 
   devices: {
@@ -242,6 +314,149 @@ export const api = {
         coordinates: Array<[number, number]>;
         steps: Array<{ instruction: string; modifier: string | null; name: string; distance_m: number }>;
       }>('POST', '/api/routing/route', { body: { from, to } }),
+    // Free-text place search for the trip planner's from/to box. `near` biases
+    // results toward the driver's current area. Empty query → [] server-side.
+    search: (q: string, near?: { latitude: number; longitude: number }) => {
+      const params = new URLSearchParams({ q });
+      if (near) { params.set('lat', String(near.latitude)); params.set('lng', String(near.longitude)); }
+      return request<Array<{ id: string; name: string; address: string; latitude: number; longitude: number }>>(
+        'GET', `/api/routing/search?${params}`,
+      );
+    },
+  },
+
+  // ── Mobile charging — customer side ──────────────────────────────────────
+  mobile: {
+    config:  () => request<MobileChargeConfig>('GET', '/api/mobile/config'),
+    list:    () => request<MobileChargeRequest[]>('GET', '/api/mobile/requests'),
+    active:  () => request<MobileChargeRequest | null>('GET', '/api/mobile/requests/active'),
+    get:     (id: string) => request<MobileChargeRequest>('GET', `/api/mobile/requests/${id}`),
+    // Places the wallet hold. Raises insufficient_balance (402) exactly like
+    // sessions.start, so the same card-top-up recovery applies.
+    request: (b: { latitude: number; longitude: number; kwh: number; notes?: string; address?: string }) =>
+      request<{ request_id: string; held_amount: number; estimated_cost: number;
+                callout_fee: number; price_per_kwh: number }>('POST', '/api/mobile/requests', { body: b }),
+    cancel:  (id: string, reason?: string) =>
+      request<{ already: boolean; fee: number; released: number; balance: number }>(
+        'POST', `/api/mobile/requests/${id}/cancel`, { body: { reason } }),
+    rate:    (id: string, rating: number, comment?: string) =>
+      request('POST', `/api/mobile/requests/${id}/rate`, { body: { rating, comment } }),
+  },
+
+  // ── Venue packages ───────────────────────────────────────────────────────
+  // The bundle a branded venue sells. Charging is included in the price, never
+  // metered against it, so nothing here takes or returns a price per kWh.
+  packages: {
+    charging: (id: string) => request<PackageChargingState>('GET', `/api/packages/entitlements/${id}/charging`),
+    startCharging: (id: string, connectorId: string, startKey: string) => request<PackageChargingRun>('POST', `/api/packages/entitlements/${id}/start`, { body: { connector_id: connectorId, start_key: startKey } }),
+    stopCharging: (id: string) => request<PackageChargingRun>('POST', `/api/packages/charging/${id}/stop`),
+    staffVenues: () => request<{ id: string; name: string; name_ar: string }[]>('GET', '/api/packages/staff/venues'),
+    lookupBenefit: (code: string) => request<PackageBenefit>('POST', '/api/packages/staff/lookup', { body: { code } }),
+    redeemBenefit: (id: string) => request<{ id: string; benefit_redeemed_at: string }>('POST', `/api/packages/staff/entitlements/${id}/benefit`),
+    availability: () => request<{ purchase_enabled: boolean }>('GET', '/api/packages/availability'),
+    /** Packages currently on offer at one venue. Inactive ones are never returned. */
+    atVenue: (stationId: string) =>
+      request<VenuePackage[]>('GET', `/api/packages/venue/${stationId}`),
+
+    /**
+     * What the signed-in driver holds. Defaults to what is still usable;
+     * `all` includes spent and expired ones for the history list — an expired
+     * package should be visible to its buyer, not silently disappear.
+     */
+    mine: (all = false) =>
+      request<Entitlement[]>('GET', '/api/packages/mine', all ? { query: { status: 'all' } } : undefined),
+
+    /**
+     * Buy a package. Debits the wallet and issues the entitlement in one
+     * transaction, and returns the resulting balance so no follow-up read is
+     * needed. Raises insufficient_balance (402) exactly like sessions.start,
+     * so the same card-top-up recovery applies.
+     */
+    purchase: (packageId: string, purchaseKey: string, expectedPrice: number, offerVersion: string) =>
+      request<PurchaseResult>('POST', '/api/packages/purchase', { body: { package_id: packageId, purchase_key: purchaseKey, expected_price: expectedPrice, offer_version: offerVersion } }),
+
+    /**
+     * Administrator-only until trusted meter integration is ready.
+     * Record a use against a charging session. Consumption is clamped to what
+     * remains — an overrun is absorbed, not billed, until there is a policy
+     * for it.
+     */
+    redeem: (entitlementId: string, b: { session_id?: string | null; minutes?: number; kwh?: number }) =>
+      request<RedeemResult>('POST', `/api/packages/entitlements/${entitlementId}/redeem`, { body: b }),
+  },
+
+  // ── Mobile charging — driver side ────────────────────────────────────────
+  operator: {
+    me:       () => request<{ van: ServiceVan | null; active_job: OperatorJob | null }>('GET', '/api/operator/me'),
+    duty:     (on_duty: boolean, at?: { latitude: number; longitude: number }) =>
+      request<ServiceVan>('POST', '/api/operator/duty', { body: { on_duty, ...at } }),
+    location: (latitude: number, longitude: number) =>
+      request('POST', '/api/operator/location', { body: { latitude, longitude } }),
+    jobs:     () => request<{ offered: (OperatorJob & { distance_km: number }) | null; history: OperatorJob[] }>(
+      'GET', '/api/operator/jobs'),
+    job:      (id: string) => request<OperatorJob>('GET', `/api/operator/jobs/${id}`),
+    accept:   (id: string) => request<{ taken: boolean; status: string }>('POST', `/api/operator/jobs/${id}/accept`),
+    decline:  (id: string) => request('POST', `/api/operator/jobs/${id}/decline`),
+    setStatus: (id: string, status: 'en_route' | 'arrived' | 'charging',
+                extra?: { latitude?: number; longitude?: number; eta_minutes?: number }) =>
+      request('POST', `/api/operator/jobs/${id}/status`, { body: { status, ...extra } }),
+    complete: (id: string, p: { kwh: number; battery_end?: number | null; meter_kwh?: number | null }) =>
+      request<{ already: boolean; cost: number; kwh: number; balance: number }>(
+        'POST', `/api/operator/jobs/${id}/complete`, { body: p }),
+  },
+
+  // ── Fleet + mobile-job oversight (admin) ─────────────────────────────────
+  fleet: {
+    vans:      () => request<ServiceVan[]>('GET', '/api/admin/vans'),
+    operators: () => request<Array<{ id: string; full_name: string; phone: string;
+                                     van_id: string | null; van_label: string | null }>>(
+      'GET', '/api/admin/operators'),
+    createVan: (v: Partial<ServiceVan> & { label: string; capacity_kwh: number }) =>
+      request<ServiceVan>('POST', '/api/admin/vans', { body: v }),
+    updateVan: (id: string, patch: Partial<ServiceVan>) =>
+      request<ServiceVan>('PATCH', `/api/admin/vans/${id}`, { body: patch }),
+    refillVan: (id: string) => request<ServiceVan>('POST', `/api/admin/vans/${id}/refill`),
+    removeVan: (id: string) => request('DELETE', `/api/admin/vans/${id}`),
+    requests:  (status?: string) =>
+      request<Array<MobileChargeRequest & { customer_name: string; customer_phone: string;
+                                           operator_name: string | null; van_label: string | null }>>(
+        'GET', '/api/admin/mobile/requests', { query: status ? { status } : undefined }),
+    live:      () => request<{ vans: ServiceVan[]; requests: Array<MobileChargeRequest & { customer_name: string }> }>(
+      'GET', '/api/admin/mobile/live'),
+    cancel:    (id: string, reason?: string) =>
+      request('POST', `/api/admin/mobile/requests/${id}/cancel`, { body: { reason } }),
+  },
+
+  // ── Trip planner ─────────────────────────────────────────────────────────
+  trips: {
+    // Stateless: computes a plan, saves nothing. The app decides what to keep.
+    plan: (b: {
+      from: { latitude: number; longitude: number };
+      to: { latitude: number; longitude: number };
+      waypoints?: Array<{ latitude: number; longitude: number }>;
+      battery_kwh: number;
+      start_soc_pct: number;
+      reserve_soc_pct?: number;
+      consumption_kwh_per_100km?: number;
+      connector_type?: string | null;
+    }) => request<TripPlan>('POST', '/api/routing/plan', { body: b }),
+
+    list:   () => request<SavedTrip[]>('GET', '/api/routing/trips'),
+    get:    (id: string) => request<SavedTrip>('GET', `/api/routing/trips/${id}`),
+    save:   (b: {
+      name?: string;
+      from: { latitude: number; longitude: number; label?: string };
+      to:   { latitude: number; longitude: number; label?: string };
+      params: Record<string, any>;
+      plan: Record<string, any>;
+    }) => request<SavedTrip>('POST', '/api/routing/trips', { body: b }),
+    remove: (id: string) => request('DELETE', `/api/routing/trips/${id}`),
+
+    // Only the next unbooked stop may be linked — the server enforces it.
+    attachBooking: (tripId: string, seq: number, booking_id: string) =>
+      request('POST', `/api/routing/trips/${tripId}/stops/${seq}/booking`, { body: { booking_id } }),
+    markStop: (tripId: string, seq: number, action: 'done' | 'skipped') =>
+      request('POST', `/api/routing/trips/${tripId}/stops/${seq}/${action}`),
   },
 
   stationStatus: {
@@ -270,6 +485,57 @@ export const api = {
     markRead:    (ids: string[]) => request('POST', '/api/notifications/read', { body: { ids } }),
     markAllRead: () => request('POST', '/api/notifications/read-all'),
   },
+};
+
+export type AdminActiveSession = {
+  id: string;
+  started_at: string;
+  kwh_delivered: number;
+  cost: number;
+  held_amount: number;
+  customer_name: string;
+  customer_phone: string;
+  charger_name: string | null;
+  booked_end: string | null;
+};
+
+export type OverstaySettings = {
+  overstay_grace_minutes: number;
+  overstay_fee_per_minute: number;
+  overstay_max_minutes: number;
+};
+
+export type InvestorEarningsTransaction = {
+  id: string;
+  amount: number;
+  description: string;
+  created_at: string;
+  session_id: string | null;
+  kwh_delivered: number | null;
+  cost: number | null;
+  started_at: string | null;
+  ended_at: string | null;
+  charger_name: string | null;
+};
+
+export type InvestorEarningsReport = {
+  investor: {
+    id: string; full_name: string; phone: string; wallet_balance: number;
+    payout_bank_name: string | null; payout_account_holder: string | null; payout_iban: string | null;
+  };
+  listing: { id: string; station_name: string | null; address: string; price_per_kwh: number } | null;
+  transactions: InvestorEarningsTransaction[];
+  total_earnings: number;
+};
+
+export type MobileSettings = {
+  mobile_enabled: boolean;
+  mobile_callout_fee: number;
+  mobile_price_per_kwh: number;
+  mobile_min_kwh: number;
+  mobile_max_kwh: number;
+  mobile_cancel_fee: number;
+  mobile_service_radius_km: number;
 };
 
 export type AppNotification = {

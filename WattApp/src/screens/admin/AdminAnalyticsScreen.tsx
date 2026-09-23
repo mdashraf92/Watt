@@ -12,9 +12,16 @@ import ErrorView from '../../components/ErrorView';
 
 type Bucket = { revenue: number; sessions: number; kwh: number };
 type TopCharger = { name: string; sessions: number; revenue: number };
+type MobileBucket = { revenue: number; jobs: number; kwh: number };
 type Analytics = {
   today: Bucket; month: Bucket; all_time: Bucket;
   flagged: number; top_chargers: TopCharger[];
+  // Reported separately from station revenue on purpose — see the 'mobile' key
+  // comment in get_admin_analytics. Optional so an un-migrated server still renders.
+  mobile?: {
+    today: MobileBucket; month: MobileBucket; all_time: MobileBucket;
+    flagged: number; unserved: number; vans_active: number;
+  };
 };
 
 export default function AdminAnalyticsScreen() {
@@ -80,6 +87,51 @@ export default function AdminAnalyticsScreen() {
               <Text style={s.flagText}>⚠ {data.flagged} {t.analytics_flagged}</Text>
               <Text style={s.flagArrow}>›</Text>
             </TouchableOpacity>
+          )}
+
+          {/* Mobile charging — kept out of the totals above so the station
+              figures keep meaning what they always meant. */}
+          {data.mobile && (
+            <View style={s.card}>
+              <Text style={[s.cardTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.mc_title}</Text>
+              <View style={s.topRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.topName}>{t.analytics_month}</Text>
+                  <Text style={s.topSub}>
+                    {data.mobile.month.jobs} · {Number(data.mobile.month.kwh).toFixed(0)} kWh
+                  </Text>
+                </View>
+                <Text style={s.topRevenue}>{money(data.mobile.month.revenue)}</Text>
+              </View>
+              <View style={s.topRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.topName}>{t.analytics_all_time}</Text>
+                  <Text style={s.topSub}>
+                    {data.mobile.all_time.jobs} · {Number(data.mobile.all_time.kwh).toFixed(0)} kWh
+                  </Text>
+                </View>
+                <Text style={s.topRevenue}>{money(data.mobile.all_time.revenue)}</Text>
+              </View>
+              <View style={s.topRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.topName}>{t.ad_fleet_title}</Text>
+                  <Text style={s.topSub}>{t.op_duty_on}</Text>
+                </View>
+                <Text style={s.topRevenue}>{data.mobile.vans_active}</Text>
+              </View>
+              {/* Demand we could not serve — the clearest signal the fleet is
+                  too small, so it is stated rather than buried. */}
+              {data.mobile.unserved > 0 && (
+                <TouchableOpacity
+                  style={s.flagRow}
+                  onPress={() => navigation.navigate('AdminMobileRequests')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.flagText}>⚠ {data.mobile.unserved} · {t.mc_status_no_van}</Text>
+                  <Text style={s.flagArrow}>›</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
 
           {/* Top chargers this month */}

@@ -5,13 +5,15 @@ import { api } from '../lib/api';
 interface ChargingContextType {
   activeSessionId: string | null;
   activeStationName: string | null;
-  setActiveSession: (id: string, name: string) => void;
+  activePackageId: string | null;
+  setActiveSession: (id: string, name: string, packageId?: string) => void;
   clearActiveSession: () => void;
 }
 
 const ChargingContext = createContext<ChargingContextType>({
   activeSessionId: null,
   activeStationName: null,
+  activePackageId: null,
   setActiveSession: () => {},
   clearActiveSession: () => {},
 });
@@ -19,16 +21,19 @@ const ChargingContext = createContext<ChargingContextType>({
 export function ChargingProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activePackageId, setActivePackageId] = useState<string | null>(null);
   const [activeStationName, setActiveStationName] = useState<string | null>(null);
 
-  const setActiveSession = (id: string, name: string) => {
+  const setActiveSession = (id: string, name: string, packageId?: string) => {
     setActiveSessionId(id);
     setActiveStationName(name);
+    setActivePackageId(packageId ?? null);
   };
 
   const clearActiveSession = () => {
     setActiveSessionId(null);
     setActiveStationName(null);
+    setActivePackageId(null);
   };
 
   // Recover an in-progress charging session after an app restart. The context
@@ -39,6 +44,7 @@ export function ChargingProvider({ children }: { children: React.ReactNode }) {
     if (!session?.user?.id) {
       setActiveSessionId(null);
       setActiveStationName(null);
+      setActivePackageId(null);
       return;
     }
     let cancelled = false;
@@ -53,12 +59,13 @@ export function ChargingProvider({ children }: { children: React.ReactNode }) {
       // Don't clobber a session already being tracked from the live flow.
       setActiveSessionId(prev => prev ?? data.id);
       setActiveStationName(prev => prev ?? name);
+      setActivePackageId(prev => prev ?? data.entitlement_id ?? null);
     })();
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
   return (
-    <ChargingContext.Provider value={{ activeSessionId, activeStationName, setActiveSession, clearActiveSession }}>
+    <ChargingContext.Provider value={{ activeSessionId, activeStationName, activePackageId, setActiveSession, clearActiveSession }}>
       {children}
     </ChargingContext.Provider>
   );

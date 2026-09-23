@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator, Animated, Share, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Animated, Image, Share, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -11,7 +12,7 @@ import { api } from '../lib/api';
 import { COLORS } from '../constants/colors';
 import GradientButton from '../components/GradientButton';
 import { useLang } from '../context/LanguageContext';
-import { CheckIcon, ZapIcon, LeafIcon, HomeIcon, StarIcon } from '../components/icons';
+import { CheckIcon, ZapIcon, LeafIcon, HomeIcon, StarIcon, CameraIcon } from '../components/icons';
 
 type Nav   = NativeStackNavigationProp<CustomerStackParamList, 'SessionSummary'>;
 type Route = RouteProp<CustomerStackParamList, 'SessionSummary'>;
@@ -27,6 +28,11 @@ export default function SessionSummaryScreen() {
   const [rating, setRating]       = useState(false);
   const [rated, setRated]         = useState(false);
 
+  const [photoUri, setPhotoUri]       = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoAdded, setPhotoAdded]   = useState(false);
+  const [photoSkipped, setPhotoSkipped] = useState(false);
+
   const submitRating = async () => {
     if (!sessionId || stars < 1) return;
     setRating(true);
@@ -36,6 +42,23 @@ export default function SessionSummaryScreen() {
     } catch { /* leave un-rated on failure */ }
     finally {
       setRating(false);
+    }
+  };
+
+  const handleAddPhoto = async () => {
+    if (!sessionId) return;
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    const launch = status === 'granted' ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
+    const result = await launch({ mediaTypes: ['images'], quality: 0.4, base64: true, allowsEditing: true });
+    if (result.canceled || !result.assets[0]?.base64) return;
+    setPhotoUri(result.assets[0].uri);
+    setUploadingPhoto(true);
+    try {
+      await api.sessions.uploadPhoto(sessionId, `data:image/jpeg;base64,${result.assets[0].base64}`);
+      setPhotoAdded(true);
+    } catch { /* leave un-added on failure — never block the customer */ }
+    finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -224,6 +247,37 @@ export default function SessionSummaryScreen() {
           </View>
         )}
 
+        {/* Post-session photo proof — independent of the rating card/button */}
+        {sessionId && !photoSkipped && (
+          <View style={styles.rateCard}>
+            {photoAdded ? (
+              <View style={styles.ratedDone}>
+                <CheckIcon size={20} color={COLORS.success} strokeWidth={2.5} />
+                <Text style={styles.ratedDoneText}>{t.session_photo_added}</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.rateTitle}>{t.session_photo_title}</Text>
+                <Text style={styles.photoHint}>{t.session_photo_hint}</Text>
+                {photoUri ? (
+                  <TouchableOpacity onPress={handleAddPhoto} activeOpacity={0.85} disabled={uploadingPhoto}>
+                    <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.photoAddBtn} onPress={handleAddPhoto} activeOpacity={0.8} disabled={uploadingPhoto}>
+                    {uploadingPhoto
+                      ? <ActivityIndicator color={COLORS.primary} />
+                      : <CameraIcon size={22} color={COLORS.primary} strokeWidth={2} />}
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={{ marginTop: 10 }} onPress={() => setPhotoSkipped(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.photoSkipText}>{t.session_photo_skip}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
         {/* Share receipt */}
         <TouchableOpacity style={styles.shareBtn} onPress={shareReceipt} activeOpacity={0.85}>
           <Text style={styles.shareBtnText}>{t.session_share}</Text>
@@ -325,6 +379,15 @@ const styles = StyleSheet.create({
   rateBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   ratedDone:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   ratedDoneText: { fontSize: 15, fontWeight: '700', color: COLORS.success },
+
+  // Photo proof card
+  photoHint: { fontSize: 12, color: COLORS.textSecondary, marginTop: -8, marginBottom: 14, textAlign: 'center' },
+  photoAddBtn: {
+    width: 64, height: 64, borderRadius: 16, borderWidth: 1.5, borderColor: COLORS.border,
+    borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background,
+  },
+  photoPreview: { width: 120, height: 120, borderRadius: 16 },
+  photoSkipText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
 
   // Tear-off perforated edge
   tearOff: {

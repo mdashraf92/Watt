@@ -487,11 +487,21 @@ The host is a property owner or business who installs a Watt charger at their lo
 | 8 | ✨ Polish & extras | ✅ connection-retry safety net · ✅ admin analytics · ✅ receipt share · ✅ no-show auto-release · ⏳ push (coded, needs dev build) · ⬜ onboarding stepper · ⬜ offline · ⬜ store release · ⬜ map provider | 🔵 **IN PROGRESS** |
 | 9 | 📄 Business model document | Revenue streams · unit economics · commission structure · 12-month projection · **includes the charger-installation-request service** | ⚪ Not started |
 | 10 | 🏗️ Charger installation requests | Customers without a home charger apply in-app for GO WATT to install one (new revenue stream — depends on Phase 9 pricing) | ⚪ Not started |
+| 11 | 🌐 Website registration & onboarding | Real sign-up for EV owners + host applications on go-watt.com (replaces waitlist-only), shared account with the app | ⚪ Not started |
+| 12 | 🎫 Reporting & issue support | "Report a problem" flow (customer + host), admin ticket inbox, status notifications | 🟢 **DEPLOYED — awaiting your test** |
+| 13 | 💸 Refunds, session reset & overstay | Refund logic for cancelled core bookings · manual force-stop for stuck sessions · real-time overstay detection · overstay per-minute fee · grace period as an editable setting | 🟢 **DEPLOYED — awaiting your test (overstay fee ships OFF at 0)** |
+| 14 | 📸 Photo proof of session completion | Skippable photo capture after a session, tied to session record for disputes | 🟢 **DEPLOYED — awaiting your test** |
+| 15 | 🧭 Field & flow simplification | Review registration fields both sides · reduce steps to first booking | ⚪ Not started |
 
 ### Phase log
 
 *(newest first — one entry per completed work session)*
 
+- **2026-08-09** — All three new SQL files (`backend-support-reports.sql`, `backend-session-photo.sql`, `backend-overstay-and-refund.sql`) applied to the database by Ashraf. Phases 12, 13, 14 move from "built" to "deployed" — ready for testing on device.
+- **2026-08-09** — **Phase 13 built** (Refunds, Session Reset & Overstay). Details below. Overstay fee ships at 0 baisa/min (superadmin-editable) — no customer is charged until you set a real rate.
+- **2026-08-09** — **Phase 14 built** (Photo Proof of Session Completion). Details below.
+- **2026-08-09** — **Phase 12 built** (Reporting & Issue Support). Details below. Not yet deployed — needs the new SQL file applied to your database before testing.
+- **2026-08-09** — Phases 11–15 added to ROADMAP.md, sourced directly from the 4 Aug 2026 GoWatt meeting minutes (Rami, Jinan, Mazin). Covers: website registration/onboarding (the meeting's #1 launch-strategy priority), reporting/issue flow, refund + manual session-reset + real-time overstay detection + per-minute overstay fee + grace-period setting, post-session photo capture, and a registration-field/flow-simplification pass. Audited current code first — notifications, charger search, and "my location" turned out to already be built (the meeting's premise that they were missing was outdated); the 5 items above are the genuine gaps. No code changed yet — plan only, pending Ashraf's review and priority sign-off on sequencing.
 - **2026-07-19** — Roadmap created (ROADMAP.md). Progress tracker added. Phase 1 started.
 - **2026-07-19** — **Phase 1 built.** Prepaid wallet-hold model implemented (details below).
 - **2026-07-19** — **Phase 2 built.** Automatic investor payouts (gated off until a payout provider is added). Details below.
@@ -652,6 +662,104 @@ and the map-provider swap (waiting on Rashid's quote).
 - App: `AuthContext.tsx`, `navigation/index.tsx`, new `AdminAnalyticsScreen.tsx`,
   `AdminProfileScreen.tsx`, `SessionSummaryScreen.tsx`, types + AR/EN text
 - Edge fn (repo only, not redeployed): `auto-shutoff-chargers` push block
+
+---
+
+## 📋 Phase 12 — Review Notes (Reporting & Issue Support)
+
+### What's new
+1. **"Report a problem"** — reachable from Profile (Settings → Report a problem) and from the live Charging screen (small link under the station name, attaches the current session automatically). One screen with two tabs:
+   - **New Report**: pick a category (charger fault, payment, safety, damage, other), describe the issue, optionally attach a photo (camera or gallery).
+   - **My Reports**: your past reports with a status pill (Open / In review / Resolved) — tap one to expand and see the admin's response.
+2. **Admin inbox** — Admin → Profile → **Reports**: filterable list (All/Open/In review/Resolved), tap into a report to see the reporter's name/phone, the description, the photo (if any), write a response, and close the ticket once resolved.
+3. **Notifications** — you get notified the moment someone files a report; the reporting customer gets notified when you respond and when you close it. Reuses the existing notification bell — no new preference toggle was added (deliberately, to avoid an extra migration just for this).
+
+### ⚠️ Before this works — ONE step needed from us
+Run the new table migration on your database first:
+```bash
+psql "$DATABASE_URL" -f sql/backend-support-reports.sql
+```
+Until that runs, the report screens will show an error when submitting/loading (the `support_reports` table won't exist yet). Nothing else needs deploying — no changes to existing tables or functions.
+
+### What changed (files)
+- **New migration**: `backend/sql/backend-support-reports.sql` — the `support_reports` table only. No money/billing logic touched.
+- **New backend module**: `backend/src/modules/reports/reports.routes.ts`, mounted at `/api/reports` (own reports) and `/api/reports/admin/*` (admin inbox).
+- **App**: new `ReportIssueScreen.tsx`, new `admin/AdminReportsScreen.tsx` + `AdminReportDetailScreen.tsx`, entry points in `ProfileScreen.tsx`, `ChargingScreen.tsx`, and `admin/AdminProfileScreen.tsx`; a new `AlertTriangleIcon`; Arabic/English text.
+
+### To test once deployed
+1. As a customer, Profile → Report a problem → submit one of each category, with and without a photo.
+2. As admin, Profile → Reports → see it appear → open it → send a response → confirm the customer's notification bell shows the update and the response appears under **My Reports**.
+3. Close the ticket → confirm its status becomes Resolved on both sides.
+
+---
+
+## 📋 Phase 14 — Review Notes (Photo Proof of Session Completion)
+
+### What's new
+On the session summary/receipt screen (right after a charge finishes), a second skippable card appears below the star-rating card: "Add a photo (optional)." Tapping it opens the camera (falls back to the photo library if camera permission is denied), the photo is compressed client-side and uploaded immediately, and the card shows a "Photo added ✓" state once it succeeds. Skipping it is a separate small "Skip" link — it doesn't affect the existing rating flow or the main Done button at all.
+
+### ⚠️ Before this works — ONE step needed from us
+```bash
+psql "$DATABASE_URL" -f sql/backend-session-photo.sql
+```
+This just adds two columns (`completion_photo_base64`, `completion_photo_taken_at`) to `charging_sessions` — nothing else changes.
+
+### Also bumped: request body size limit
+Base64 photos (from this phase and Phase 12's reports) don't fit in the old 1MB JSON body limit, so `app.ts` now allows up to 3MB per request. Client-side photos are compressed to quality 0.4 before upload to stay well under that.
+
+### Known follow-up (intentionally not done here)
+The original idea was to also show this photo on the admin "Flagged Sessions" review screen for dispute evidence. That screen's data comes from a database function (`get_flagged_sessions_detail()`) that isn't tracked in this repo — it was carried over from the old Supabase project, and I don't have its current source. Rewriting it blindly to add one more column risked breaking the existing flagged-session logic, so I left it alone. If you want the photo visible there, the safe way is for me to read the function's live definition from the database first (`\df+ get_flagged_sessions_detail` in psql, or a pg_dump of just that function) so the edit is additive, not a guess.
+
+### What changed (files)
+- **New migration**: `backend/sql/backend-session-photo.sql`.
+- **Backend**: `sessions.routes.ts` (`POST /:id/photo`, owner-scoped, no billing logic touched); `app.ts` (JSON body limit 1mb → 3mb).
+- **App**: `SessionSummaryScreen.tsx` (new photo card + `expo-image-picker` camera flow); `api.sessions.uploadPhoto`; Arabic/English text.
+
+### To test once deployed
+Finish a charging session → on the receipt screen, tap the camera button under "Add a photo" → take or pick a photo → confirm it shows "Photo added" and doesn't block tapping Done. Try Skip too.
+
+---
+
+## 📋 Phase 13 — Review Notes (Refunds, Session Reset & Overstay)
+
+### What's new
+
+**1. Admin tool: force-stop a stuck session** — Admin → Profile → **Active Sessions**: every currently-active charging session platform-wide, with two actions:
+   - **Force stop & bill** — ends it exactly like the automatic system would, billing for the energy actually used. For a session that's just stuck, not faulty.
+   - **Force stop & refund** — ends it with **no charge at all** and releases the customer's held funds. For a genuine fault (broken charger, etc.).
+   Both reuse the exact same billing function every other part of the app already uses (`_finalize_charging_session`) — nothing was reimplemented, so none of the existing money-safety guarantees are weakened.
+   **Admin-only**, per your decision — hosts don't get this power; they use the new Report flow (Phase 12) to flag a stuck charger instead.
+
+**2. Grace period + overstay fee** — Superadmin → **Overstay** card (new section, below Platform Settings): grace period (minutes), overstay fee (OMR/minute), and a safety cap (max overstay minutes before the session is force-ended no matter what). **Ships with the fee at 0** — exactly as you asked, so it's fully wired and yours to switch on the moment finance confirms a number, with nobody charged in the meantime.
+
+**3. Real-time overstay banner** — on the live Charging screen, once a booking's time is up:
+   - An amber banner during the grace period ("you have X minutes before overstay charges may apply").
+   - A red banner once grace has passed, showing a live *estimate* of the overstay fee — the real charge is always the one computed on the server when the session actually ends, this is just for the customer's awareness while charging.
+
+**4. The auto-stop system no longer cuts a session off the instant the booking ends** — it now waits through the grace period *and* the max-overstay window before stepping in, so a customer who's a few minutes late doesn't get force-stopped, and the overstay fee (once enabled) has a real window to apply.
+
+### What was intentionally left out of this pass
+A **late-cancellation fee for regular bookings** (the other half of "cancellation and refund policy" from the meeting) needs a real fee amount and cutoff from finance, which doesn't exist yet — same reasoning as the overstay rate. I didn't invent a number. The refund tool above already covers the concrete money-at-risk case (a customer had a fault mid-session and needs their hold released).
+
+### A design decision worth knowing
+"Refund" here means **release the hold, charge nothing** — not literally reversing a wallet debit, because in this app's money model nothing is ever deducted from the wallet *until* a session finishes billing. So there's no wallet transaction row for a refund (a "0.000 OMR" entry in your transaction history would just be confusing) — the customer gets a notification instead, and their held amount becomes spendable again immediately.
+
+### ⚠️ Before this works — ONE step needed from us
+```bash
+psql "$DATABASE_URL" -f sql/backend-overstay-and-refund.sql
+```
+This adds 4 columns to `charging_sessions`, seeds 3 new settings (grace=10min, fee=0, max=60min), and updates the shared billing function plus adds two new admin-only functions. It does **not** touch `sa_set_setting`/`sa_get_settings` (your existing commission/payout settings) — the overstay settings use their own dedicated, fully-new functions so there's zero risk to what's already working.
+
+### What changed (files)
+- **New migration**: `backend/sql/backend-overstay-and-refund.sql`.
+- **Backend**: new `sessions/admin.routes.ts` (mounted at `/api/admin`), `superadmin.routes.ts` (+overstay-settings endpoints), `sessions.routes.ts` (session detail now includes `booked_end` + overstay settings), `jobs/jobs.routes.ts` (auto-shutoff now grace/max-aware; new overstay-started push notification).
+- **App**: new `admin/AdminActiveSessionsScreen.tsx`; `admin/SuperAdminScreen.tsx` (+Overstay card); `ChargingScreen.tsx` (+overstay banner); `admin/AdminProfileScreen.tsx` (entry point); API client + types; Arabic/English text.
+
+### To test once deployed
+1. Superadmin → Overstay → confirm the three values load and save.
+2. Start a session, then (for testing) shorten its booking's `booked_end` directly in the database → confirm the amber banner appears, then the red one once grace passes.
+3. Set a small overstay fee (e.g. 0.010 OMR/min) → let a session overstay → stop it → confirm `charging_sessions.overstay_fee`/`overstay_minutes` and the wallet transaction reflect it.
+4. As admin, force-stop an active session with "bill" → confirm normal billing. Force-stop another with "refund" → confirm the customer's `held_balance` drops back to 0 for that session and the booking shows cancelled, with no wallet transaction created.
 
 ---
 

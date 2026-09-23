@@ -5,6 +5,7 @@ import { requireAuth } from '../../middleware/auth';
 import { requireAdmin } from '../../middleware/requireRole';
 import { validateBody } from '../../middleware/validate';
 import { query, callFn } from '../../db/pool';
+import { notify } from '../../integrations/notify';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -124,6 +125,48 @@ router.delete('/users/:id', asyncHandler(async (req, res) => {
   res.status(204).end();
 }));
 
+// Per-investor earnings + session breakdown — so admin can see exactly what a
+// payout amount is made of (which charger, which sessions) before manually
+// transferring money and marking a payout as paid.
+router.get('/investors/:userId/earnings', asyncHandler(async (req, res) => {
+  const { rows: investorRows } = await query(
+    `select id, full_name, phone, wallet_balance,
+            payout_bank_name, payout_account_holder, payout_iban
+     from public.profiles where id = $1 and role in ('investor', 'host')`,
+    [req.params.userId],
+  );
+  if (!investorRows[0]) return res.status(404).json({ error: { code: 'not_found', message: 'Investor not found' } });
+
+  const { rows: listingRows } = await query(
+    `select id, station_name, address, price_per_kwh
+     from public.charger_listings where host_id = $1`,
+    [req.params.userId],
+  );
+
+  const { rows: transactions } = await query(
+    `select wt.id, wt.amount, wt.description, wt.created_at,
+            cs.id as session_id, cs.kwh_delivered, cs.cost, cs.started_at, cs.ended_at,
+            coalesce(s.name, cl.station_name) as charger_name
+       from public.wallet_transactions wt
+       left join public.charging_sessions cs on cs.id::text = wt.reference_id
+       left join public.stations s on s.id = cs.station_id
+       left join public.charger_listings cl on cl.id = cs.listing_id
+      where wt.user_id = $1 and wt.type = 'earning'
+      order by wt.created_at desc
+      limit 200`,
+    [req.params.userId],
+  );
+
+  const total_earnings = transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  res.json({
+    investor: investorRows[0],
+    listing: listingRows[0] ?? null,
+    transactions,
+    total_earnings,
+  });
+}));
+
 // Investor applications review actions.
 router.post('/applications/:id/:action',
   validateBody(z.object({}).optional()),
@@ -136,6 +179,31 @@ router.post('/applications/:id/:action',
     const fn = map[req.params.action];
     if (!fn) return res.status(400).json({ error: { code: 'bad_request', message: 'Unknown action' } });
     const row = await callFn<{ result: any }>(req.user!.id, `select public.${fn}($1) as result`, [req.params.id]);
+
+    // Tell the applicant what happened — previously nothing notified them at
+    // all; they had to keep re-opening the app to notice their role changed.
+    if (req.params.action === 'accept' || req.params.action === 'reject') {
+      const { rows: appRows } = await query(
+        `select user_id, admin_comment from public.charger_applications where id = $1`,
+        [req.params.id],
+      );
+      const app = appRows[0];
+      if (app?.user_id) {
+        const accepted = req.params.action === 'accept';
+        notify({
+          userIds: [app.user_id],
+          category: 'booking',
+          kind: accepted ? 'investor_application_approved' : 'investor_application_rejected',
+          title: accepted ? 'Your charger application was approved' : 'Your charger application was not approved',
+          body: accepted
+            ? 'Congratulations — you can now set up your charger and start earning.'
+            : (app.admin_comment || 'Contact support if you have questions about this decision.'),
+          data: { application_id: req.params.id },
+          email: true,
+        }).catch(() => {});
+      }
+    }
+
     res.json(row.result ?? { ok: true });
   }),
 );

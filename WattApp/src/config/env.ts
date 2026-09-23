@@ -15,10 +15,27 @@ const APP_ENV: AppEnv =
 const API_URL =
   (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
 
+// Mapbox public access token (pk.*) — tile source for every map screen, read
+// by OSMMap.tsx. Empty is a valid state (falls back to plain OpenStreetMap
+// tiles), so nothing crashes if this hasn't been configured yet.
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+
+// Development convenience: open straight into the guest tabs instead of the
+// landing / sign-in screens, so the app can be looked at without signing in
+// each reload. Nothing is removed — SignIn and SignUp stay registered and
+// reachable; only the first screen changes.
+//
+// Deliberately ignored when APP_ENV is production, so setting this by mistake
+// cannot ship an app that skips its own login. No EAS build profile sets it.
+const SKIP_LOGIN =
+  process.env.EXPO_PUBLIC_SKIP_LOGIN === '1' && APP_ENV !== 'production';
+
 export const ENV = {
   apiUrl:       API_URL,
   appEnv:       APP_ENV,
   isProduction: APP_ENV === 'production',
   // Host only, for display (e.g. "api.gowatt.om").
   backendHost:  API_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+  mapboxToken:  MAPBOX_TOKEN,
+  skipLogin:    SKIP_LOGIN,
 };

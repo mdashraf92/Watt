@@ -385,6 +385,59 @@ export function RotateCcwIcon({ size = 24, color = '#000', strokeWidth = 2 }: Ic
   );
 }
 
+export function SwapVerticalIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M8 3L4 7l4 4" /><Path d="M4 7h12" />
+      <Path d="M16 21l4-4-4-4" /><Path d="M20 17H8" />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6 9l6 6 6-6" />
+    </Svg>
+  );
+}
+
+export function LayersIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <Polyline points="2 17 12 22 22 17" />
+      <Polyline points="2 12 12 17 22 12" />
+    </Svg>
+  );
+}
+
+export function MapIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+      <Path d="M8 2v16" />
+      <Path d="M16 6v16" />
+    </Svg>
+  );
+}
+
+export function SlidersIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 21v-7" /><Path d="M4 10V3" />
+      <Path d="M12 21v-9" /><Path d="M12 8V3" />
+      <Path d="M20 21v-5" /><Path d="M20 12V3" />
+      <Path d="M1 14h6" /><Path d="M9 8h6" /><Path d="M17 16h6" />
+    </Svg>
+  );
+}
+
 export function GiftIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -554,6 +607,17 @@ export function PlugZapIcon({ size = 24, color = '#000', strokeWidth = 2 }: Icon
       <Path d="M7.5 13.5 10 11" />
       <Path d="M10.5 16.5 13 14" />
       <Path d="m18 3-4 4h6l-4 4" />
+    </Svg>
+  );
+}
+
+export function AlertTriangleIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m10.29 3.86-8.18 14.19A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.71-2.95L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <Line x1={12} y1={9} x2={12} y2={13} />
+      <Line x1={12} y1={17} x2={12.01} y2={17} />
     </Svg>
   );
 }

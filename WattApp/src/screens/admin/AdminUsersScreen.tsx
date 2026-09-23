@@ -14,6 +14,7 @@ import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import { SearchIcon, XIcon, UserIcon, ChevronRightIcon } from '../../components/icons';
+import NotificationBell from '../../components/NotificationBell';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList, 'AdminCustomers'>,
@@ -117,9 +118,7 @@ export default function AdminUsersScreen() {
             {activeCount} active · {inactiveCount} deactivated
           </Text>
         </View>
-        <View style={styles.headerBadge}>
-          <UserIcon size={19} color={COLORS.textSecondary} strokeWidth={2} />
-        </View>
+        <NotificationBell size={40} />
       </View>
 
       {/* ── Search ── */}
