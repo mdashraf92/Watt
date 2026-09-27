@@ -115,10 +115,12 @@ export const api = {
   request,
 
   auth: {
-    registerStart: (email: string, password: string, full_name: string) =>
-      request('POST', '/api/auth/register/start', { auth: false, body: { email, password, full_name } }),
+    registerStart: (email: string) =>
+      request('POST', '/api/auth/register/start', { auth: false, body: { email } }),
     registerVerify: (email: string, code: string) =>
-      request('POST', '/api/auth/register/verify', { auth: false, body: { email, code } }),
+      request<{ verified: true; signup_token: string }>('POST', '/api/auth/register/verify', { auth: false, body: { email, code } }),
+    registerComplete: (email: string, signup_token: string, password: string) =>
+      request('POST', '/api/auth/register/complete', { auth: false, body: { email, signup_token, password } }),
     login: (email: string, password: string) =>
       request('POST', '/api/auth/login', { auth: false, body: { email, password } }),
     logout: (refresh_token?: string) =>

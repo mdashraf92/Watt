@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Go Watt · Seller portal</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <!-- Sign in -->
+  <div id="login" class="login-layout">
+    <section class="welcome">
+      <a class="brand" href="./">Go Watt<span data-t="SELLER PORTAL|بوابة البائعين"></span></a>
+      <div>
+        <p class="eyebrow" data-t="SHOPS &amp; SERVICE PROVIDERS|المتاجر ومقدمو الخدمات"></p>
+        <h1 data-t="Your store on the<br>Go Watt Marketplace.|متجرك في<br>سوق Go Watt."></h1>
+        <p data-t="List products and services, handle orders and bookings, and follow your payouts — from here or the Go Watt app.|اعرض منتجاتك وخدماتك، وأدِر الطلبات والحجوزات، وتابع دفعاتك — من هنا أو من تطبيق Go Watt."></p>
+      </div>
+      <small data-t="Use the same account you use in the Go Watt app.|استخدم الحساب نفسه الذي تستخدمه في تطبيق Go Watt."></small>
+    </section>
+    <main class="login-main">
+      <form id="login-form">
+        <div class="lang-row"><button type="button" class="link lang-toggle" data-lang-toggle></button></div>
+        <p class="eyebrow" data-t="WELCOME|مرحباً"></p>
+        <h2 data-t="Sign in to your store|سجّل الدخول إلى متجرك"></h2>
+        <label><span data-t="Email|البريد الإلكتروني"></span><input name="email" type="email" autocomplete="username" required></label>
+        <label><span data-t="Password|كلمة المرور"></span><input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary wide" data-t="Sign in|تسجيل الدخول"></button>
+        <p id="login-error" role="alert" class="error"></p>
+        <p class="fine" data-t="No account yet? Create one in the Go Watt app, then sign in here to apply as a seller.|ليس لديك حساب؟ أنشئ حساباً في تطبيق Go Watt، ثم سجّل الدخول هنا لتقديم طلب البيع."></p>
+      </form>
+    </main>
+  </div>
+
+  <!-- Workspace -->
+  <div id="workspace" class="workspace" hidden>
+    <aside>
+      <a href="#overview" class="brand">Go Watt<span data-t="SELLER PORTAL|بوابة البائعين"></span></a>
+      <div id="store-card" class="store-card"></div>
+      <nav id="navigation" aria-label="Seller navigation"></nav>
+      <div class="sidebar-foot">
+        <span id="user-name"></span>
+        <button id="logout" class="quiet" data-t="Sign out|تسجيل الخروج"></button>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div><p id="breadcrumb" class="eyebrow"></p><h1 id="page-title"></h1></div>
+        <div class="header-actions">
+          <button class="secondary" data-lang-toggle></button>
+          <button id="refresh" class="secondary" data-t="Refresh|تحديث"></button>
+        </div>
+      </header>
+      <p id="page-error" class="error banner" role="alert" hidden></p>
+      <div id="page"></div>
+    </main>
+  </div>
+
+  <dialog id="editor"><form id="editor-form" novalidate></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

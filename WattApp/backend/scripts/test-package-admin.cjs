@@ -15,7 +15,11 @@ module.exports = async function adminTests(t, pool) {
   const previousPool = require.cache[poolPath];
   const previousAuth = require.cache[authPath];
   const user = (await pool.query('select id from profiles limit 1')).rows[0].id;
+  // requireRole re-reads role from profiles; this fixture has no role column, so answer
+  // that lookup with the role the fake requireAuth just recorded (same synchronous tick).
+  let testRole = 'customer';
   require.cache[poolPath] = { id: poolPath, filename: poolPath, loaded: true, exports: {
+    pool: { query: (sql, args) => /^select role,is_active from profiles/.test(sql) ? Promise.resolve({ rows: [{ role: testRole, is_active: true }] }) : pool.query(sql, args) },
     query: (sql, args) => pool.query(sql, args),
     withUser: async (_id, fn) => {
       const client = await pool.connect();
@@ -25,7 +29,7 @@ module.exports = async function adminTests(t, pool) {
     },
   } };
   require.cache[authPath] = { id: authPath, filename: authPath, loaded: true, exports: {
-    requireAuth: (req, _res, next) => { req.user = { id: user, role: req.headers['x-test-role'] || 'customer' }; next(); },
+    requireAuth: (req, _res, next) => { testRole = req.headers['x-test-role'] || 'customer'; req.user = { id: user, role: testRole }; next(); },
   } };
   const express = require('express');
   const app = express();

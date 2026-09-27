@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { api, ApiError, setOnSessionLost } from '../lib/api';
+import { api, setOnSessionLost } from '../lib/api';
 import { tokenStore } from '../lib/tokenStore';
 import { realtime } from '../lib/realtime';
 import { registerForPushNotifications, unregisterPushNotifications } from '../lib/notifications';
@@ -20,8 +20,9 @@ interface AuthContextType {
   deactivateAccount: () => Promise<void>;
   deleteAccount:     () => Promise<void>;
   signIn:            (email: string, password: string) => Promise<void>;
-  signUp:            (email: string, password: string, fullName: string) => Promise<void>;
-  verifySignUp:      (email: string, code: string) => Promise<void>;
+  startSignUp:       (email: string) => Promise<void>;
+  verifySignUpCode:  (email: string, code: string) => Promise<string>;
+  completeSignUp:    (email: string, signupToken: string, password: string) => Promise<void>;
   signInWithGoogle:   () => Promise<void>;
   signInWithApple:    () => Promise<void>;
   signInWithPhone:    (phone: string) => Promise<void>;
@@ -101,22 +102,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await afterAuth(r);
   };
 
-  // Sign-up is verify-then-create: signUp only sends a code (no account yet);
-  // verifySignUp creates the account once that code is confirmed. Catches a
-  // mistyped email at sign-up instead of silently creating an account nobody
-  // can ever verify or recover.
-  const signUp = async (email: string, password: string, fullName: string) => {
-    try {
-      await api.auth.registerStart(email.trim().toLowerCase(), password, fullName);
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'conflict') {
-        throw new Error('This email is already registered. Please sign in instead.');
-      }
-      throw e;
-    }
+  // Sign-up is verify-then-create, one field per step: startSignUp emails a
+  // code (no account yet); verifySignUpCode proves the email and returns a
+  // one-time token; completeSignUp sets the password and creates the account.
+  // Name, phone and the optional EV details follow in ProfileSetup.
+  // A conflict keeps its ApiError code so the screen can offer "Sign in".
+  const startSignUp = async (email: string) => {
+    await api.auth.registerStart(email.trim().toLowerCase());
   };
-  const verifySignUp = async (email: string, code: string) => {
-    const r = await api.auth.registerVerify(email.trim().toLowerCase(), code);
+  const verifySignUpCode = async (email: string, code: string) => {
+    const r = await api.auth.registerVerify(email.trim().toLowerCase(), code.trim());
+    return r.signup_token;
+  };
+  const completeSignUp = async (email: string, signupToken: string, password: string) => {
+    const r = await api.auth.registerComplete(email.trim().toLowerCase(), signupToken, password);
     await afterAuth(r);
   };
 
@@ -194,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, profile, loading, profileError,
-      signIn, signUp, verifySignUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
+      signIn, startSignUp, verifySignUpCode, completeSignUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
       signInWithEmailOtp, verifyEmailOtp,
       sendPasswordReset, resetPasswordWithCode,
       signOut, deactivateAccount, deleteAccount, refreshProfile, updateProfile,

@@ -86,7 +86,11 @@ function signupEmailHtml(code: string): string {
   </table></body></html>`;
 }
 
-export async function startSignup(rawEmail: string, password: string, fullName: string) {
+// Current app: email only — the password is chosen after the code is verified
+// (completeSignup) and the name inside the app afterwards. Builds released
+// before that still send password + name here; both are kept on the row so
+// those builds finish in one verify call as they always did.
+export async function startSignup(rawEmail: string, password?: string, fullName?: string) {
   const email = rawEmail.trim().toLowerCase();
   if (await getUserByEmail(email)) throw conflict('Email already registered');
 
@@ -99,12 +103,12 @@ export async function startSignup(rawEmail: string, password: string, fullName: 
     throw badRequest('Too many code requests. Please try again in a few minutes.');
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const passwordHash = await hashPassword(password);
+  const passwordHash = password ? await hashPassword(password) : null;
   await pool.query(`update public.pending_signups set consumed = true where email = $1 and consumed = false`, [email]);
   await pool.query(
     `insert into public.pending_signups (email, password_hash, full_name, code_hash, expires_at)
      values ($1, $2, $3, $4, now() + interval '${OTP_TTL_MIN} minutes')`,
-    [email, passwordHash, fullName, hashToken(code)],
+    [email, passwordHash, fullName?.trim() || null, hashToken(code)],
   );
 
   sendEmail(email, 'Verify your GO WATT account', signupEmailHtml(code))
@@ -117,7 +121,14 @@ export async function startSignup(rawEmail: string, password: string, fullName: 
   return { ok: true };
 }
 
-export async function completeSignup(rawEmail: string, code: string) {
+// Minutes the verified email stays reserved while the user picks a password.
+const SIGNUP_TOKEN_TTL_MIN = 30;
+
+// Step 2 — prove the email. A legacy row (password already known) creates the
+// account right here, exactly as before. A current row instead returns a
+// one-time signup_token that step 3 (completeSignup) exchanges, together with
+// the chosen password, for the account.
+export async function verifySignup(rawEmail: string, code: string) {
   const email = rawEmail.trim().toLowerCase();
 
   const { rows } = await pool.query(
@@ -146,10 +157,45 @@ export async function completeSignup(rawEmail: string, code: string) {
   // Someone else could have registered this email while the code sat unused.
   if (await getUserByEmail(email)) throw conflict('Email already registered');
 
+  if (!row.password_hash) {
+    const signupToken = randomUUID() + randomUUID();
+    await pool.query(
+      `update public.pending_signups
+          set verified_at = now(), signup_token_hash = $2,
+              expires_at = now() + interval '${SIGNUP_TOKEN_TTL_MIN} minutes'
+        where id = $1`,
+      [row.id, hashToken(signupToken)],
+    );
+    return { verified: true, signup_token: signupToken };
+  }
+
   await pool.query(`update public.pending_signups set consumed = true where id = $1`, [row.id]);
-  const id = await createAccount(email, row.password_hash, row.full_name);
+  const id = await createAccount(email, row.password_hash, row.full_name ?? '');
   const tokens = await issueTokens(id, 'customer');
   return { user: { id, email, role: 'customer', full_name: row.full_name }, ...tokens };
+}
+
+// Step 3 — set the password on a verified email and create the account. The
+// name and phone are collected by the app's profile setup right after.
+export async function completeSignup(rawEmail: string, signupToken: string, password: string) {
+  const email = rawEmail.trim().toLowerCase();
+  const { rows } = await pool.query(
+    `select id, signup_token_hash, expires_at from public.pending_signups
+     where email = $1 and consumed = false and verified_at is not null
+     order by created_at desc limit 1`,
+    [email],
+  );
+  const row = rows[0];
+  if (!row || !row.signup_token_hash || hashToken(signupToken) !== row.signup_token_hash)
+    throw badRequest('Your verification has ended. Please start again.');
+  if (new Date(row.expires_at) < new Date())
+    throw badRequest('Your verification has expired. Please start again.');
+  if (await getUserByEmail(email)) throw conflict('Email already registered');
+
+  await pool.query(`update public.pending_signups set consumed = true where id = $1`, [row.id]);
+  const id = await createAccount(email, await hashPassword(password), '');
+  const tokens = await issueTokens(id, 'customer');
+  return { user: { id, email, role: 'customer' }, ...tokens };
 }
 
 export async function login(email: string, password: string) {

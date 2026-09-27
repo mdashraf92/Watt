@@ -25,7 +25,7 @@ import {
   BellIcon, ShieldIcon, HelpCircleIcon, InfoIcon, GlobeIcon,
   LogOutIcon, ChevronRightIcon, UserIcon, CarIcon, PhoneIcon, MailIcon,
   AwardIcon, XIcon, CheckIcon, ZapIcon, BatteryChargingIcon, StarIcon,
-  CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon, NavigationIcon, AlertTriangleIcon,
+  CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon, NavigationIcon, AlertTriangleIcon, StorefrontIcon,
   HeartIcon,
 } from '../components/icons';
 
@@ -363,6 +363,24 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.serviceTitle, isRTL && { textAlign: 'right' }]}>{t.tp_entry_title}</Text>
               <Text style={[styles.serviceSub, isRTL && { textAlign: 'right' }]}>{t.tp_entry_sub}</Text>
+            </View>
+            <View style={isRTL ? { transform: [{ scaleX: -1 }] } : undefined}>
+              <ChevronRightIcon size={18} color={COLORS.textTertiary} strokeWidth={2} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Seller portal: apply to sell, or manage an existing store. */}
+          <TouchableOpacity
+            style={[styles.serviceCard, isRTL && { flexDirection: 'row-reverse' }]}
+            onPress={() => navigation.navigate('MarketPortal')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.serviceIcon, { backgroundColor: COLORS.gold }]}>
+              <StorefrontIcon size={22} color="#fff" strokeWidth={2.2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.serviceTitle, isRTL && { textAlign: 'right' }]}>{t.seller_entry_title}</Text>
+              <Text style={[styles.serviceSub, isRTL && { textAlign: 'right' }]}>{t.seller_entry_sub}</Text>
             </View>
             <View style={isRTL ? { transform: [{ scaleX: -1 }] } : undefined}>
               <ChevronRightIcon size={18} color={COLORS.textTertiary} strokeWidth={2} />

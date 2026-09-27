@@ -1,3 +1,15 @@
+export type MarketplaceStackParamList = {
+  MarketProduct: { id: string };
+  MarketCart: undefined;
+  MarketOrders: undefined;
+  MarketOrder: { id: string };
+  MarketVehicles: undefined;
+  MarketAppointments: undefined;
+  MarketPortal: undefined;
+  MarketProductEditor: { vendorId: string; product?: any };
+  MarketAdmin: undefined;
+};
+
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export interface Profile {
@@ -16,6 +28,7 @@ export interface Profile {
   battery_kwh?: number | null;
   connector_type?: string | null;
   profile_prompted?: boolean;
+  onboarding_completed?: boolean;   // false until the first-run ProfileSetup is finished
   investor_welcomed?: boolean;
   payout_bank_name?: string | null;
   payout_account_holder?: string | null;
@@ -288,21 +301,23 @@ export type RootStackParamList = {
   SignUp: { role: 'customer' };
 };
 
-export type GuestStackParamList = {
+export type GuestStackParamList = MarketplaceStackParamList & {
   Landing: undefined;
   SignIn: undefined;
   SignUp: undefined;
   GuestTabs: undefined;
+  // Sign-in sheet opened by useRequireAuth() when a guest tries to act.
+  AuthPrompt: { reason?: 'generic' | 'booking' | 'order' | 'service' | 'favorite' | 'account' } | undefined;
+  // Guests can open a station from the map; acting on it is gated.
+  StationDetails: { stationId: string } | { listingId: string };
 };
 
 export type GuestTabParamList = {
   GuestMap: undefined;
-  GuestBookings: { feature: 'bookings' };
-  GuestWallet: { feature: 'wallet' };
-  GuestProfile: undefined;
+  GuestShop: undefined;
 };
 
-export type CustomerStackParamList = {
+export type CustomerStackParamList = MarketplaceStackParamList & {
   Tabs: NavigatorScreenParams<CustomerTabParamList> | undefined;
   VenuePackages: { stationId: string; stationName: string };
   MyPackages: undefined;
@@ -330,6 +345,7 @@ export type CustomerStackParamList = {
 };
 
 export type CustomerTabParamList = {
+  Shop: undefined;
   Map: undefined;
   Bookings: undefined;
   Wallet: undefined;
@@ -359,7 +375,7 @@ export interface AdminCustomer {
   updated_at: string;
 }
 
-export type AdminStackParamList = {
+export type AdminStackParamList = MarketplaceStackParamList & {
   AdminVenueOperations: undefined;
   AdminPackages: undefined;
   AdminTabs: undefined;
@@ -379,6 +395,7 @@ export type AdminStackParamList = {
 };
 
 export type InvestorTabParamList = {
+  Shop: undefined;
   Map: undefined;
   Bookings: undefined;
   InvestorCharger: undefined;
@@ -386,7 +403,7 @@ export type InvestorTabParamList = {
   Profile: undefined;
 };
 
-export type InvestorStackParamList = {
+export type InvestorStackParamList = MarketplaceStackParamList & {
   InvestorTabs: undefined;
   VenuePackages: { stationId: string; stationName: string };
   MyPackages: undefined;

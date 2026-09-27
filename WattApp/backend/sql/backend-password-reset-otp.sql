@@ -25,3 +25,6 @@ create table if not exists public.password_reset_otps (
 
 create index if not exists idx_password_reset_otps_email   on public.password_reset_otps (email);
 create index if not exists idx_password_reset_otps_created on public.password_reset_otps (created_at);
+
+-- Auth records are backend-only; no client Data API policies.
+alter table public.password_reset_otps enable row level security;

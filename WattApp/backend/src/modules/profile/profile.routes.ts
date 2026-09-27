@@ -28,6 +28,7 @@ const editable = z.object({
   connector_type: z.string().nullable().optional(),
   avatar_url: z.string().url().nullable().optional(),
   profile_prompted: z.boolean().optional(),
+  onboarding_completed: z.literal(true).optional(),   // first-run setup can only be finished, never reopened
   is_active: z.literal(false).optional(),   // self-deactivate only (never reactivate)
   notif_push: z.boolean().optional(),
   notif_booking: z.boolean().optional(),

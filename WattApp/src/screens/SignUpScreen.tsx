@@ -1,357 +1,327 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, Pressable, Modal,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GuestStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
-import { FONTS } from '../constants/typography';
+import { FONTS, FONTS_AR } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { EyeIcon, EyeOffIcon } from '../components/icons';
-import AuthHeader from '../components/AuthHeader';
+import { ApiError } from '../lib/api';
+import { ArrowLeftIcon, CheckIcon, EyeIcon, EyeOffIcon, GlobeIcon, MailIcon } from '../components/icons';
 import GradientButton from '../components/GradientButton';
 
 type Nav = NativeStackNavigationProp<GuestStackParamList, 'SignUp'>;
+type Step = 0 | 1 | 2;   // email → code → password
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-// At least 8 chars, with at least one letter and one number.
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 30;
 
+// Sign-up, one field per step so each screen is a single decision:
+//   1. email     → a code is emailed (no account yet)
+//   2. code      → auto-submits on the 6th digit
+//   3. password  → account created and signed in
+// Name, phone and the optional EV details follow in ProfileSetup, which the
+// root navigator opens by itself once the new session exists.
 export default function SignUpScreen() {
   const navigation = useNavigation<Nav>();
-  const { t, toggleLanguage, isRTL } = useLang();
-  const { signUp, verifySignUp } = useAuth();
+  const { t, isRTL, toggleLanguage } = useLang();
+  const { startSignUp, verifySignUpCode, completeSignUp } = useAuth();
 
-  const [fullName,      setFullName]      = useState('');
-  const [email,         setEmail]         = useState('');
-  const [password,      setPassword]      = useState('');
-  const [confirmPassword,      setConfirmPassword]      = useState('');
-  const [showPass,      setShowPass]      = useState(false);
-  const [showConfirmPass, setShowConfirmPass] = useState(false);
-  const [loading,       setLoading]       = useState(false);
-  const [emailError,    setEmailError]    = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
-  const confirmPasswordRef = useRef<TextInput>(null);
+  const [step, setStep] = useState<Step>(0);
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [signupToken, setSignupToken] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [emailTaken, setEmailTaken] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const codeRef = useRef<TextInput>(null);
 
-  // Email verification — sign-up sends a code before the account exists;
-  // the account is only created once this code is confirmed.
-  const [otpVisible, setOtpVisible] = useState(false);
-  const [otpCode,    setOtpCode]    = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError,   setOtpError]   = useState<string | null>(null);
+  const font = (w: 'regular' | 'medium' | 'bold' | 'extrabold') => ({ fontFamily: isRTL ? FONTS_AR[w] : FONTS[w] });
+  const align = { textAlign: (isRTL ? 'right' : 'left') as 'right' | 'left' };
+  const row = isRTL ? 'row-reverse' as const : 'row' as const;
+  const cleanEmail = email.trim().toLowerCase();
 
-  const validateEmail = (value: string) => {
-    if (!value.trim() || !EMAIL_REGEX.test(value.trim())) {
-      setEmailError(t.auth_error_email);
-      return false;
-    }
-    setEmailError(null);
-    return true;
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const id = setTimeout(() => setResendIn(n => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendIn]);
+
+  const go = (next: Step) => { setError(null); setNotice(null); setStep(next); };
+
+  const back = () => {
+    if (loading) return;
+    if (step === 0) navigation.goBack();
+    else go((step - 1) as Step);
   };
 
-  const validatePassword = (value: string) => {
-    if (!PASSWORD_REGEX.test(value)) {
-      setPasswordError(t.auth_error_password);
-      return false;
-    }
-    setPasswordError(null);
-    return true;
-  };
-
-  const validateConfirmPassword = (value: string, against: string = password) => {
-    if (value !== against) {
-      setConfirmPasswordError(t.auth_error_password_mismatch);
-      return false;
-    }
-    setConfirmPasswordError(null);
-    return true;
-  };
-
-  const handleSignUp = async () => {
-    if (!fullName.trim()) { Alert.alert(t.error, t.auth_error_name); return; }
-    if (!validateEmail(email)) return;
-    if (!validatePassword(password)) return;
-    if (!validateConfirmPassword(confirmPassword)) return;
+  // ── Step 1: email ──
+  const sendCode = async () => {
+    if (!EMAIL_REGEX.test(cleanEmail)) { setError(t.auth_error_email); return; }
+    setLoading(true); setError(null); setEmailTaken(false);
     try {
-      setLoading(true);
-      await signUp(email.trim().toLowerCase(), password, fullName.trim());
-      setOtpCode(''); setOtpError(null); setOtpVisible(true);
+      await startSignUp(cleanEmail);
+      setCode(''); setResendIn(RESEND_SECONDS);
+      go(1);
     } catch (e: any) {
-      Alert.alert(t.error, e?.message ?? t.auth_error_credentials);
-    } finally {
+      if (e instanceof ApiError && e.code === 'conflict') { setEmailTaken(true); setError(t.su_email_taken); }
+      else setError(e?.message ?? t.error);
+    } finally { setLoading(false); }
+  };
+
+  const resend = async () => {
+    if (resendIn > 0 || loading) return;
+    setLoading(true); setError(null);
+    try {
+      await startSignUp(cleanEmail);
+      setCode(''); setResendIn(RESEND_SECONDS); setNotice(t.su_code_sent);
+      codeRef.current?.focus();
+    } catch (e: any) { setError(e?.message ?? t.error); }
+    finally { setLoading(false); }
+  };
+
+  // ── Step 2: code ──
+  const verify = async (value = code) => {
+    if (value.length !== CODE_LENGTH || loading) return;
+    setLoading(true); setError(null); setNotice(null);
+    try {
+      setSignupToken(await verifySignUpCode(cleanEmail, value));
+      setPassword('');
+      go(2);
+    } catch (e: any) {
+      setError(e?.message ?? t.otp_error_invalid);
+      setCode('');
+      codeRef.current?.focus();
+    } finally { setLoading(false); }
+  };
+
+  const onCodeChange = (v: string) => {
+    const digits = v.replace(/\D/g, '').slice(0, CODE_LENGTH);
+    setCode(digits);
+    if (error) setError(null);
+    if (digits.length === CODE_LENGTH) verify(digits);   // no extra tap needed
+  };
+
+  // ── Step 3: password ──
+  const rules = [
+    { ok: password.length >= 8,       label: t.su_pw_rule_len },
+    { ok: /[A-Za-z]/.test(password),  label: t.su_pw_rule_letter },
+    { ok: /\d/.test(password),        label: t.su_pw_rule_number },
+  ];
+  const passwordOk = rules.every(r => r.ok);
+
+  const create = async () => {
+    if (!passwordOk || loading) return;
+    setLoading(true); setError(null);
+    try {
+      await completeSignUp(cleanEmail, signupToken, password);
+      // Session is live — the root navigator swaps to ProfileSetup on its own.
+    } catch (e: any) {
+      setError(e?.message ?? t.error);
       setLoading(false);
     }
   };
 
-  const handleResendOtp = async () => {
-    setOtpLoading(true); setOtpError(null);
-    try { await signUp(email.trim().toLowerCase(), password, fullName.trim()); }
-    catch (e: any) { setOtpError(e?.message ?? t.error); }
-    finally { setOtpLoading(false); }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otpCode.replace(/\D/g, '').length !== 6) { setOtpError(t.otp_error_invalid); return; }
-    setOtpLoading(true); setOtpError(null);
-    try {
-      await verifySignUp(email.trim().toLowerCase(), otpCode.trim());
-      setOtpVisible(false);   // session established — navigator switches automatically
-    } catch (e: any) {
-      setOtpError(e?.message ?? t.otp_error_invalid);
-    } finally {
-      setOtpLoading(false);
-    }
-  };
+  const steps = [t.su_step_1, t.su_step_2, t.su_step_3];
+  const titles = [t.su_email_title, t.su_code_title, t.su_pw_title];
 
   return (
-    <View style={s.root}>
-      <AuthHeader
-        title={t.auth_signup_title}
-        subtitle={t.auth_signup_subtitle}
-        languageLabel={t.profile_language_label}
-        onToggleLanguage={toggleLanguage}
-        isRTL={isRTL}
-      />
+    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+      {/* Header: back · progress · language */}
+      <View style={[s.header, { flexDirection: row }]}>
+        <Pressable onPress={back} hitSlop={10} style={s.iconBtn} accessibilityRole="button" accessibilityLabel={isRTL ? 'رجوع' : 'Back'}>
+          <View style={isRTL && s.flipX}><ArrowLeftIcon size={20} color={COLORS.text} strokeWidth={2.4} /></View>
+        </Pressable>
+        <View style={[s.progress, { flexDirection: row }]}>
+          {[0, 1, 2].map(i => <View key={i} style={[s.progressSeg, i <= step && s.progressOn]} />)}
+        </View>
+        <Pressable onPress={toggleLanguage} hitSlop={10} style={[s.langBtn, { flexDirection: row }]} accessibilityRole="button">
+          <GlobeIcon size={14} color={COLORS.textSecondary} strokeWidth={2} />
+          <Text style={[s.langText, font('bold')]}>{t.profile_language_label}</Text>
+        </Pressable>
+      </View>
 
-      {/* ── KAV: shrinks on keyboard, no ScrollView ── */}
-      <KeyboardAvoidingView
-        style={s.body}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        {/* Form panel — always fully visible.
-            NOTE: must NOT be an Animated.View with an `entering` layout
-            animation — reanimated re-parents the view on mount, which blurs
-            the TextInputs inside and prevents typing. Keep it a plain View. */}
-        <View style={s.formPanel}>
-          {/* Full Name */}
-          <View style={s.field}>
-            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_name_label}</Text>
-            <View style={s.inputBox}>
-              <TextInput
-                style={[s.input, isRTL && s.rtlText]}
-                placeholder={t.auth_name_ph}
-                placeholderTextColor={COLORS.textTertiary}
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-                autoComplete="name"
-                textContentType="name"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
-            </View>
-          </View>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+          <Text style={[s.stepLabel, font('bold'), align]}>{steps[step]}</Text>
+          <Text style={[s.title, font('extrabold'), align]}>{titles[step]}</Text>
 
-          {/* Email */}
-          <View style={s.field}>
-            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_email_label}</Text>
-            <View style={[s.inputBox, emailError ? s.inputBoxError : null]}>
+          {step === 0 && <>
+            <Text style={[s.sub, font('regular'), align]}>{t.su_email_sub}</Text>
+            <View style={[s.inputBox, { flexDirection: row }, !!error && s.inputError]}>
+              <MailIcon size={19} color={COLORS.textTertiary} strokeWidth={2} />
               <TextInput
-                style={[s.input, isRTL && s.rtlText]}
+                style={[s.input, font('medium'), align]}
+                value={email}
+                onChangeText={v => { setEmail(v); if (error) { setError(null); setEmailTaken(false); } }}
                 placeholder={t.auth_email_ph}
                 placeholderTextColor={COLORS.textTertiary}
-                value={email}
-                onChangeText={v => { setEmail(v); if (emailError) validateEmail(v); }}
-                autoCapitalize="none"
                 keyboardType="email-address"
+                autoCapitalize="none"
                 autoComplete="email"
                 textContentType="emailAddress"
                 autoCorrect={false}
+                autoFocus
                 returnKeyType="next"
-                onBlur={() => { if (email) validateEmail(email); }}
+                onSubmitEditing={sendCode}
               />
             </View>
-            {emailError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{emailError}</Text> : null}
-          </View>
+            {!!error && <Text style={[s.error, font('medium'), align]}>{error}</Text>}
+            {emailTaken && (
+              <Pressable onPress={() => navigation.replace('SignIn')} hitSlop={6} accessibilityRole="button">
+                <Text style={[s.link, font('bold'), align]}>{t.su_signin_instead}</Text>
+              </Pressable>
+            )}
+            <GradientButton label={t.su_continue} onPress={sendCode} loading={loading} disabled={!cleanEmail} textStyle={font('bold')} />
+            <Text style={[s.fine, font('regular'), { textAlign: 'center' }]}>{t.su_terms}</Text>
+          </>}
 
-          {/* Password */}
-          <View style={s.field}>
-            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse, passwordError ? s.inputBoxError : null]}>
+          {step === 1 && <>
+            <View style={[s.emailRow, { flexDirection: row }]}>
+              <Text style={[s.sub, font('regular'), align, { flexShrink: 1 }]}>
+                {t.su_code_sub} <Text style={[font('bold'), { color: COLORS.text }]}>{cleanEmail}</Text>
+              </Text>
+              <Pressable onPress={() => go(0)} hitSlop={8} accessibilityRole="button">
+                <Text style={[s.link, font('bold')]}>{t.su_change_email}</Text>
+              </Pressable>
+            </View>
+
+            {/* Six boxes drawn over one real input, so paste and SMS/email
+                autofill ("oneTimeCode") both work. Digits always read LTR. */}
+            <Pressable onPress={() => codeRef.current?.focus()} style={s.codeRow} accessibilityLabel={t.su_code_title}>
+              {Array.from({ length: CODE_LENGTH }).map((_, i) => {
+                const active = i === Math.min(code.length, CODE_LENGTH - 1) && !loading;
+                return (
+                  <View key={i} style={[s.codeBox, !!code[i] && s.codeBoxFilled, active && s.codeBoxActive, !!error && s.inputError]}>
+                    <Text style={[s.codeDigit, { fontFamily: FONTS.bold }]}>{code[i] ?? ''}</Text>
+                  </View>
+                );
+              })}
               <TextInput
-                style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
+                ref={codeRef}
+                value={code}
+                onChangeText={onCodeChange}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                maxLength={CODE_LENGTH}
+                autoFocus
+                caretHidden
+                style={s.codeInput}
+              />
+            </Pressable>
+
+            {!!error && <Text style={[s.error, font('medium'), { textAlign: 'center' }]}>{error}</Text>}
+            {!!notice && <Text style={[s.notice, font('medium'), { textAlign: 'center' }]}>{notice}</Text>}
+
+            <GradientButton label={t.su_continue} onPress={() => verify()} loading={loading} disabled={code.length !== CODE_LENGTH} textStyle={font('bold')} />
+            <Pressable onPress={resend} disabled={resendIn > 0 || loading} hitSlop={8} style={{ alignSelf: 'center', padding: 6 }} accessibilityRole="button">
+              <Text style={[s.link, font('bold'), resendIn > 0 && { color: COLORS.textTertiary }]}>
+                {resendIn > 0 ? `${t.su_resend_in} 0:${String(resendIn).padStart(2, '0')}` : t.su_resend}
+              </Text>
+            </Pressable>
+          </>}
+
+          {step === 2 && <>
+            <Text style={[s.sub, font('regular'), align]}>{t.su_pw_sub}</Text>
+            <View style={[s.inputBox, { flexDirection: row }, !!error && s.inputError]}>
+              <TextInput
+                style={[s.input, font('medium'), align]}
+                value={password}
+                onChangeText={v => { setPassword(v); if (error) setError(null); }}
                 placeholder={t.auth_password_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry={!showPass}
-                value={password}
-                onChangeText={v => {
-                  setPassword(v);
-                  if (passwordError) validatePassword(v);
-                  if (confirmPasswordError) validateConfirmPassword(confirmPassword, v);
-                }}
                 autoComplete="new-password"
                 textContentType="newPassword"
+                autoCapitalize="none"
                 autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                onBlur={() => { if (password) validatePassword(password); }}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={create}
               />
-              <TouchableOpacity onPress={() => setShowPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Pressable onPress={() => setShowPass(p => !p)} hitSlop={10} accessibilityRole="button">
                 {showPass
                   ? <EyeOffIcon size={20} color={COLORS.textTertiary} strokeWidth={2} />
-                  : <EyeIcon    size={20} color={COLORS.textTertiary} strokeWidth={2} />}
-              </TouchableOpacity>
+                  : <EyeIcon size={20} color={COLORS.textTertiary} strokeWidth={2} />}
+              </Pressable>
             </View>
-            {passwordError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{passwordError}</Text> : null}
-          </View>
 
-          {/* Confirm Password */}
-          <View style={s.field}>
-            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_confirm_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse, confirmPasswordError ? s.inputBoxError : null]}>
-              <TextInput
-                ref={confirmPasswordRef}
-                style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
-                placeholder={t.auth_confirm_password_ph}
-                placeholderTextColor={COLORS.textTertiary}
-                secureTextEntry={!showConfirmPass}
-                value={confirmPassword}
-                onChangeText={v => { setConfirmPassword(v); if (confirmPasswordError) validateConfirmPassword(v); }}
-                autoComplete="new-password"
-                textContentType="newPassword"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleSignUp}
-                onBlur={() => { if (confirmPassword) validateConfirmPassword(confirmPassword); }}
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPass(p => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                {showConfirmPass
-                  ? <EyeOffIcon size={20} color={COLORS.textTertiary} strokeWidth={2} />
-                  : <EyeIcon    size={20} color={COLORS.textTertiary} strokeWidth={2} />}
-              </TouchableOpacity>
+            <View style={s.rules}>
+              {rules.map(r => (
+                <View key={r.label} style={[s.rule, { flexDirection: row }]}>
+                  <View style={[s.ruleDot, r.ok && s.ruleDotOn]}>
+                    {r.ok && <CheckIcon size={10} color="#fff" strokeWidth={3.5} />}
+                  </View>
+                  <Text style={[s.ruleText, font(r.ok ? 'bold' : 'regular'), r.ok && { color: COLORS.primaryDark }]}>{r.label}</Text>
+                </View>
+              ))}
             </View>
-            {confirmPasswordError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{confirmPasswordError}</Text> : null}
+
+            {!!error && <Text style={[s.error, font('medium'), align]}>{error}</Text>}
+            <GradientButton label={t.su_create} onPress={create} loading={loading} disabled={!passwordOk} textStyle={font('bold')} />
+          </>}
+
+          <View style={[s.switchRow, { flexDirection: row }]}>
+            <Text style={[s.switchText, font('regular')]}>{t.auth_have_account}</Text>
+            <Pressable onPress={() => navigation.replace('SignIn')} hitSlop={8} accessibilityRole="button">
+              <Text style={[s.link, font('bold')]}>{t.auth_signin_link}</Text>
+            </Pressable>
           </View>
-
-          {/* Create Account */}
-          <GradientButton
-            label={t.auth_signup_btn}
-            onPress={handleSignUp}
-            loading={loading}
-          />
-
-          {/* Switch to Sign In */}
-          <View style={[s.switchRow, isRTL && s.rowReverse]}>
-            <Text style={s.switchText}>{t.auth_have_account}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
-              <Text style={s.switchLink}> {t.auth_signin_link}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
+        </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* ── Email verification modal — account is created only after this ── */}
-      <Modal visible={otpVisible} transparent animationType="slide" onRequestClose={() => setOtpVisible(false)}>
-        <View style={s.modalOverlay}>
-          <Pressable style={{ flex: 1 }} onPress={() => !otpLoading && setOtpVisible(false)} />
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={s.sheet}>
-              <View style={s.sheetHandle} />
-              <Text style={[s.sheetTitle, isRTL && s.rtlText]}>{t.signup_otp_title}</Text>
-              <Text style={[s.sheetSub, isRTL && s.rtlText]}>{t.signup_otp_subtitle} {email.trim()}</Text>
-              <View style={[s.inputBox, otpError ? s.inputBoxError : null]}>
-                <TextInput
-                  style={[s.input, s.otpInput]}
-                  placeholder="••••••"
-                  placeholderTextColor={COLORS.textTertiary}
-                  value={otpCode}
-                  onChangeText={v => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); if (otpError) setOtpError(null); }}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  returnKeyType="done"
-                  onSubmitEditing={handleVerifyOtp}
-                  autoFocus
-                />
-              </View>
-              {otpError ? <Text style={s.fieldErr}>{otpError}</Text> : null}
-              <GradientButton label={t.otp_verify_btn} onPress={handleVerifyOtp} loading={otpLoading} />
-              <TouchableOpacity onPress={handleResendOtp} disabled={otpLoading} style={{ alignSelf: 'center', padding: 6 }}>
-                <Text style={s.switchLink}>{t.otp_resend}</Text>
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
+  header: { alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 10 },
+  iconBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
+  flipX: { transform: [{ scaleX: -1 }] },
+  progress: { flex: 1, gap: 6 },
+  progressSeg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: COLORS.border },
+  progressOn: { backgroundColor: COLORS.primary },
+  langBtn: { alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 32, borderRadius: 16, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  langText: { fontSize: 12, color: COLORS.textSecondary },
 
-  // ── Body ──
-  body: { flex: 1, backgroundColor: COLORS.background },
+  body: { paddingHorizontal: 24, paddingTop: 18, paddingBottom: 32, gap: 14, width: '100%', maxWidth: 520, alignSelf: 'center' },
+  stepLabel: { fontSize: 12, color: COLORS.primary, letterSpacing: 0.3 },
+  title: { fontSize: 27, lineHeight: 35, color: COLORS.text, marginTop: -6 },
+  sub: { fontSize: 15, lineHeight: 22, color: COLORS.textSecondary, marginBottom: 6 },
 
-  formPanel: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 12,
-    gap: 13,
-  },
+  inputBox: { height: 56, alignItems: 'center', gap: 10, paddingHorizontal: 16, borderRadius: 16, backgroundColor: COLORS.card, borderWidth: 1.5, borderColor: COLORS.border },
+  input: { flex: 1, height: '100%', fontSize: 16, color: COLORS.text, paddingVertical: 0 },
+  inputError: { borderColor: COLORS.error },
+  error: { fontSize: 13, lineHeight: 19, color: COLORS.error, marginTop: -4 },
+  notice: { fontSize: 13, color: COLORS.primary },
+  link: { fontSize: 14, color: COLORS.primary },
+  fine: { fontSize: 12, lineHeight: 18, color: COLORS.textTertiary, paddingHorizontal: 12 },
 
-  field:         { gap: 6 },
-  label:         { fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.textSecondary },
-  fieldErr:      { fontFamily: FONTS.medium, fontSize: 12, color: COLORS.error, marginTop: 2 },
+  emailRow: { alignItems: 'flex-start', gap: 12, justifyContent: 'space-between' },
+  // Digits stay left-to-right in both languages, like on every keypad.
+  codeRow: { flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginVertical: 4 },
+  codeBox: { flex: 1, maxWidth: 56, aspectRatio: 0.86, borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
+  codeBoxFilled: { borderColor: COLORS.primaryTint, backgroundColor: COLORS.primaryBg },
+  codeBoxActive: { borderColor: COLORS.primary, borderWidth: 2 },
+  codeDigit: { fontSize: 24, color: COLORS.text },
+  codeInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, color: 'transparent', opacity: 0.02, fontSize: 1 },
 
-  inputBox: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1.5, borderColor: COLORS.border,
-    borderRadius: 14, paddingHorizontal: 14,
-  },
-  inputBoxFocus: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryBg,
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 8, elevation: 2,
-  },
-  inputBoxError: { borderColor: COLORS.error },
-  inputRow:      { flexDirection: 'row', alignItems: 'center' },
-  input:         { paddingVertical: 14, fontSize: 15, color: COLORS.text, fontFamily: FONTS.medium },
+  rules: { gap: 8, marginTop: -2, marginBottom: 4 },
+  rule: { alignItems: 'center', gap: 10 },
+  ruleDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: COLORS.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  ruleDotOn: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  ruleText: { fontSize: 13, color: COLORS.textSecondary },
 
-  btnOff:  { opacity: 0.55 },
-
-  switchRow:  { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 2 },
-  switchText: { color: COLORS.textSecondary, fontSize: 14, fontFamily: FONTS.regular },
-  switchLink: { color: COLORS.primary, fontSize: 14, fontFamily: FONTS.bold },
-
-  socialPanel: {
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
-    gap: 10,
-  },
-
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  divLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  divText: { fontSize: 12, color: COLORS.textTertiary, fontFamily: FONTS.medium },
-
-  socialBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderWidth: 1.5, borderColor: COLORS.border,
-    borderRadius: 16, paddingVertical: 14,
-    backgroundColor: COLORS.card,
-  },
-  socialText:  { fontSize: 15, fontFamily: FONTS.semibold, color: COLORS.text },
-
-  // ── RTL helpers ──
-  rtlText:    { textAlign: 'right' },
-  rowReverse: { flexDirection: 'row-reverse' },
-
-  // ── Modal ──
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-  sheet: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 28,
-    gap: 14,
-  },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.borderStrong, alignSelf: 'center', marginBottom: 4 },
-  sheetTitle:  { fontFamily: FONTS.bold, fontSize: 22, color: COLORS.text },
-  sheetSub:    { fontFamily: FONTS.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
-  otpInput:    { textAlign: 'center', fontSize: 24, letterSpacing: 12, fontFamily: FONTS.bold },
+  switchRow: { justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 10 },
+  switchText: { fontSize: 14, color: COLORS.textSecondary },
 });

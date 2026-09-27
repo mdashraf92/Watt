@@ -30,6 +30,8 @@ import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
 import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon, BellIcon, NavigationIcon, PlugZapIcon, SlidersIcon } from '../components/icons';
+import { useRequireAuth } from '../lib/useRequireAuth';
+import GuestSignInButton from '../components/GuestSignInButton';
 import MapFilterSheet, { DEFAULT_FILTERS, FAST_KW, activeFilterCount, type MapFilters } from '../components/MapFilterSheet';
 import { markerForStatus } from '../constants/mapMarkers';
 
@@ -60,6 +62,7 @@ export default function MapScreen() {
   const { session, profile } = useAuth();
   const { activeSessionId, activeStationName, activePackageId } = useCharging();
   const isAuthenticated = !!session;
+  const requireAuth = useRequireAuth();
   const mapRef = useRef<OSMMapHandle>(null);
 
   const [filters, setFilters]           = useState<MapFilters>(DEFAULT_FILTERS);
@@ -460,7 +463,8 @@ export default function MapScreen() {
             )}
           </View>
 
-          {/* Guests have no inbox — hidden rather than shown-and-inert. */}
+          {/* Guests have no inbox; they get the Sign in button instead. */}
+          {!isAuthenticated && <GuestSignInButton />}
           {isAuthenticated && (
             <TouchableOpacity
               style={styles.bellBtn}
@@ -637,7 +641,7 @@ export default function MapScreen() {
                 <TouchableOpacity
                   style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
                   onPress={() => {
-                    if (!isAuthenticated) { navigation.getParent()?.navigate('SignIn'); return; }
+                    if (!requireAuth('booking')) return;
                     selectedListing.is_available && navigation.navigate('Booking', {
                       station: listingToStation(selectedListing),
                       listingId: selectedListing.id,
@@ -699,7 +703,7 @@ export default function MapScreen() {
             <TouchableOpacity
               style={[styles.bookBtn, !selected.is_package_venue && selected.status !== 'available' && styles.bookBtnDisabled]}
               onPress={() => {
-                if (!isAuthenticated) { navigation.getParent()?.navigate('SignIn'); return; }
+                if (!requireAuth('booking')) return;
                 if (selected.is_package_venue) navigation.navigate('VenuePackages', { stationId: selected.id, stationName: selected.name });
                 else if (selected.status === 'available') navigation.navigate('Booking', { station: selected });
               }}

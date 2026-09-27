@@ -1,24 +1,28 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ONBOARDED_KEY } from '../lib/onboarding';
 import {
-  ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet,
+  ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet, Linking,
 } from 'react-native';
 import { NavigationContainer, DefaultTheme, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, FadeIn } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { TAB_BAR_TOP, TAB_PILL_HEIGHT } from './tabBarLayout';
 import { useAuth } from '../context/AuthContext';
 import { isCarProfileComplete } from '../lib/profileComplete';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
+import { FONTS, FONTS_AR } from '../constants/typography';
 import { ENV } from '../config/env';
 import {
   MapPinIcon, CalendarIcon, WalletIcon, UserIcon,
   ZapIcon, UsersIcon, TrendingUpIcon, ShieldIcon, StarIcon, CheckIcon,
 } from '../components/icons';
 import { api } from '../lib/api';
+import StoreIcon from '../screens/marketplace/StoreIcon';
 import type { ChargerListing } from '../types';
 import type {
   GuestStackParamList,
@@ -36,6 +40,8 @@ import type {
 // Auth screens — kept eager: they are the pre-login flow, small, and needed
 // immediately, so lazy-loading them would only add a spinner at first paint.
 import LandingScreen       from '../screens/SplashScreen';
+import AuthPromptScreen    from '../screens/AuthPromptScreen';
+import ProfileSetupScreen  from '../screens/ProfileSetupScreen';
 import SignInScreen        from '../screens/SignInScreen';
 import SignUpScreen        from '../screens/SignUpScreen';
 
@@ -63,8 +69,16 @@ function lazyScreen<T extends React.ComponentType<any>>(factory: () => Promise<{
   };
 }
 
-const GuestProfileScreen        = lazyScreen(() => import('../screens/GuestProfileScreen'));
-const GuestLockedScreen         = lazyScreen(() => import('../screens/GuestLockedScreen'));
+
+const ShopScreen = lazyScreen(() => import('../screens/marketplace/ShopScreen'));
+const MarketProduct = lazyScreen(() => import('../screens/marketplace/ProductScreen'));
+const MarketCart = lazyScreen(() => import('../screens/marketplace/CartScreen'));
+const MarketPortal = lazyScreen(() => import('../screens/marketplace/PortalScreen'));
+const MarketProductEditor = lazyScreen(() => import('../screens/marketplace/ProductEditorScreen'));
+const MarketOrders = lazyScreen(() => import('../screens/marketplace/AccountScreens').then(m => ({ default: m.OrdersScreen })));
+const MarketOrder = lazyScreen(() => import('../screens/marketplace/AccountScreens').then(m => ({ default: m.OrderScreen })));
+const MarketVehicles = lazyScreen(() => import('../screens/marketplace/AccountScreens').then(m => ({ default: m.VehiclesScreen })));
+const MarketAppointments = lazyScreen(() => import('../screens/marketplace/AccountScreens').then(m => ({ default: m.AppointmentsScreen })));
 
 const MapScreen                 = lazyScreen(() => import('../screens/MapScreen'));
 const StationDetailsScreen      = lazyScreen(() => import('../screens/StationDetailsScreen'));
@@ -156,42 +170,59 @@ function TabItem({
     p.value = withTiming(focused ? 1 : 0, { duration: 260, easing: Easing.out(Easing.cubic) });
   }, [focused]);
 
+  const { isRTL } = useLang();
   const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + p.value * 0.16 }, { translateY: -p.value * 2 }],
+    transform: [{ scale: 1 + p.value * 0.08 }, { translateY: -p.value * 1 }],
   }));
 
+  // Every tab keeps its label so the icons are never ambiguous; the active one
+  // is emphasised by colour and weight rather than by appearing/disappearing.
+  const fontFamily = isRTL
+    ? (focused ? FONTS_AR.bold : FONTS_AR.medium)
+    : (focused ? FONTS.bold : FONTS.medium);
+
   return (
-    <TouchableOpacity style={tabStyles.tab} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={tabStyles.tab}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: focused }}
+      accessibilityLabel={label}
+    >
       <Animated.View style={iconStyle}>{icon}</Animated.View>
-      {focused && (
-        <Animated.Text
-          entering={FadeIn.duration(200)}
-          style={[tabStyles.label, { color: accentColor, fontWeight: '700' }]}
-          numberOfLines={1}
-        >
-          {label}
-        </Animated.Text>
-      )}
+      <Text
+        style={[tabStyles.label, { color: focused ? accentColor : COLORS.textTertiary, fontFamily }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
 
 function CustomTabBar({ state, descriptors, navigation, accentColor }: BottomTabBarProps & { accentColor: string }) {
   const insets = useSafeAreaInsets();
+  const { isRTL } = useLang();
   const [barWidth, setBarWidth] = useState(0);
   const tabCount = state.routes.length;
   const tabWidth = barWidth > 0 ? barWidth / tabCount : 0;
 
   // Sliding highlight that glides to the active tab — the "transfer" motion.
+  // In Arabic the tabs run right-to-left, so the highlight's slot is mirrored.
   const pos = useSharedValue(state.index);
   useEffect(() => {
     pos.value = withTiming(state.index, { duration: 300, easing: Easing.out(Easing.cubic) });
   }, [state.index]);
-  const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value * tabWidth }] }));
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: (isRTL ? tabCount - 1 - pos.value : pos.value) * tabWidth }],
+  }));
 
   return (
     <View style={[tabStyles.outer, { paddingBottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">
-      <View style={tabStyles.pill} onLayout={e => setBarWidth(e.nativeEvent.layout.width)} pointerEvents="auto">
+      <View style={[tabStyles.pill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} onLayout={e => setBarWidth(e.nativeEvent.layout.width)} pointerEvents="auto">
         {tabWidth > 0 && (
           <Animated.View
             style={[tabStyles.indicator, { width: tabWidth - 16, backgroundColor: accentColor + '1A' }, indicatorStyle]}
@@ -258,8 +289,8 @@ const tabStyles = StyleSheet.create({
     left: 8, top: 6, bottom: 6,
     borderRadius: 12,
   },
-  tab:   { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
-  label: { fontSize: 11, fontWeight: '500', color: COLORS.textTertiary },
+  tab:   { flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 2 },
+  label: { fontSize: 11, color: COLORS.textTertiary },
 });
 
 // ── GUEST ─────────────────────────────────────────────────────
@@ -271,6 +302,9 @@ function GuestTabs() {
       tabBar={(props) => <CustomTabBar {...props} accentColor={COLORS.primary} />}
       screenOptions={{ headerShown: false }}
     >
+      {/* Guests get just the two things they can use without an account.
+          Bookings, Wallet and Profile appear once they sign in; the map and
+          shop headers carry the Sign in button. */}
       <GuestTab.Screen
         name="GuestMap"
         component={MapScreen}
@@ -281,56 +315,50 @@ function GuestTabs() {
           ),
         }}
       />
-      <GuestTab.Screen
-        name="GuestBookings"
-        component={GuestLockedScreen}
-        initialParams={{ feature: 'bookings' }}
-        options={{
-          tabBarLabel: t.tab_bookings,
-          tabBarIcon: ({ focused, color }) => (
-            <CalendarIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-      <GuestTab.Screen
-        name="GuestWallet"
-        component={GuestLockedScreen}
-        initialParams={{ feature: 'wallet' }}
-        options={{
-          tabBarLabel: t.tab_wallet,
-          tabBarIcon: ({ focused, color }) => (
-            <WalletIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-      <GuestTab.Screen
-        name="GuestProfile"
-        component={GuestProfileScreen}
-        options={{
-          tabBarLabel: t.tab_profile,
-          tabBarIcon: ({ focused, color }) => (
-            <UserIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
+      <GuestTab.Screen name="GuestShop" component={ShopScreen} options={{ tabBarLabel: t.market_shop, tabBarIcon: ({ color }) => <StoreIcon color={color} /> }} />
     </GuestTab.Navigator>
   );
 }
 
 function GuestNavigator() {
+  // Anyone can browse without an account: the intro slides show on the first
+  // launch only, then the app opens on the guest tabs. Acting on something
+  // (book, order, save) opens AuthPrompt via useRequireAuth().
+  // ENV.skipLogin (EXPO_PUBLIC_SKIP_LOGIN=1, never in production) always skips
+  // the slides. Every screen stays registered, so only the first one changes.
+  const [initial, setInitial] = useState<'Landing' | 'GuestTabs' | null>(ENV.skipLogin ? 'GuestTabs' : null);
+  useEffect(() => {
+    if (initial) return;
+    AsyncStorage.getItem(ONBOARDED_KEY)
+      .then(v => setInitial(v ? 'GuestTabs' : 'Landing'))
+      .catch(() => setInitial('Landing'));
+  }, []);
+  if (!initial) return <View style={{ flex: 1, backgroundColor: COLORS.background }} />;
+
   return (
     <GuestStack.Navigator
-      // ENV.skipLogin (EXPO_PUBLIC_SKIP_LOGIN=1, never in production) opens
-      // straight into the browsable guest tabs. Every screen below stays
-      // registered either way — this changes which one is shown first, so
-      // turning the flag off restores the normal flow with no code change.
-      initialRouteName={ENV.skipLogin ? 'GuestTabs' : 'Landing'}
+      initialRouteName={initial}
       screenOptions={{ headerShown: false }}
     >
+      <GuestStack.Screen name="MarketProduct" component={MarketProduct} />
+      <GuestStack.Screen name="MarketCart" component={MarketCart} />
+      <GuestStack.Screen name="MarketPortal" component={MarketPortal} />
+      <GuestStack.Screen name="MarketProductEditor" component={MarketProductEditor} />
+
+      <GuestStack.Screen name="MarketOrders" component={MarketOrders} />
+      <GuestStack.Screen name="MarketOrder" component={MarketOrder} />
+      <GuestStack.Screen name="MarketVehicles" component={MarketVehicles} />
+      <GuestStack.Screen name="MarketAppointments" component={MarketAppointments} />
       <GuestStack.Screen name="Landing"   component={LandingScreen} />
       <GuestStack.Screen name="SignIn"    component={SignInScreen} />
       <GuestStack.Screen name="SignUp"    component={SignUpScreen} />
       <GuestStack.Screen name="GuestTabs" component={GuestTabs} options={{ animation: 'fade' }} />
+      <GuestStack.Screen name="StationDetails" component={StationDetailsScreen} />
+      <GuestStack.Screen
+        name="AuthPrompt"
+        component={AuthPromptScreen}
+        options={{ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
+      />
     </GuestStack.Navigator>
   );
 }
@@ -420,6 +448,7 @@ function CustomerTabs() {
           ),
         }}
       />
+      <CustomerTab.Screen name="Shop" component={ShopScreen} options={{ tabBarLabel: t.market_shop, tabBarIcon: ({ color }) => <StoreIcon color={color} /> }} />
       <CustomerTab.Screen
         name="Bookings"
         component={BookingsScreen}
@@ -459,6 +488,15 @@ function CustomerNavigator() {
   return (
     <CustomerStack.Navigator screenOptions={{ headerShown: false }}>
       <CustomerStack.Screen name="Tabs" component={CustomerTabs} />
+      <CustomerStack.Screen name="MarketProduct" component={MarketProduct} />
+      <CustomerStack.Screen name="MarketCart" component={MarketCart} />
+      <CustomerStack.Screen name="MarketPortal" component={MarketPortal} />
+      <CustomerStack.Screen name="MarketProductEditor" component={MarketProductEditor} />
+
+      <CustomerStack.Screen name="MarketOrders" component={MarketOrders} />
+      <CustomerStack.Screen name="MarketOrder" component={MarketOrder} />
+      <CustomerStack.Screen name="MarketVehicles" component={MarketVehicles} />
+      <CustomerStack.Screen name="MarketAppointments" component={MarketAppointments} />
       <CustomerStack.Screen name="VenuePackages" component={VenuePackagesScreen} />
       <CustomerStack.Screen name="PackageCharging" component={PackageChargingScreen} />
       <CustomerStack.Screen name="PackageStaff" component={PackageStaffScreen} />
@@ -665,6 +703,7 @@ function InvestorTabs() {
             ),
           }}
         />
+        <InvestorTab.Screen name="Shop" component={ShopScreen} options={{ tabBarLabel: t.market_shop, tabBarIcon: ({ color }) => <StoreIcon color={color} /> }} />
         <InvestorTab.Screen
           name="Bookings"
           component={BookingsScreen}
@@ -714,6 +753,15 @@ function InvestorNavigator() {
   return (
     <InvestorStack.Navigator screenOptions={{ headerShown: false }}>
       <InvestorStack.Screen name="InvestorTabs" component={InvestorTabs} />
+      <InvestorStack.Screen name="MarketProduct" component={MarketProduct} />
+      <InvestorStack.Screen name="MarketCart" component={MarketCart} />
+      <InvestorStack.Screen name="MarketPortal" component={MarketPortal} />
+      <InvestorStack.Screen name="MarketProductEditor" component={MarketProductEditor} />
+
+      <InvestorStack.Screen name="MarketOrders" component={MarketOrders} />
+      <InvestorStack.Screen name="MarketOrder" component={MarketOrder} />
+      <InvestorStack.Screen name="MarketVehicles" component={MarketVehicles} />
+      <InvestorStack.Screen name="MarketAppointments" component={MarketAppointments} />
       <InvestorStack.Screen name="VenuePackages" component={VenuePackagesScreen} />
       <InvestorStack.Screen name="PackageCharging" component={PackageChargingScreen} />
       <InvestorStack.Screen name="PackageStaff" component={PackageStaffScreen} />
@@ -800,6 +848,15 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminCustomerDetail" component={AdminCustomerDetailScreen} />
       <AdminStack.Screen name="AdminApplicationDetail" component={AdminApplicationDetailScreen} />
       <AdminStack.Screen name="AdminPayouts" component={AdminPayoutsScreen} />
+      <AdminStack.Screen name="MarketProduct" component={MarketProduct} />
+      <AdminStack.Screen name="MarketCart" component={MarketCart} />
+      <AdminStack.Screen name="MarketPortal" component={MarketPortal} />
+      <AdminStack.Screen name="MarketProductEditor" component={MarketProductEditor} />
+
+      <AdminStack.Screen name="MarketOrders" component={MarketOrders} />
+      <AdminStack.Screen name="MarketOrder" component={MarketOrder} />
+      <AdminStack.Screen name="MarketVehicles" component={MarketVehicles} />
+      <AdminStack.Screen name="MarketAppointments" component={MarketAppointments} />
       <AdminStack.Screen name="AdminPackages" component={AdminPackagesScreen} />
       <AdminStack.Screen name="AdminVenueOperations" component={AdminVenueOperationsScreen} />
       <AdminStack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
@@ -856,6 +913,23 @@ const ceStyles = StyleSheet.create({
 
 // ── ROOT ──────────────────────────────────────────────────────
 
+function AdminWebHandoff() {
+  const { isRTL } = useLang();
+  const { signOut } = useAuth();
+  const dashboard = `${ENV.apiUrl}/dashboard/`;
+  return <View style={ceStyles.root}>
+    <Text style={ceStyles.title}>{isRTL ? 'الإدارة عبر الويب' : 'Administration is on the web'}</Text>
+    <Text style={ceStyles.msg}>{isRTL ? 'أدِر السوق والشواحن والعملاء من لوحة التحكم المخصصة.' : 'Manage the marketplace, chargers, and customers from the dedicated dashboard.'}</Text>
+    <TouchableOpacity accessibilityRole="button" style={ceStyles.retryBtn} onPress={() => Linking.openURL(dashboard)}>
+      <Text style={ceStyles.retryText}>{isRTL ? 'فتح لوحة التحكم' : 'Open dashboard'}</Text>
+    </TouchableOpacity>
+    <Text selectable style={ceStyles.msg}>{dashboard}</Text>
+    <TouchableOpacity accessibilityRole="button" style={ceStyles.signOutBtn} onPress={() => void signOut()}>
+      <Text style={ceStyles.signOutText}>{isRTL ? 'تسجيل الخروج' : 'Sign out'}</Text>
+    </TouchableOpacity>
+  </View>;
+}
+
 export default function AppNavigator() {
   const { session, profile, loading, profileError, refreshProfile, signOut } = useAuth();
 
@@ -881,8 +955,12 @@ export default function AppNavigator() {
       <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
         {!isLoggedIn ? (
           <RootStack.Screen name="GuestMain" component={GuestNavigator} />
+        ) : activeProfile?.role === 'customer' && activeProfile.onboarding_completed === false ? (
+          // New account: name + phone, then the optional EV step. `=== false`
+          // (not falsy) so a server without the column never blocks anyone.
+          <RootStack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
         ) : activeProfile?.role === 'admin' || activeProfile?.role === 'superadmin' ? (
-          <RootStack.Screen name="AdminMain" component={AdminNavigator} />
+          <RootStack.Screen name="AdminMain" component={AdminWebHandoff} />
         ) : activeProfile?.role === 'operator' ? (
           <RootStack.Screen name="OperatorMain" component={OperatorNavigator} />
         ) : activeProfile?.role === 'investor' || activeProfile?.role === 'host' ? (
