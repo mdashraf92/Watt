@@ -6,6 +6,7 @@ import { requireAdmin } from '../../middleware/requireRole';
 import { validateBody } from '../../middleware/validate';
 import { query, callFn } from '../../db/pool';
 import { notify } from '../../integrations/notify';
+import { forbidden } from '../../lib/errors';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -110,6 +111,9 @@ router.patch('/listings/:id',
 router.patch('/users/:id',
   validateBody(z.object({ is_active: z.boolean() })),
   asyncHandler(async (req, res) => {
+    const target = (await query('select role from profiles where id=$1', [req.params.id])).rows[0];
+    if (target && (['admin','superadmin'].includes(target.role) || req.params.id===req.user!.id))
+      throw forbidden('Manage administrator access from the super admin dashboard');
     const { rows } = await query(
       `update public.profiles set is_active = $2 where id = $1 returning id, is_active`,
       [req.params.id, req.body.is_active],
@@ -121,6 +125,8 @@ router.patch('/users/:id',
 
 // Delete a user account (reuses the hardened SECURITY DEFINER function).
 router.delete('/users/:id', asyncHandler(async (req, res) => {
+  const target = (await query('select role from profiles where id=$1', [req.params.id])).rows[0];
+  if (target && ['admin','superadmin'].includes(target.role)) throw forbidden('Administrator accounts cannot be deleted here');
   await callFn(req.user!.id, 'select public.delete_user_account($1)', [req.params.id]);
   res.status(204).end();
 }));

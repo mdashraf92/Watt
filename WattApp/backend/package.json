@@ -10,6 +10,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test:packages": "node --test scripts/test-packages.cjs",
+    "test:marketplace": "node --test scripts/test-marketplace.cjs",
+    "db:marketplace": "node scripts/setup-marketplace.cjs",
     "sms:test": "ts-node --transpile-only scripts/send-test-sms.ts"
   },
   "dependencies": {

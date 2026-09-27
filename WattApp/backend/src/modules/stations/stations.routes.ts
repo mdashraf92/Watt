@@ -6,8 +6,9 @@ import { query, callFn } from '../../db/pool';
 
 const router = Router();
 
-// List stations (public to signed-in users).
-router.get('/', requireAuth, asyncHandler(async (_req, res) => {
+// List stations. Public: guests browse the map before signing in; booking
+// (availability below, and every write) still requires an account.
+router.get('/', asyncHandler(async (_req, res) => {
   // connector_types is aggregated here rather than fetched per station, so the
   // map's connector filter can run client-side over the one list it already has.
   const { rows } = await query(
@@ -41,17 +42,17 @@ router.get('/availability', requireAuth, asyncHandler(async (req, res) => {
   res.json(row.result);
 }));
 
-// Single station + connectors.
-router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
+// Single station + connectors (public, for the guest station page).
+router.get('/:id', asyncHandler(async (req, res) => {
   const { rows } = await query(`select * from public.stations where id = $1`, [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: { code: 'not_found', message: 'Station not found' } });
   const { rows: connectors } = await query(`select * from public.connectors where station_id = $1`, [req.params.id]);
   res.json({ ...rows[0], connectors });
 }));
 
-// Public reviews for a station.
-router.get('/:id/reviews', requireAuth, asyncHandler(async (req, res) => {
-  const row = await callFn<{ result: any }>(req.user!.id,
+// Public reviews for a station (reviewer first names only).
+router.get('/:id/reviews', asyncHandler(async (req, res) => {
+  const row = await callFn<{ result: any }>(req.user?.id ?? null,
     'select coalesce(json_agg(r), \'[]\'::json) as result from public.get_charger_reviews($1, null) r',
     [req.params.id]);
   res.json(row.result);

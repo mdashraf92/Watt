@@ -24,3 +24,7 @@ create table if not exists public.auth_tokens (
   created_at  timestamptz not null default now()
 );
 create index if not exists idx_authtok_hash on public.auth_tokens (token_hash);
+
+-- Auth records are backend-only; no client Data API policies.
+alter table public.auth_refresh_tokens enable row level security;
+alter table public.auth_tokens enable row level security;

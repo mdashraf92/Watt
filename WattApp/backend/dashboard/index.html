@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Go Watt · Control centre</title><link rel="stylesheet" href="./styles.css"><script src="./app.js" defer></script></head>
+<body>
+ <div id="login" class="login-layout">
+  <section class="welcome"><a class="brand" href="./">Go Watt<span>CONTROL CENTRE</span></a><div><p class="eyebrow">ONE NETWORK. ONE VIEW.</p><h1>Every part of<br>Go Watt,<br>in one place.</h1><p>Manage the marketplace, your charging network,<br>and the people who keep it running.</p></div><small>For authorised administrators and operations teams.</small></section>
+  <main class="login-main"><form id="login-form"><p class="eyebrow">WELCOME BACK</p><h2>Sign in to your workspace</h2><p class="muted">Use your Go Watt administrator account.</p><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="primary">Sign in →</button><p id="login-error" role="alert" class="error"></p><p class="fine">Your access level determines which controls you can use.</p></form></main>
+ </div>
+ <div id="workspace" class="workspace" hidden>
+  <aside><a href="#overview" class="brand">Go Watt<span>CONTROL CENTRE</span></a><p id="role-label" class="role-label"></p><nav id="navigation" aria-label="Main navigation"></nav><div class="sidebar-foot"><span id="user-name"></span><button id="logout" class="quiet">Sign out</button></div></aside>
+  <main class="main"><header class="topbar"><div><p id="breadcrumb" class="eyebrow">WORKSPACE</p><h1 id="page-title">Overview</h1></div><div class="header-actions"><button id="language" class="secondary">العربية</button><button id="refresh" class="secondary">Refresh</button></div></header><p id="page-error" class="error" role="alert" hidden></p><div id="page"></div></main>
+ </div>
+ <dialog id="detail-dialog"><div class="dialog-header"><h2 id="detail-title"></h2><button id="close-detail" class="secondary" aria-label="Close details">Close ×</button></div><div id="detail-body"></div></dialog>
+ <dialog id="action-dialog"><form id="action-form"><div class="dialog-header"><h2 id="action-title"></h2><button id="close-action" type="button" class="secondary">Close ×</button></div><p id="action-description" class="muted"></p><div id="action-fields"></div><p id="action-error" class="error" role="alert"></p><button id="action-submit" type="submit" class="primary">Save changes</button></form></dialog>
+ <div id="toast" class="toast" role="status" hidden></div>
+</body></html>

@@ -1,4 +1,5 @@
 const ar = {
+  market_shop: 'السوق',
   // Common
   app_name: 'Go Watt',
   app_tagline: 'شبكة شحن السيارات الكهربائية',
@@ -1600,6 +1601,66 @@ const ar = {
   vo_confirm_help: 'هل تريد تطبيق هذا التغيير على الموقع المحدد؟',
   pv_label: 'باقات الموقع',
   pv_included: 'الشحن مشمول',
+
+  // ── Guest sign-in gate (AuthPrompt) ──
+  gate_title_generic: 'سجّل الدخول للمتابعة',
+  gate_title_booking: 'سجّل الدخول لحجز شاحن',
+  gate_title_order: 'سجّل الدخول لإتمام طلبك',
+  gate_title_service: 'سجّل الدخول لحجز هذه الخدمة',
+  gate_title_favorite: 'سجّل الدخول لحفظ المحطات',
+  gate_title_account: 'سجّل الدخول لعرض حسابك',
+  gate_body: 'لا يستغرق الأمر أكثر من دقيقة، ويمكنك متابعة التصفح بدون حساب.',
+  gate_create: 'إنشاء حساب مجاني',
+  gate_signin: 'لديّ حساب بالفعل',
+  gate_not_now: 'ليس الآن',
+
+  // ── Step-by-step sign-up ──
+  su_step_1: 'الخطوة 1 من 3',
+  su_step_2: 'الخطوة 2 من 3',
+  su_step_3: 'الخطوة 3 من 3',
+  su_email_title: 'ما بريدك الإلكتروني؟',
+  su_email_sub: 'سنرسل إليك رمزاً من 6 أرقام لتأكيده.',
+  su_email_taken: 'هذا البريد مسجّل بحساب بالفعل.',
+  su_signin_instead: 'سجّل الدخول بدلاً من ذلك',
+  su_continue: 'متابعة',
+  su_terms: 'بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية.',
+  su_code_title: 'تحقّق من بريدك',
+  su_code_sub: 'أدخل الرمز المكوّن من 6 أرقام المرسل إلى',
+  su_change_email: 'تغيير',
+  su_resend_in: 'إعادة الإرسال بعد',
+  su_resend: 'إعادة إرسال الرمز',
+  su_code_sent: 'تم إرسال رمز جديد.',
+  su_pw_title: 'أنشئ كلمة مرور',
+  su_pw_sub: 'ستستخدمها مع بريدك الإلكتروني لتسجيل الدخول.',
+  su_pw_rule_len: '8 أحرف على الأقل',
+  su_pw_rule_letter: 'حرف واحد على الأقل',
+  su_pw_rule_number: 'رقم واحد على الأقل',
+  su_create: 'إنشاء الحساب',
+
+  // ── First-run profile setup ──
+  ps_step_1: 'الخطوة 1 من 2',
+  ps_step_2: 'الخطوة 2 من 2',
+  ps_about_title: 'عرّفنا بنفسك',
+  ps_about_sub: 'نستخدم هذه البيانات في حجوزاتك وطلباتك.',
+  ps_name: 'الاسم الكامل',
+  ps_name_ph: 'مثال: أحمد البلوشي',
+  ps_phone: 'رقم الهاتف',
+  ps_phone_hint: 'رقم هاتف عُماني من 8 أرقام',
+  ps_name_error: 'يرجى إدخال اسمك الكامل',
+  ps_phone_error: 'أدخل رقم هاتف من 8 أرقام',
+  ps_ev_title: 'سيارتك الكهربائية',
+  ps_optional: 'اختياري',
+  ps_ev_sub: 'أضف سيارتك لعرض الشواحن والإكسسوارات المتوافقة. يمكنك أيضاً إضافتها لاحقاً من ملفك الشخصي.',
+  ps_finish: 'إنهاء',
+  ps_skip: 'تخطَّ الآن',
+  ps_sign_out: 'تسجيل الخروج',
+
+  // ── Seller portal entry (Profile) ──
+  seller_entry_title: 'بع على Go Watt',
+  seller_entry_sub: 'للمتاجر ومقدمي الخدمات: أدِر متجرك',
+
+  // ── Onboarding ──
+  splash_explore: 'ابدأ الاستكشاف',
 };
 
 export default ar;

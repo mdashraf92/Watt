@@ -1,6 +1,6 @@
 # Marketplace implementation
 
-Updated: 23 September 2026
+Updated: 24 September 2026
 
 ## Built in the first implementation slice
 
@@ -110,16 +110,75 @@ No production migration or setting was changed.
   package sessions never charge excess energy; full refunds after any start/benefit use
   are refused pending review. Expiry is a stop deadline, not an additional charge.
 
-## Marketplace work after packages
+## Marketplace slice
 
-Saved vehicles with verified/unknown compatibility; vendor membership and permissions;
-catalog moderation; products and variants; stock reservation; multi-vendor checkout;
-fulfilment; refunds and settlement. Services need a separate quotation/appointment flow.
+- Schema: `backend/sql/backend-marketplace.sql` (all `market_*` tables have RLS).
+  App screens: Shop tab, product, cart, vendor portal and product editor, orders,
+  saved vehicles and service appointments.
+- Vendors cannot approve themselves or set commission; listings stay private until
+  admin moderation, and stale listings (30+ days unchanged) leave the public catalog.
+- Wallet checkout debits once per idempotency key, excludes held funds, rejects tampered
+  totals and stock shortages, and cannot oversell the last unit. One checkout splits
+  per vendor, applies configured delivery fees and snapshots commission.
+- Fulfilment transitions are validated; refunds are admin-reviewed, credit the wallet
+  once and return each unshipped delivery fee exactly once.
+- Services use quote → accept → booked slot, debited once. Reviews require a completed
+  purchase. Settlements only include completed, unrefunded items outside the return
+  window, and record a transfer already made outside Go Watt; they do not move money.
+
+## Web dashboard (admin and super admin)
+
+- Served by the backend at `/dashboard`; API under `/api/dashboard`. Sign-in uses the
+  existing account email/password and is limited to active `admin`/`superadmin` profiles.
+- Sessions are an 8-hour HttpOnly, SameSite=Strict cookie scoped to `/api/dashboard`,
+  stored hashed in `dashboard_sessions`. Changes require a same-origin `Origin` header.
+  Every change is written to `dashboard_audit` (actor, method, path, status only; no
+  bodies, passwords or tokens). Login is rate-limited.
+- Overview shows counts and summary projections only (no customer identities). Modules
+  whose tables are not migrated show as "needs database setup" instead of failing.
+- Admins and super admins can open searchable, paginated (50 per page) records and
+  details for chargers, customers, sessions, bookings, packages, fleet, support,
+  partner applications, vendors, products, orders, returns, appointments, settlements
+  and payouts. Actions reuse the existing validated admin/marketplace routes under the
+  cookie session: vendor approval/commission, moderation, fulfilment, returns/refunds,
+  appointments, force-stop, support replies, applications, fleet, packages, venue
+  devices/staff, settlements, payouts and account suspension.
+- Super admins only: administrator access, platform/overstay/mobile settings and audit
+  history. Role changes run under a lock, keep at least one active super admin, block
+  self-demotion and revoke the target's dashboard sessions immediately. The old
+  `/superadmin/admins` route is not reachable through the dashboard, and the admin
+  users route can no longer change or delete administrator accounts.
+- `requireRole` now re-reads role and `is_active` from `profiles` on every request, so a
+  demoted or suspended account loses access even with an unexpired mobile JWT.
+- English/Arabic with RTL layout.
+
+Dashboard limitations: the package venue picker lists only the first 50 stations;
+staff assignment takes a user ID (the mobile Venue operations screen has phone lookup);
+the settings editor shows raw keys; no browser or accessibility testing has been done.
+
+### Dashboard and marketplace verification (24 September 2026)
+
+- Backend and app TypeScript checks passed.
+- `npm run test:marketplace`: 20 scenarios passed on an isolated PostgreSQL cluster,
+  including dashboard cookie flags, cross-origin rejection, customer login refusal,
+  admin denied from super admin pages, record listing, role change session revocation
+  and logout.
+- `npm run test:packages`: 26 scenarios passed. The package admin test fixture now
+  answers the role lookup that `requireRole` performs.
+- Fixed while verifying: the payouts list read a non-existent `created_at` (now
+  `requested_at`), and record lists for unmigrated modules returned a raw database error.
+
+### Dashboard and marketplace migrations
+
+Apply after the package migrations: `backend/sql/backend-marketplace.sql`, then
+`backend/sql/backend-dashboard.sql` (`cd backend; npm run db:marketplace` applies both to
+`DATABASE_URL`). Neither was applied to any shared or production database here. Serve the
+dashboard over HTTPS in production so the session cookie is marked `Secure`.
+
+## Remaining marketplace work
+
 Delivery versus collection remains a product decision, not an assumption in the schema.
-
 Payment-provider support and commercial roles must be confirmed before marketplace
 settlement is enabled. Taking payment alone is not sufficient to establish the merchant
 of record. Wallet money, promotional credit and charging allowances remain distinct.
-
-The broader marketplace plan is not complete; this file records the implemented slice
-and the dependencies for the next one.
+Native marketplace screens and the web dashboard still need device/browser testing.

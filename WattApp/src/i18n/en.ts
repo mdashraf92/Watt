@@ -1,6 +1,7 @@
 import type { Translations } from './ar';
 
 const en: Translations = {
+  market_shop: 'Marketplace',
   // Common
   app_name: 'Go Watt',
   app_tagline: 'EV Charging Network',
@@ -1603,6 +1604,66 @@ const en: Translations = {
   vo_confirm_help: 'Apply this change to the selected venue?',
   pv_label: 'Venue packages',
   pv_included: 'Charging included',
+
+  // ── Guest sign-in gate (AuthPrompt) ──
+  gate_title_generic: 'Sign in to continue',
+  gate_title_booking: 'Sign in to book a charger',
+  gate_title_order: 'Sign in to place your order',
+  gate_title_service: 'Sign in to book this service',
+  gate_title_favorite: 'Sign in to save stations',
+  gate_title_account: 'Sign in to see your account',
+  gate_body: 'It takes less than a minute. You can keep browsing without an account.',
+  gate_create: 'Create free account',
+  gate_signin: 'I already have an account',
+  gate_not_now: 'Not now',
+
+  // ── Step-by-step sign-up ──
+  su_step_1: 'Step 1 of 3',
+  su_step_2: 'Step 2 of 3',
+  su_step_3: 'Step 3 of 3',
+  su_email_title: "What's your email?",
+  su_email_sub: "We'll send you a 6-digit code to confirm it.",
+  su_email_taken: 'This email already has an account.',
+  su_signin_instead: 'Sign in instead',
+  su_continue: 'Continue',
+  su_terms: 'By continuing, you agree to the Terms of Service and Privacy Policy.',
+  su_code_title: 'Check your email',
+  su_code_sub: 'Enter the 6-digit code we sent to',
+  su_change_email: 'Change',
+  su_resend_in: 'Resend code in',
+  su_resend: 'Resend code',
+  su_code_sent: 'A new code is on its way.',
+  su_pw_title: 'Create a password',
+  su_pw_sub: "You'll use it with your email to sign in.",
+  su_pw_rule_len: 'At least 8 characters',
+  su_pw_rule_letter: 'At least one letter',
+  su_pw_rule_number: 'At least one number',
+  su_create: 'Create account',
+
+  // ── First-run profile setup ──
+  ps_step_1: 'Step 1 of 2',
+  ps_step_2: 'Step 2 of 2',
+  ps_about_title: 'Tell us about you',
+  ps_about_sub: 'We use this for your bookings and orders.',
+  ps_name: 'Full name',
+  ps_name_ph: 'e.g. Ahmed Al Balushi',
+  ps_phone: 'Mobile number',
+  ps_phone_hint: 'Omani mobile number, 8 digits',
+  ps_name_error: 'Please enter your full name',
+  ps_phone_error: 'Enter an 8-digit mobile number',
+  ps_ev_title: 'Your EV',
+  ps_optional: 'Optional',
+  ps_ev_sub: 'Add your car to see compatible chargers and accessories. You can also do this later from your profile.',
+  ps_finish: 'Finish',
+  ps_skip: 'Skip for now',
+  ps_sign_out: 'Sign out',
+
+  // ── Seller portal entry (Profile) ──
+  seller_entry_title: 'Sell on Go Watt',
+  seller_entry_sub: 'Shops & service providers: manage your store',
+
+  // ── Onboarding ──
+  splash_explore: 'Start exploring',
 };
 
 export default en;

@@ -49,3 +49,4 @@ gowatt_*.sql
 # generated native folders
 /ios
 /android
+.gstack/

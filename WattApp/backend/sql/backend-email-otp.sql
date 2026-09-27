@@ -22,3 +22,6 @@ create table if not exists public.email_otps (
 
 create index if not exists idx_email_otps_email   on public.email_otps (email);
 create index if not exists idx_email_otps_created on public.email_otps (created_at);
+
+-- Auth records are backend-only; no client Data API policies.
+alter table public.email_otps enable row level security;

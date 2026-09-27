@@ -27,3 +27,6 @@ create table if not exists public.pending_signups (
 
 create index if not exists idx_pending_signups_email   on public.pending_signups (email);
 create index if not exists idx_pending_signups_created on public.pending_signups (created_at);
+
+-- Auth records are backend-only; no client Data API policies.
+alter table public.pending_signups enable row level security;

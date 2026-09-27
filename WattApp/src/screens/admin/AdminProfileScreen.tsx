@@ -125,6 +125,9 @@ export default function AdminProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t.admin_profile_settings}</Text>
 
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('MarketAdmin')} accessibilityRole="button">
+            <Text style={styles.settingLabel}>{isRTL ? 'إدارة السوق' : 'Marketplace administration'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminPackages')} activeOpacity={0.7} accessibilityRole="button">
             <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
               <View style={[styles.settingIconWrap, { backgroundColor: COLORS.primaryBg }]}>

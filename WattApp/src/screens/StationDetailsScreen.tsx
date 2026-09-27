@@ -24,6 +24,7 @@ import { FONTS } from '../constants/typography';
 import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon, HeartIcon, UserIcon } from '../components/icons';
 import ErrorView from '../components/ErrorView';
 import GradientButton from '../components/GradientButton';
+import { useRequireAuth } from '../lib/useRequireAuth';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
 type Route = RouteProp<MainStackParamList, 'StationDetails'>;
@@ -68,6 +69,8 @@ export default function StationDetailsScreen() {
   const [reviews, setReviews] = useState<{ rating: number; comment: string | null; reviewer: string; created_at: string }[]>([]);
   const [favId, setFavId]   = useState<string | null>(null);   // favorites row id (null = not favorited)
   const [favBusy, setFavBusy] = useState(false);
+  // Guests can view a station; booking and saving it ask them to sign in.
+  const requireAuth = useRequireAuth();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export default function StationDetailsScreen() {
   };
 
   const toggleFavorite = async () => {
-    if (!profile || favBusy) return;
+    if (!requireAuth('favorite') || !profile || favBusy) return;
     setFavBusy(true);
     const wasFav = favId;
     try {
@@ -171,7 +174,7 @@ export default function StationDetailsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {!isListing && <View style={{ marginHorizontal: 16, marginTop: 16 }}>
-          <GradientButton label={t.pkg_title} onPress={() => navigation.navigate('VenuePackages', { stationId: id, stationName: station.name })} />
+          <GradientButton label={t.pkg_title} onPress={() => requireAuth('booking') && navigation.navigate('VenuePackages', { stationId: id, stationName: station.name })} />
         </View>}
         {/* Hero */}
         <LinearGradient
@@ -302,7 +305,7 @@ export default function StationDetailsScreen() {
         <View style={{ flex: 1 }}>
           <GradientButton
             label={packageVenue ? t.pkg_title : canBook ? t.station_book : t.station_unavailable}
-            onPress={() => packageVenue ? navigation.navigate('VenuePackages', { stationId: id, stationName: station.name }) : canBook && navigation.navigate('Booking', isListing ? { station, listingId: id } : { station })}
+            onPress={() => !requireAuth('booking') ? undefined : packageVenue ? navigation.navigate('VenuePackages', { stationId: id, stationName: station.name }) : canBook && navigation.navigate('Booking', isListing ? { station, listingId: id } : { station })}
             disabled={!packageVenue && !canBook}
             icon={<ZapIcon size={18} color="#fff" strokeWidth={2.5} />}
           />

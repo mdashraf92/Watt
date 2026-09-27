@@ -17,6 +17,7 @@ import type { GuestStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
 import { GoWattIcon } from '../components/Logo';
 import { useLang } from '../context/LanguageContext';
+import { markOnboarded } from '../lib/onboarding';
 import {
   ZapIcon, MapPinIcon, WalletIcon, GlobeIcon,
   BatteryChargingIcon, PlugZapIcon, NavigationIcon, LocateIcon,
@@ -154,14 +155,17 @@ export default function SplashScreen() {
     setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width));
   };
 
-  const goToAuth = () => navigation.navigate('SignIn');
+  // Browsing needs no account, so the slides lead into the app; signing in is
+  // offered here and again whenever the guest tries to book or order.
+  const explore = () => { markOnboarded(); navigation.replace('GuestTabs'); };
+  const goToAuth = () => { markOnboarded(); navigation.navigate('SignIn'); };
   const isLast = activeIndex >= slides.length - 1;
 
   const handleNext = () => {
     if (!isLast) {
       scrollRef.current?.scrollTo({ x: (activeIndex + 1) * width, animated: true });
     } else {
-      goToAuth();
+      explore();
     }
   };
 
@@ -233,7 +237,7 @@ export default function SplashScreen() {
         </View>
 
         <TouchableOpacity style={styles.primaryBtn} onPress={handleNext} activeOpacity={0.85}>
-          <Text style={[styles.primaryBtnText, isRTL && styles.primaryBtnTextRtl]}>{isLast ? t.splash_start : t.splash_next}</Text>
+          <Text style={[styles.primaryBtnText, isRTL && styles.primaryBtnTextRtl]}>{isLast ? t.splash_explore : t.splash_next}</Text>
           {!isLast && (
             <View style={isRTL && styles.flipX}>
               <ChevronRightIcon size={20} color="#0F172A" strokeWidth={2.5} />
@@ -242,11 +246,11 @@ export default function SplashScreen() {
         </TouchableOpacity>
 
         {isLast ? (
-          <TouchableOpacity onPress={() => navigation.navigate('GuestTabs')} style={styles.secondaryBtn} activeOpacity={0.7}>
-            <Text style={styles.secondaryText}>{isRTL ? '← ' : ''}{t.auth_browse_guest}{isRTL ? '' : ' →'}</Text>
+          <TouchableOpacity onPress={goToAuth} style={styles.secondaryBtn} activeOpacity={0.7}>
+            <Text style={styles.secondaryText}>{t.gate_signin}</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity onPress={goToAuth} style={styles.secondaryBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={explore} style={styles.secondaryBtn} activeOpacity={0.7}>
             <Text style={styles.secondaryText}>{t.splash_skip}</Text>
           </TouchableOpacity>
         )}

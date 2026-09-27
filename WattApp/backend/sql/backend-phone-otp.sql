@@ -14,3 +14,6 @@ create table if not exists public.phone_otps (
 );
 create index if not exists idx_phone_otps_phone on public.phone_otps (phone);
 create index if not exists idx_phone_otps_created on public.phone_otps (created_at);
+
+-- Auth records are backend-only; no client Data API policies.
+alter table public.phone_otps enable row level security;

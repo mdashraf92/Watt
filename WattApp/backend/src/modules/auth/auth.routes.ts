@@ -18,20 +18,24 @@ const strongPassword = z.string()
 // Registration enforces the password POLICY. Login only needs the field present
 // — it verifies credentials, so it must not reject a legacy / migrated user
 // whose stored password happens to be shorter or weaker than the current policy.
-const emailPw = z.object({
-  email: z.string().email(),
-  password: strongPassword,
-});
 const loginBody = z.object({
   email: z.string().email(),
   password: z.string().min(1, 'Password is required'),
 });
 
-// Sign-up is verify-then-create: /start emails a code and creates nothing yet;
-// /verify only creates the account once that code is confirmed. Catches a
-// mistyped email at sign-up instead of silently creating an unreachable account.
+// Sign-up is verify-then-create, in three steps: /start emails a code and
+// creates nothing; /verify proves the email and returns a signup_token;
+// /complete sets the password and creates the account. Catches a mistyped
+// email at sign-up instead of silently creating an unreachable account.
+//
+// Older app builds send password + full_name to /start, and /verify then
+// creates the account directly — kept so those installs keep working.
 router.post('/register/start',
-  validateBody(emailPw.extend({ full_name: z.string().min(1) })),
+  validateBody(z.object({
+    email: z.string().email(),
+    password: strongPassword.optional(),
+    full_name: z.string().min(1).optional(),
+  })),
   asyncHandler(async (req, res) => {
     const { email, password, full_name } = req.body;
     res.json(await svc.startSignup(email, password, full_name));
@@ -41,7 +45,16 @@ router.post('/register/start',
 router.post('/register/verify',
   validateBody(z.object({ email: z.string().email(), code: z.string().min(4).max(8) })),
   asyncHandler(async (req, res) => {
-    res.status(201).json(await svc.completeSignup(req.body.email, req.body.code));
+    const result = await svc.verifySignup(req.body.email, req.body.code);
+    res.status('access_token' in result ? 201 : 200).json(result);
+  }),
+);
+
+router.post('/register/complete',
+  validateBody(z.object({ email: z.string().email(), signup_token: z.string().min(32), password: strongPassword })),
+  asyncHandler(async (req, res) => {
+    const { email, signup_token, password } = req.body;
+    res.status(201).json(await svc.completeSignup(email, signup_token, password));
   }),
 );
 

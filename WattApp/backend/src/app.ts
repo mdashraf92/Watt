@@ -1,4 +1,8 @@
 import express from 'express';
+import path from 'path';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import marketplaceRoutes from './modules/marketplace/marketplace.routes';
+import sellerRoutes from './modules/seller/seller.routes';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -40,7 +44,11 @@ export function createApp() {
   const app = express();
 
   app.set('trust proxy', 1);
-  app.use(helmet());
+  app.use(helmet({ contentSecurityPolicy: { directives: {
+    imgSrc: ["'self'", 'data:', 'https:'],
+    // Local LAN development uses HTTP; production should terminate HTTPS.
+    upgradeInsecureRequests: env.NODE_ENV === 'production' ? [] : null,
+  } } }));
   app.use(cors({ origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(','), credentials: true }));
   // 3mb (up from 1mb) to fit base64 photo attachments (support reports,
   // post-session completion photos) alongside ordinary JSON bodies.
@@ -48,11 +56,17 @@ export function createApp() {
   app.use(attachUser);
 
   app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+  app.use('/dashboard', express.static(path.resolve(__dirname, '../dashboard'), { index: 'index.html' }));
+  app.use('/api/dashboard', dashboardRoutes);
+  // Web seller portal for shops and service providers (see modules/seller).
+  app.use('/seller', express.static(path.resolve(__dirname, '../seller'), { index: 'index.html' }));
+  app.use('/api/seller', sellerRoutes);
 
   // Stricter rate limit on auth endpoints.
   const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 50, standardHeaders: true, legacyHeaders: false });
 
   app.use('/api/auth', authLimiter, authRoutes);
+  app.use('/api/marketplace', marketplaceRoutes);
   app.use('/api/profile', profileRoutes);
   app.use('/api/stations', stationsRoutes);
   app.use('/api/chargers', chargersRoutes);
