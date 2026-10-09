@@ -704,7 +704,8 @@ export default function MapScreen() {
               style={[styles.bookBtn, !selected.is_package_venue && selected.status !== 'available' && styles.bookBtnDisabled]}
               onPress={() => {
                 if (!requireAuth('booking')) return;
-                if (selected.is_package_venue) navigation.navigate('VenuePackages', { stationId: selected.id, stationName: selected.name });
+                if (selected.is_package_venue && selected.cafe_enabled) navigation.navigate('CafeMenu', { stationId: selected.id });
+                else if (selected.is_package_venue) navigation.navigate('VenuePackages', { stationId: selected.id, stationName: selected.name });
                 else if (selected.status === 'available') navigation.navigate('Booking', { station: selected });
               }}
               activeOpacity={0.85}

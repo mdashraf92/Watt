@@ -20,6 +20,7 @@ import { ENV } from '../config/env';
 import {
   MapPinIcon, CalendarIcon, WalletIcon, UserIcon,
   ZapIcon, UsersIcon, TrendingUpIcon, ShieldIcon, StarIcon, CheckIcon,
+  CoffeeIcon,
 } from '../components/icons';
 import { api } from '../lib/api';
 import StoreIcon from '../screens/marketplace/StoreIcon';
@@ -120,6 +121,11 @@ const AdminInvestorsScreen         = lazyScreen(() => import('../screens/admin/A
 const AdminApplicationDetailScreen = lazyScreen(() => import('../screens/admin/AdminApplicationDetailScreen'));
 const AdminProfileScreen           = lazyScreen(() => import('../screens/admin/AdminProfileScreen'));
 const AdminPackagesScreen          = lazyScreen(() => import('../screens/admin/AdminPackagesScreen'));
+const AdminCafesScreen             = lazyScreen(() => import('../screens/admin/AdminCafesScreen'));
+const CafeMapScreen                = lazyScreen(() => import('../screens/cafe/CafeMapScreen'));
+const CafeMenuScreen               = lazyScreen(() => import('../screens/cafe/CafeMenuScreen'));
+const CafeOrderScreen              = lazyScreen(() => import('../screens/cafe/CafeOrderScreen'));
+const CafeStaffOrdersScreen        = lazyScreen(() => import('../screens/cafe/CafeStaffOrdersScreen'));
 const AdminVenueOperationsScreen   = lazyScreen(() => import('../screens/admin/AdminVenueOperationsScreen'));
 const AdminPayoutsScreen           = lazyScreen(() => import('../screens/admin/AdminPayoutsScreen'));
 const SuperAdminScreen             = lazyScreen(() => import('../screens/admin/SuperAdminScreen'));
@@ -448,6 +454,16 @@ function CustomerTabs() {
           ),
         }}
       />
+      <CustomerTab.Screen
+        name="Coffee"
+        component={CafeMapScreen}
+        options={{
+          tabBarLabel: t.tab_coffee,
+          tabBarIcon: ({ focused, color }) => (
+            <CoffeeIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
       <CustomerTab.Screen name="Shop" component={ShopScreen} options={{ tabBarLabel: t.market_shop, tabBarIcon: ({ color }) => <StoreIcon color={color} /> }} />
       <CustomerTab.Screen
         name="Bookings"
@@ -501,6 +517,9 @@ function CustomerNavigator() {
       <CustomerStack.Screen name="PackageCharging" component={PackageChargingScreen} />
       <CustomerStack.Screen name="PackageStaff" component={PackageStaffScreen} />
       <CustomerStack.Screen name="MyPackages" component={MyPackagesScreen} />
+      <CustomerStack.Screen name="CafeMenu" component={CafeMenuScreen} />
+      <CustomerStack.Screen name="CafeOrder" component={CafeOrderScreen} />
+      <CustomerStack.Screen name="CafeStaffOrders" component={CafeStaffOrdersScreen} />
       <CustomerStack.Screen name="StationDetails" component={StationDetailsScreen} />
       <CustomerStack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
       <CustomerStack.Screen name="Booking" component={BookingScreen} />
@@ -858,6 +877,7 @@ function AdminNavigator() {
       <AdminStack.Screen name="MarketVehicles" component={MarketVehicles} />
       <AdminStack.Screen name="MarketAppointments" component={MarketAppointments} />
       <AdminStack.Screen name="AdminPackages" component={AdminPackagesScreen} />
+      <AdminStack.Screen name="AdminCafes" component={AdminCafesScreen} />
       <AdminStack.Screen name="AdminVenueOperations" component={AdminVenueOperationsScreen} />
       <AdminStack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
       <AdminStack.Screen name="AdminFlagged" component={AdminFlaggedScreen} />

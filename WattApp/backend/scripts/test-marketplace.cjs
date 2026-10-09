@@ -23,6 +23,9 @@ test('marketplace API and money invariants',async t=>{
    create schema auth;create table auth.users(id uuid primary key,email text);`);
   const migration=fs.readFileSync(path.join(__dirname,'../sql/backend-marketplace.sql'),'utf8');
   await pool.query(migration);await pool.query(migration);
+  const sellersMigration=fs.readFileSync(path.join(__dirname,'../sql/backend-marketplace-sellers.sql'),'utf8');
+  await pool.query(sellersMigration);await pool.query(sellersMigration);
+  await pool.query(fs.readFileSync(path.join(__dirname,'../sql/backend-seller-portal.sql'),'utf8'));
   await pool.query(fs.readFileSync(path.join(__dirname,'../sql/backend-dashboard.sql'),'utf8'));
   await pool.query(`alter table profiles add column full_name text default 'Test user';
    alter table auth.users add column encrypted_password text;
@@ -34,7 +37,7 @@ test('marketplace API and money invariants',async t=>{
   appPool=require('../src/db/pool').pool;
   const {signAccessToken}=require('../src/lib/jwt');
   const express=require('express');const {attachUser}=require('../src/middleware/auth');const {errorHandler}=require('../src/middleware/error');
-  const app=express();app.use(express.json());app.use(attachUser);app.use('/api/marketplace',require('../src/modules/marketplace/marketplace.routes').default);app.use('/api/dashboard',require('../src/modules/dashboard/dashboard.routes').default);app.use(errorHandler);
+  const app=express();app.use(express.json());app.use(attachUser);app.use('/api/marketplace',require('../src/modules/marketplace/marketplace.routes').default);app.use('/api/dashboard',require('../src/modules/dashboard/dashboard.routes').default);app.use('/api/seller',require('../src/modules/seller/seller.routes').default);app.use(errorHandler);
   server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base=`http://127.0.0.1:${server.address().port}/api/marketplace`;
   const user=randomUUID(),other=randomUUID(),admin=randomUUID(),owner=randomUUID();
   for(const id of [user,other,admin,owner])await pool.query('insert into profiles(id,role) values($1,$2)',[id,id===admin?'admin':'customer']);
@@ -44,6 +47,17 @@ test('marketplace API and money invariants',async t=>{
   const productBody={category_id:'cables',kind:'physical',name:'Test cable',name_ar:'كابل اختبار',description:'Description',description_ar:'وصف',image_url:'https://example.invalid/product.jpg',warranty:'One year',warranty_ar:'سنة',return_days:7,variants:[{sku:'TEST-1',name:'Standard',name_ar:'قياسي',price:2500,stock:10}]};
   let product,variant,order;
   await t.test('vendor cannot approve itself or set commission',async()=>{await api('PATCH',`/admin/vendors/${vendor.id}`,config,owner,403);await api('PATCH',`/admin/vendors/${vendor.id}`,config,admin);});
+  await t.test('seller accounts are unique and business profiles remain owner-scoped',async()=>{
+   await api('POST','/vendors',{name:'Duplicate',name_ar:'Duplicate',cr_number:'TEST',contact_phone:'96890000000',address:'Test',bank_details:'Test'},owner,409);
+   const profile={contact_phone:'96890000001',email:'seller@example.invalid',address:'New address',about:'Seller profile',about_ar:'Seller profile',bank_details:'Test only'};
+   await api('PATCH',`/vendors/${vendor.id}`,profile,other,403);
+   const updated=await api('PATCH',`/vendors/${vendor.id}`,profile,owner);
+   assert.equal(updated.email,profile.email);assert.equal(updated.seller_type,'both');
+  });
+  await t.test('product and service categories cannot be mixed',async()=>{
+   await api('POST',`/vendors/${vendor.id}/products`,{...productBody,category_id:'installation'},owner,400);
+   await api('POST',`/vendors/${vendor.id}/products`,{...productBody,kind:'service',duration_minutes:60},owner,400);
+  });
   await t.test('listing remains private until admin moderation',async()=>{
    product=await api('POST',`/vendors/${vendor.id}/products`,productBody,owner,201);
    assert.equal((await api('GET','/catalog',undefined,null)).length,0);
@@ -137,6 +151,53 @@ test('marketplace API and money invariants',async t=>{
    await pool.query("update market_products set updated_at=now()-interval '31 days' where id=$1",[secondProduct.id]);await api('GET',`/products/${secondProduct.id}`,undefined,null,404);
   });
   await t.test('all new tables have row-level security enabled',async()=>{const rows=(await pool.query("select relname from pg_class where relname like 'market_%' and relkind='r' and not relrowsecurity")).rows;assert.deepEqual(rows,[]);});
+  await t.test('availability management enforces ownership and preserves booked slots',async()=>{
+   const service=(await pool.query("select id from market_products where kind='service' and vendor_id=$1 limit 1",[vendor.id])).rows[0];
+   const created=await api('POST',`/products/${service.id}/slots`,{starts_at:new Date(Date.now()+7*86400000).toISOString(),capacity:2},owner);
+   await api('GET',`/products/${service.id}/slots/manage`,undefined,other,403);
+   assert.ok((await api('GET',`/products/${service.id}/slots/manage`,undefined,owner)).some(s=>s.id===created.id));
+   await api('PATCH',`/slots/${created.id}`,{capacity:3},other,403);
+   assert.equal((await api('PATCH',`/slots/${created.id}`,{capacity:3},owner)).capacity,3);
+   await pool.query('update market_slots set booked=2 where id=$1',[created.id]);
+   await api('PATCH',`/slots/${created.id}`,{capacity:1},owner,409);
+   await api('DELETE',`/slots/${created.id}`,undefined,owner,409);
+   await pool.query('update market_slots set booked=0 where id=$1',[created.id]);
+   const r=await fetch(base+`/slots/${created.id}`,{method:'DELETE',headers:{Authorization:`Bearer ${signAccessToken(owner,'customer')}`}});assert.equal(r.status,204);
+  });
+  await t.test('bulk stock changes are atomic, versioned and vendor-scoped',async()=>{
+   const before=(await pool.query('select * from market_variants where id=$1',[variant.id])).rows[0];
+   const update={id:before.id,version:before.version,stock:before.stock+2};
+   await api('POST',`/vendors/${vendor.id}/stock`,{variants:[update]},other,403);
+   await api('POST',`/vendors/${vendor.id}/stock`,{variants:[update,{id:randomUUID(),version:1,stock:1}]},owner,409);
+   assert.equal((await pool.query('select stock from market_variants where id=$1',[variant.id])).rows[0].stock,before.stock);
+   await api('POST',`/vendors/${vendor.id}/stock`,{variants:[update]},owner);
+   await api('POST',`/vendors/${vendor.id}/stock`,{variants:[update]},owner,409);
+  });
+  await t.test('seller balances exclude refunds and expose only eligible untransferred items',async()=>{
+   await api('GET',`/vendors/${vendor.id}/finance`,undefined,other,403);
+   const appointment=(await pool.query("select a.* from market_appointments a join market_products p on p.id=a.product_id where p.vendor_id=$1 and a.status='completed' limit 1",[vendor.id])).rows[0];
+   await pool.query("update market_fulfilments set completed_at=now()-interval '31 days' where order_id=$1",[appointment.order_id]);
+   const balance=await api('GET',`/vendors/${vendor.id}/finance`,undefined,owner);
+   assert.equal(Number(balance.eligible_baisa),2700);assert.equal(Number(balance.paid_baisa),0);
+  });
+  await t.test('seller cookie sessions reject foreign origins and suspended accounts',async()=>{
+   const password='Seller-test-9381';const encrypted=await require('../src/lib/password').hashPassword(password);
+   await pool.query('insert into auth.users(id,email,encrypted_password) values($1,$2,$3)',[owner,'seller-login@example.invalid',encrypted]);
+   const origin=`http://127.0.0.1:${server.address().port}`;
+   async function seller(path,body,cookie,expected=200,requestOrigin=origin){
+    const r=await fetch(origin+'/api/seller'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',Origin:requestOrigin,...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
+    const data=await r.json();assert.equal(r.status,expected,JSON.stringify(data));return {data,cookie:r.headers.get('set-cookie')?.split(';')[0],headers:r.headers};
+   }
+   await seller('/session',undefined,undefined,401);
+   await seller('/login',{email:'seller-login@example.invalid',password},undefined,403,'https://untrusted.invalid');
+   const login=await seller('/login',{email:'seller-login@example.invalid',password});
+   assert.match(login.headers.get('set-cookie'),/HttpOnly/i);assert.match(login.headers.get('set-cookie'),/SameSite=Strict/i);
+   assert.equal((await seller('/marketplace/portal',undefined,login.cookie)).data.vendors[0].id,vendor.id);
+   await pool.query('update profiles set is_active=false where id=$1',[owner]);
+   await seller('/session',undefined,login.cookie,401);
+   await pool.query('update profiles set is_active=true where id=$1',[owner]);
+   await seller('/logout',{},login.cookie);await seller('/session',undefined,login.cookie,401);
+  });
   await t.test('dashboard cookie sessions, CSRF, role changes, and summary projections',async()=>{
    const superadmin=randomUUID();await pool.query("insert into profiles(id,role) values($1,'superadmin')",[superadmin]);
    const password='Dashboard-test-9381';const encrypted=await require('../src/lib/password').hashPassword(password);
@@ -147,6 +208,16 @@ test('marketplace API and money invariants',async t=>{
    await dash('/login',{email:'customer@example.invalid',password},undefined,401);
    await dash('/login',{email:'admin@example.invalid',password},undefined,403,'https://untrusted.invalid');
    const adminLogin=await dash('/login',{email:'admin@example.invalid',password});
+   await pool.query("update market_vendors set status='pending' where id=$1",[vendor.id]);
+   const inbox=(await dash('/attention',undefined,adminLogin.cookie)).data;
+   assert.ok(inbox.items.some(x=>x.resource==='vendors'&&x.id===vendor.id));
+   assert.ok(inbox.unavailable.includes('support'));
+   const filtered=(await dash('/attention?resource=vendors',undefined,adminLogin.cookie)).data;
+   assert.ok(filtered.items.every(x=>x.resource==='vendors'));assert.equal(filtered.counts.vendors,1);
+   await dash('/attention?resource=invalid',undefined,adminLogin.cookie,400);
+   const pendingVendors=(await dash('/records/vendors?status=pending',undefined,adminLogin.cookie)).data;
+   assert.equal(pendingVendors.rows.length,1);assert.equal(pendingVendors.rows[0].id,vendor.id);
+   await pool.query("update market_vendors set status='approved' where id=$1",[vendor.id]);
    assert.match(adminLogin.headers.get('set-cookie'),/HttpOnly/i);assert.match(adminLogin.headers.get('set-cookie'),/SameSite=Strict/i);
    await dash('/administrators',undefined,adminLogin.cookie,403);
    const summary=(await dash('/overview',undefined,adminLogin.cookie)).data;assert.equal(summary.chargers[0].name,'Test venue');assert.equal('customer_name' in summary.chargers[0],false);

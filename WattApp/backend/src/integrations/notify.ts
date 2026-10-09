@@ -40,6 +40,11 @@ export type NotifyInput = {
 };
 
 function notificationEmailHtml(title: string, body: string): string {
+  const escape = (value: string) => value.replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[char]!));
+  title = escape(title);
+  body = escape(body);
   return `<!doctype html><html><body style="margin:0;background:#F6F8F7;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#16241D">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
     <tr><td align="center">

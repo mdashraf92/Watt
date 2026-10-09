@@ -9,6 +9,7 @@ import { sendPush } from '../../integrations/push';
 import { notify } from '../../integrations/notify';
 import { runDispatch } from '../mobile/dispatch';
 import { pollPackageCharging } from '../packages/charging';
+import * as cafe from '../cafe/cafe.service';
 
 // Cron endpoints — called on a timer (server crontab / systemd timer) with the
 // x-job-secret header. Not part of the public app API.
@@ -19,6 +20,26 @@ function requireJobSecret(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 router.use(requireJobSecret);
+// Non-blocking operational telemetry. Older databases continue serving jobs.
+router.use((req,res,next)=>{
+ const started=Date.now();const name=req.path.slice(1);
+ res.on('finish',()=>{void pool.query(`insert into operations_job_runs(name,started_at,finished_at,http_status,duration_ms,last_success_at)
+ values($1,$2,now(),$3,$4,case when $3 between 200 and 299 then now() else null end)
+ on conflict(name) do update set started_at=excluded.started_at,finished_at=excluded.finished_at,http_status=excluded.http_status,duration_ms=excluded.duration_ms,last_success_at=coalesce(excluded.last_success_at,operations_job_runs.last_success_at) where operations_job_runs.started_at<=excluded.started_at`,
+ [name,new Date(started),res.statusCode,Date.now()-started]).catch(()=>console.error('[jobs] execution monitoring unavailable'));});
+ next();
+});
+
+// Every ~1 min: settle café payments the app never verified, reject orders the
+// café ignored (and refund them), retry pending refunds, SMS staff about unseen orders.
+router.post('/cafe-orders', asyncHandler(async (_req, res) => {
+  res.json(await cafe.sweep());
+}));
+
+// Every ~30 min: pull Beanz menus for Beanz-linked cafés.
+router.post('/cafe-menus', asyncHandler(async (_req, res) => {
+  res.json(await cafe.syncAllBeanzMenus());
+}));
 
 router.post('/package-charging', asyncHandler(async (_req, res) => {
   res.json({ results: await pollPackageCharging() });
@@ -239,6 +260,7 @@ router.post('/reconcile-payments', asyncHandler(async (_req, res) => {
   const { rows: pending } = await query(
     `select user_id, session_id, amount from public.payment_sessions
       where status = 'pending'
+        and cafe_order_id is null  -- café orders settle in /cafe-orders, never into the wallet
         and created_at < now() - interval '2 minutes'
         and created_at > now() - interval '24 hours'
       order by created_at

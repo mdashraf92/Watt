@@ -108,6 +108,7 @@ test('package purchase money invariants on isolated PostgreSQL', async t => {
     });
     await require('./test-package-redemption.cjs')(t, pool);
     await require('./test-package-admin.cjs')(t, pool);
+    await require('./test-cafe-orders.cjs')(t, pool);
   } finally {
     if (pool) await pool.end();
     if (started) run('pg_ctl', ['-D', data, '-m', 'fast', '-w', 'stop']);

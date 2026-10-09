@@ -9,7 +9,7 @@ const tr = (en, ar) => (lang === 'ar' ? ar : en);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const omr = (baisa) => `${(Number(baisa || 0) / 1000).toFixed(3)} ${tr('OMR', 'ر.ع')}`;
 const nm = (row, key = 'name') => (lang === 'ar' ? row?.[key + '_ar'] || row?.[key] : row?.[key] || row?.[key + '_ar']) || '';
-const when = (d) => (d ? new Date(d).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+const when = (d) => (d ? new Date(d).toLocaleString(lang === 'ar' ? 'ar-OM' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Muscat' }) : '—');
 
 const STATUS = {
   pending: ['Awaiting review', 'بانتظار المراجعة'], approved: ['Approved', 'معتمد'], suspended: ['Suspended', 'موقوف'],
@@ -97,7 +97,9 @@ function pages() {
     ['overview', tr('Overview', 'نظرة عامة')],
     ['listings', tr('Listings', 'المنتجات والخدمات'), dash.products.filter((p) => p.status === 'pending').length],
     ...(sellsProducts() ? [['orders', tr('Orders', 'الطلبات'), openOrders().length]] : []),
+    ...(sellsProducts() ? [['stock', tr('Stock manager', 'إدارة المخزون')]] : []),
     ...(sellsServices() ? [['bookings', tr('Bookings', 'الحجوزات'), upcoming().length]] : []),
+    ...(sellsServices() ? [['calendar', tr('Calendar & availability', 'التقويم والتوفر')]] : []),
     ['payouts', tr('Payouts', 'الدفعات')],
     ['business', tr('Business & team', 'النشاط والفريق')],
   ];
@@ -116,7 +118,7 @@ function render() {
   const [, title] = list.find(([k]) => k === page);
   $('page-title').textContent = title;
   $('breadcrumb').textContent = vendor ? nm(vendor) : tr('Seller portal', 'بوابة البائعين');
-  ({ apply: renderApply, overview: renderOverview, listings: renderListings, orders: renderOrders, bookings: renderBookings, payouts: renderPayouts, business: renderBusiness })[page]();
+  ({ apply: renderApply, overview: renderOverview, listings: renderListings, orders: renderOrders, stock: renderStock, bookings: renderBookings, calendar: renderCalendar, payouts: renderPayouts, business: renderBusiness })[page]();
 }
 
 // Run an action, then refresh everything and show a message.
@@ -184,8 +186,23 @@ function renderOverview() {
       ${stat(tr('Paid out to you', 'المدفوع لك'), omr(settled))}
       ${stat(tr('Commission', 'العمولة'), v.commission_bps == null ? '—' : `${(v.commission_bps / 100).toFixed(1)}%`)}
     </div>
-    <div class="row"><button class="primary" id="add">${esc(tr('+ Add a listing', '+ إضافة منتج أو خدمة'))}</button></div></div>`;
+    <div class="row"><button class="primary" id="add">${esc(tr('+ Add a listing', '+ إضافة منتج أو خدمة'))}</button></div>
+    <div class="card" id="updates"><h3>${esc(tr('Latest updates from Go Watt', 'آخر التحديثات من Go Watt'))}</h3><p class="fine">${esc(tr('Loading…', 'جارٍ التحميل…'))}</p></div></div>`;
   $('add').onclick = () => openEditor();
+  void loadUpdates();
+}
+
+// Review outcomes (approved, changes needed, published…) — the same messages the app shows.
+async function loadUpdates() {
+  try {
+    const r = await api('/notifications?limit=8'); const items = (r.notifications || []).filter((n) => n.data?.vendor_id);
+    const el = $('updates'); if (!el) return;
+    const text = (n) => (lang === 'ar' && n.data?.title_ar ? [n.data.title_ar, n.data.body_ar || n.body] : [n.title, n.body]);
+    el.innerHTML = `<h3>${esc(tr('Latest updates from Go Watt', 'آخر التحديثات من Go Watt'))}</h3>` + (items.length
+      ? items.map((n) => { const [t, b] = text(n); return `<div class="notice ${n.read_at ? '' : 'warn'}" style="margin-top:8px"><strong>${esc(t)}</strong><br>${esc(b)}<div class="fine">${esc(when(n.created_at))}</div></div>`; }).join('')
+      : `<p class="fine">${esc(tr('No updates yet. You will hear here, in the app and by email when Go Watt reviews your store or listings.', 'لا توجد تحديثات بعد. ستصلك هنا وفي التطبيق وبالبريد عند مراجعة Go Watt لمتجرك أو منتجاتك.'))}</p>`);
+    if (items.some((n) => !n.read_at)) await api('/notifications/read', 'POST', { ids: items.filter((n) => !n.read_at).map((n) => n.id) });
+  } catch { /* updates are a bonus; the overview works without them */ }
 }
 
 // ── Listings ─────────────────────────────────────────────────────────────
@@ -221,9 +238,9 @@ function openEditor(original) {
     const inp = (name, en, ar, value, attrs = '') => `<label><span>${esc(tr(en, ar))}</span><input name="${name}" value="${esc(value ?? '')}" ${attrs}></label>`;
     const area = (name, en, ar, value) => `<label><span>${esc(tr(en, ar))}</span><textarea name="${name}">${esc(value ?? '')}</textarea></label>`;
     $('editor-form').innerHTML = `
-      <div class="dialog-header"><h2>${esc(original ? tr('Edit listing', 'تعديل المنتج') : tr('New listing', 'منتج جديد'))}</h2><button type="button" class="secondary" id="close">${esc(tr('Close', 'إغلاق'))} ×</button></div>
+      <div class="dialog-header"><h2>${esc(original?.id ? tr('Edit listing', 'تعديل المنتج') : tr('New listing', 'منتج جديد'))}</h2><button type="button" class="secondary" id="close">${esc(tr('Close', 'إغلاق'))} ×</button></div>
       <p class="fine">${esc(tr('Every change goes to Go Watt for review before it is published. Use a square image (at least 1200 × 1200) on a plain background.', 'يُراجع كل تعديل من Go Watt قبل نشره. استخدم صورة مربعة (1200 × 1200 على الأقل) بخلفية بسيطة.'))}</p>
-      ${kinds.length > 1 && !original ? `<div class="pills">${kinds.map((k) => `<button type="button" class="pill ${st.kind === k ? 'on' : ''}" data-kind="${k}">${esc(k === 'service' ? tr('Service', 'خدمة') : tr('Product', 'منتج'))}</button>`).join('')}</div>` : ''}
+      ${kinds.length > 1 && !original?.id ? `<div class="pills">${kinds.map((k) => `<button type="button" class="pill ${st.kind === k ? 'on' : ''}" data-kind="${k}">${esc(k === 'service' ? tr('Service', 'خدمة') : tr('Product', 'منتج'))}</button>`).join('')}</div>` : ''}
       <div class="form-grid">
         <label class="full"><span>${esc(tr('Category', 'الفئة'))}</span><select name="category_id">${cats.map((c) => `<option value="${esc(c.id)}" ${c.id === catValue ? 'selected' : ''}>${esc(nm(c))}</option>`).join('')}</select></label>
         ${inp('name', 'Name — English', 'الاسم بالإنجليزية', o.name)}${inp('name_ar', 'Name — Arabic', 'الاسم بالعربية', o.name_ar, 'dir="rtl"')}
@@ -247,7 +264,7 @@ function openEditor(original) {
         ${v.id ? `<button type="button" class="secondary small" data-stock="${i}" title="${esc(tr('Save this stock without re-review', 'حفظ المخزون دون إعادة مراجعة'))}">${esc(tr('Save stock', 'حفظ المخزون'))}</button>` : `<button type="button" class="danger small" data-drop="${i}" ${st.variants.length < 2 ? 'disabled' : ''}>×</button>`}
       </div>`).join('')}</div>
       <div class="row"><button type="button" class="secondary small" id="add-variant">${esc(tr('+ Add option', '+ إضافة خيار'))}</button><span class="fine">${esc(tr('“Save stock” updates quantity instantly and keeps the listing fresh — no review needed.', '«حفظ المخزون» يحدّث الكمية فوراً ويبقي المنتج محدّثاً — دون مراجعة.'))}</span></div>
-      ${original?.kind === 'service' ? `<div class="card" style="background:#fafcfb"><h3>${esc(tr('Add an available appointment', 'إضافة موعد متاح'))}</h3><div class="row">
+      ${original?.id && original.kind === 'service' ? `<div class="card" style="background:#fafcfb"><h3>${esc(tr('Add an available appointment', 'إضافة موعد متاح'))}</h3><div class="row">
         <label style="flex:2"><span>${esc(tr('Date & time', 'التاريخ والوقت'))}</span><input type="datetime-local" id="slot-at"></label>
         <label style="flex:1"><span>${esc(tr('Bookings available', 'عدد الحجوزات'))}</span><input type="number" id="slot-cap" min="1" max="50" value="1"></label>
         <button type="button" class="secondary" id="add-slot" style="align-self:flex-end">${esc(tr('Add slot', 'إضافة الموعد'))}</button></div></div>` : ''}
@@ -286,11 +303,11 @@ function openEditor(original) {
         duration_minutes: st.kind === 'service' ? Number(o.duration_minutes) : null,
         service_location: st.kind === 'service' ? o.service_location : 'at_centre', price_basis: st.kind === 'service' ? o.price_basis : 'fixed',
         variants: st.variants.map(({ id, sku, name, name_ar, price, stock }) => ({ ...(id ? { id } : {}), sku, name, name_ar, price, stock })),
-        ...(original ? { version: original.version } : {}),
+        ...(original?.id ? { version: original.version } : {}),
       };
       const btn = e.submitter; if (btn) btn.disabled = true;
       try {
-        if (original) await m(`/products/${original.id}`, 'PUT', body); else await m(`/vendors/${vendor.id}/products`, 'POST', body);
+        if (original?.id) await m(`/products/${original.id}`, 'PUT', body); else await m(`/vendors/${vendor.id}/products`, 'POST', body);
         $('editor').close(); toast(tr('Sent for review.', 'تم الإرسال للمراجعة.')); await load();
       } catch (e2) { err(e2.message); } finally { if (btn) btn.disabled = false; }
     };
@@ -323,6 +340,7 @@ function renderBookings() {
   $('page').innerHTML = `<div class="grid">${rows.length ? rows.map((a) => { const quote = ['requested', 'quoted'].includes(a.status); const work = ['booked', 'in_progress'].includes(a.status); return `<div class="card">
       <div class="row"><div><strong>${esc(nm(a))}</strong><div class="fine">${esc(when(a.starts_at))} · ${esc([a.make, a.model, a.year].filter(Boolean).join(' '))}</div></div><span class="spacer"></span>${badge(a.status)}</div>
       ${a.customer_notes ? `<p class="notice good" style="margin:12px 0">${esc(a.customer_notes)}</p>` : ''}
+      <p class="fine">${esc(a.customer_name||'')} · ${esc(a.customer_phone||'')}</p>
       ${quote || work ? `<label style="margin-top:10px"><span>${esc(tr('Notes for the customer', 'ملاحظات للعميل'))}</span><textarea data-notes="${esc(a.id)}">${esc(a.technician_notes || '')}</textarea></label>` : ''}
       ${quote ? `<div class="row" style="margin-top:10px"><input type="number" min="0" step="0.001" data-price="${esc(a.id)}" placeholder="${esc(tr('Quote in OMR', 'العرض بالريال'))}" style="max-width:200px"><button class="primary small" data-quote="${esc(a.id)}">${esc(tr('Send quote', 'إرسال العرض'))}</button></div>` : ''}
       ${work ? `<div class="row" style="margin-top:10px"><button class="primary small" data-work="${esc(a.id)}" data-action="${a.status === 'booked' ? 'start' : 'complete'}">${esc(a.status === 'booked' ? tr('Start job', 'بدء العمل') : tr('Complete job', 'إكمال العمل'))}</button></div>` : ''}

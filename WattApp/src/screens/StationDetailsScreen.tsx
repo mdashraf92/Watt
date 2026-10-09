@@ -305,7 +305,7 @@ export default function StationDetailsScreen() {
         <View style={{ flex: 1 }}>
           <GradientButton
             label={packageVenue ? t.pkg_title : canBook ? t.station_book : t.station_unavailable}
-            onPress={() => !requireAuth('booking') ? undefined : packageVenue ? navigation.navigate('VenuePackages', { stationId: id, stationName: station.name }) : canBook && navigation.navigate('Booking', isListing ? { station, listingId: id } : { station })}
+            onPress={() => !requireAuth('booking') ? undefined : packageVenue && station.cafe_enabled ? navigation.navigate('CafeMenu', { stationId: id }) : packageVenue ? navigation.navigate('VenuePackages', { stationId: id, stationName: station.name }) : canBook && navigation.navigate('Booking', isListing ? { station, listingId: id } : { station })}
             disabled={!packageVenue && !canBook}
             icon={<ZapIcon size={18} color="#fff" strokeWidth={2.5} />}
           />

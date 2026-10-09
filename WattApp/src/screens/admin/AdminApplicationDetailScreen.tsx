@@ -18,11 +18,6 @@ import {
 type Nav = NativeStackNavigationProp<AdminStackParamList, 'AdminApplicationDetail'>;
 type Rt  = RouteProp<AdminStackParamList, 'AdminApplicationDetail'>;
 
-// TODO: wire up once SMTP is configured
-function sendEmail(_type: string, _email: string, _name: string, _comment?: string) {
-  return Promise.resolve();
-}
-
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   pending:      { bg: '#FFFBEB', text: '#D97706', border: '#FEF3C7' },
   under_review: { bg: '#FFFBEB', text: '#D97706', border: '#FEF3C7' },
@@ -168,8 +163,6 @@ export default function AdminApplicationDetailScreen() {
             try {
               await api.admin.application(app.id, action);
               setApp(prev => ({ ...prev, status: statusMap[action] }));
-              if (action === 'accept') await sendEmail('application_accepted', '', app.full_name);
-              if (action === 'reject') await sendEmail('application_rejected', '', app.full_name, comment);
               Alert.alert('✓', `${labelMap[action]} — Done`);
             } catch (e: any) {
               Alert.alert(t.error, e.message);

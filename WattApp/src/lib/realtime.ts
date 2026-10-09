@@ -21,6 +21,8 @@ const handlers = new Map<string, Set<Handler>>();  // table → handlers
 // people on the job. Rejoining after a reconnect is our responsibility: the
 // server's room membership dies with the socket.
 const jobRooms = new Map<string, Set<JobHandlers>>();  // request id → handlers
+// Events the server sends to the user's own room (e.g. 'cafe_order').
+const userEvents = new Map<string, Set<(payload: any) => void>>();
 
 function ensureSocket() {
   if (socket || !ENV.apiUrl) return;
@@ -38,6 +40,9 @@ function ensureSocket() {
   });
   socket.on('mobile_job_update', (u: JobUpdate) => {
     jobRooms.get(u.request_id)?.forEach(h => h.onUpdate?.(u));
+  });
+  socket.onAny((event: string, payload: any) => {
+    userEvents.get(event)?.forEach(h => h(payload));
   });
   socket.on('connect', () => {
     for (const id of jobRooms.keys()) socket?.emit('job:join', id);
@@ -75,6 +80,14 @@ export const realtime = {
     };
   },
 
+  // Subscribe to an event sent to this user's room; returns an unsubscribe function.
+  onUserEvent(event: string, handler: (payload: any) => void): () => void {
+    ensureSocket();
+    if (!userEvents.has(event)) userEvents.set(event, new Set());
+    userEvents.get(event)!.add(handler);
+    return () => { userEvents.get(event)?.delete(handler); };
+  },
+
   // Re-auth the socket after login/refresh.
   reconnectWithToken() {
     if (socket) { socket.auth = { token: tokenStore.getAccess() ?? '' }; socket.disconnect().connect(); }
@@ -86,5 +99,6 @@ export const realtime = {
     socket = null;
     handlers.clear();
     jobRooms.clear();
+    userEvents.clear();
   },
 };

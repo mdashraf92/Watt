@@ -11,6 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test:packages": "node --test scripts/test-packages.cjs",
     "test:marketplace": "node --test scripts/test-marketplace.cjs",
+    "test:delivery": "node --test scripts/test-delivery.cjs",
+    "dashboard:setup": "node scripts/setup-dashboard-tests.cjs",
+    "dashboard:sandbox": "node scripts/start-dashboard-sandbox.cjs",
+    "test:dashboards": "node scripts/test-dashboard-sandbox.cjs",
     "db:marketplace": "node scripts/setup-marketplace.cjs",
     "sms:test": "ts-node --transpile-only scripts/send-test-sms.ts"
   },

@@ -5,6 +5,7 @@ import { asyncHandler } from '../../middleware/error';
 import { requireAuth } from '../../middleware/auth';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import * as svc from './marketplace.service';
+import * as tell from './marketplace.notify';
 
 const router=Router();
 const uuid=z.string().uuid();
@@ -147,9 +148,11 @@ const sellerProfile={contact_phone:text,email:z.string().trim().email().or(z.lit
 router.post('/vendors',asyncHandler(async(req,res)=>{
  const b=parse(z.object({seller_type:z.enum(['shop','service','both']).default('both'),name:text,name_ar:text,cr_number:text,...sellerProfile}),req.body);
  try {
-  res.status(201).json((await query(`insert into market_vendors(owner_id,seller_type,name,name_ar,cr_number,contact_phone,email,address,about,about_ar,logo_url,bank_details)
+  const vendor=(await query(`insert into market_vendors(owner_id,seller_type,name,name_ar,cr_number,contact_phone,email,address,about,about_ar,logo_url,bank_details)
    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *`,
-   [req.user!.id,b.seller_type,b.name,b.name_ar,b.cr_number,b.contact_phone,b.email,b.address,b.about,b.about_ar,b.logo_url,b.bank_details]))[0]);
+   [req.user!.id,b.seller_type,b.name,b.name_ar,b.cr_number,b.contact_phone,b.email,b.address,b.about,b.about_ar,b.logo_url,b.bank_details]))[0];
+  void tell.sellerApplied(vendor);
+  res.status(201).json(vendor);
  } catch(e:any) { if(e.code==='23505')throw conflict('You already have a seller account'); throw e; }
 }));
 // Owner edits the business profile. Name, CR number and seller type are what
@@ -165,9 +168,39 @@ router.get('/vendors/:id/dashboard',asyncHandler(async(req,res)=>{
  const v=await svc.vendorAccess(req.user!.id,id(req.params.id));
  res.json({vendor:v,products:await query('select p.*,(select json_agg(v) from market_variants v where product_id=p.id) as variants from market_products p where vendor_id=$1 order by created_at desc',[v.id]),
  fulfilments:await query(`select f.*,o.phone,o.delivery_address,o.created_at,(select json_agg(i) from market_order_items i where fulfilment_id=f.id) as items from market_fulfilments f join market_orders o on o.id=f.order_id where f.vendor_id=$1 order by o.created_at desc limit 100`,[v.id]),
- appointments:await query(`select a.*,p.name,p.name_ar,s.starts_at,v.make,v.model,v.year from market_appointments a join market_products p on p.id=a.product_id join market_slots s on s.id=a.slot_id join market_vehicles v on v.id=a.vehicle_id where p.vendor_id=$1 order by a.created_at desc limit 100`,[v.id]),
+ appointments:await query(`select a.*,p.name,p.name_ar,s.starts_at,v.make,v.model,v.year,customer.full_name as customer_name,customer.phone as customer_phone from market_appointments a join market_products p on p.id=a.product_id join market_slots s on s.id=a.slot_id join market_vehicles v on v.id=a.vehicle_id join profiles customer on customer.id=a.user_id where p.vendor_id=$1 order by a.created_at desc limit 100`,[v.id]),
  settlements:await query('select * from market_settlements where vendor_id=$1 order by created_at desc',[v.id]),
  returns:await query(`select r.*,i.snapshot from market_returns r join market_order_items i on i.id=r.item_id join market_fulfilments f on f.id=i.fulfilment_id where f.vendor_id=$1 order by r.created_at desc`,[v.id])});
+}));
+router.get('/vendors/:id/finance',asyncHandler(async(req,res)=>{
+ const vendor=await svc.vendorAccess(req.user!.id,id(req.params.id));
+ const [summary]=(await query(`with outstanding as (
+  select i.quantity*i.unit_price-round(i.quantity*i.unit_price*i.commission_bps::numeric/10000) as net,
+   f.status='completed' and f.completed_at+((i.snapshot->>'return_days')::int*interval '1 day')<now()
+   and not exists(select 1 from market_returns r where r.item_id=i.id and r.status<>'rejected') as eligible
+  from market_order_items i join market_fulfilments f on f.id=i.fulfilment_id
+  where f.vendor_id=$1 and not i.refunded and f.status<>'cancelled'
+  and not exists(select 1 from market_settlement_items s where s.item_id=i.id)
+ ) select coalesce(sum(net) filter(where eligible),0)::bigint as eligible_baisa,
+ coalesce(sum(net) filter(where not eligible),0)::bigint as pending_baisa,
+ (select coalesce(sum(amount),0)::bigint from market_settlements where vendor_id=$1) as paid_baisa from outstanding`,[vendor.id]));
+ res.json(summary);
+}));
+router.post('/vendors/:id/stock',asyncHandler(async(req,res)=>{
+ const b=parse(z.object({variants:z.array(z.object({id:uuid,version:z.number().int().positive(),stock:z.number().int().min(0).max(1000000)})).min(1).max(100)}),req.body);
+ if(new Set(b.variants.map(v=>v.id)).size!==b.variants.length)throw badRequest('Duplicate variant');
+ await svc.transaction(async c=>{
+  const vendor=await svc.vendorAccess(req.user!.id,id(req.params.id),c);
+  const products=(await c.query('select distinct product_id from market_variants where id=any($1::uuid[]) order by product_id',[b.variants.map(v=>v.id)])).rows;
+  // Match checkout's product-before-variant lock order to avoid deadlocks.
+  await c.query('select id from market_products where id=any($1::uuid[]) order by id for update',[products.map(p=>p.product_id)]);
+  for(const v of [...b.variants].sort((a,b)=>a.id.localeCompare(b.id))){
+   const updated=await c.query(`update market_variants v set stock=$2,version=v.version+1 from market_products p where v.id=$1 and v.product_id=p.id and p.vendor_id=$3 and p.kind='physical' and v.version=$4 returning v.product_id`,[v.id,v.stock,vendor.id,v.version]);
+   if(!updated.rows.length)throw conflict('Stock changed or variant is unavailable. Refresh before retrying.');
+  }
+  await c.query('update market_products set updated_at=now() where id=any($1::uuid[])',[products.map(p=>p.product_id)]);
+  await svc.event(c,req.user!.id,vendor.id,'bulk_stock_updated',{variants:b.variants.length});
+ });res.json({ok:true});
 }));
 router.post('/vendors/:id/members',asyncHandler(async(req,res)=>{
  const vendor=await svc.vendorAccess(req.user!.id,id(req.params.id));
@@ -179,21 +212,25 @@ router.post('/vendors/:id/members',asyncHandler(async(req,res)=>{
 }));
 router.post('/vendors/:id/products',asyncHandler(async(req,res)=>{
  const vendor=await svc.vendorAccess(req.user!.id,id(req.params.id));const b=parse(productBody,req.body);
- res.status(201).json(await saveProduct(req.user!.id,vendor.id,b));
+ const product=await saveProduct(req.user!.id,vendor.id,b);void tell.listingsSubmitted(vendor.id,[product.name]);
+ res.status(201).json(product);
 }));
 router.post('/vendors/:id/import',asyncHandler(async(req,res)=>{
  const vendor=await svc.vendorAccess(req.user!.id,id(req.params.id));
  const rows=parse(z.array(productBody).min(1).max(100),req.body);
  const results=[];
+ const names:string[]=[];
  for(let index=0;index<rows.length;index++) {
-  try {const product=await saveProduct(req.user!.id,vendor.id,rows[index]);results.push({row:index+1,id:product.id,status:'submitted'});}
+  try {const product=await saveProduct(req.user!.id,vendor.id,rows[index]);names.push(product.name);results.push({row:index+1,id:product.id,status:'submitted'});}
   catch(e:any) {results.push({row:index+1,status:'failed',message:e.code==='23505'?'SKU already exists':e.message});}
  }
+ void tell.listingsSubmitted(vendor.id,names);
  res.json(results);
 }));
 router.put('/products/:id',asyncHandler(async(req,res)=>{
  const p=(await query('select vendor_id from market_products where id=$1',[id(req.params.id)]))[0];if(!p)throw notFound();
- await svc.vendorAccess(req.user!.id,p.vendor_id);res.json(await saveProduct(req.user!.id,p.vendor_id,parse(productBody,req.body),req.params.id));
+ await svc.vendorAccess(req.user!.id,p.vendor_id);const product=await saveProduct(req.user!.id,p.vendor_id,parse(productBody,req.body),req.params.id);
+ void tell.listingsSubmitted(p.vendor_id,[product.name]);res.json(product);
 }));
 async function saveProduct(actor:string,vendor:string,b:z.infer<typeof productBody>,productId?:string) {
  return svc.transaction(async c=>{
@@ -239,6 +276,26 @@ router.post('/products/:id/slots',asyncHandler(async(req,res)=>{
  const p=(await query("select * from market_products where id=$1 and kind='service'",[id(req.params.id)]))[0];if(!p)throw notFound();await svc.vendorAccess(req.user!.id,p.vendor_id);
  if(Date.parse(b.starts_at)<=Date.now())throw badRequest('Choose a future slot');
  res.json((await query('insert into market_slots(product_id,starts_at,capacity) values($1,$2,$3) returning *',[p.id,b.starts_at,b.capacity]))[0]);
+}));
+// Availability editor: ownership is checked for reads and every write.
+router.get('/products/:id/slots/manage',asyncHandler(async(req,res)=>{
+ const p=(await query('select vendor_id,kind from market_products where id=$1',[id(req.params.id)]))[0];if(!p)throw notFound();await svc.vendorAccess(req.user!.id,p.vendor_id);
+ res.json(await query('select * from market_slots where product_id=$1 and starts_at>now() order by starts_at limit 200',[id(req.params.id)]));
+}));
+router.patch('/slots/:id',asyncHandler(async(req,res)=>{
+ const b=parse(z.object({capacity:z.number().int().min(1).max(50)}),req.body);
+ res.json(await svc.transaction(async c=>{
+  const s=(await c.query('select s.*,p.vendor_id from market_slots s join market_products p on p.id=s.product_id where s.id=$1 for update of s',[id(req.params.id)])).rows[0];if(!s)throw notFound();await svc.vendorAccess(req.user!.id,s.vendor_id,c);
+  if(Date.parse(s.starts_at)<=Date.now()||b.capacity<s.booked)throw conflict('Capacity cannot remove booked places or change a past slot');
+  return (await c.query('update market_slots set capacity=$2 where id=$1 returning *',[s.id,b.capacity])).rows[0];
+ }));
+}));
+router.delete('/slots/:id',asyncHandler(async(req,res)=>{
+ await svc.transaction(async c=>{
+  const s=(await c.query('select s.*,p.vendor_id from market_slots s join market_products p on p.id=s.product_id where s.id=$1 for update of s',[id(req.params.id)])).rows[0];if(!s)throw notFound();await svc.vendorAccess(req.user!.id,s.vendor_id,c);
+  if(s.booked|| (await c.query('select 1 from market_appointments where slot_id=$1 limit 1',[s.id])).rows.length)throw conflict('Slots with appointment history cannot be deleted');
+  await c.query('delete from market_slots where id=$1',[s.id]);
+ });res.status(204).end();
 }));
 router.post('/fulfilments/:id/status',asyncHandler(async(req,res)=>{
  const b=parse(z.object({status:z.enum(['accepted','ready','shipped','completed']),tracking:z.string().max(500).default('')}),req.body);
@@ -286,7 +343,9 @@ router.patch('/admin/vendors/:id',asyncHandler(async(req,res)=>{
  const b=parse(z.object({seller_type:z.enum(['shop','service','both']).optional(),status:z.enum(['pending','approved','suspended']),commission_bps:z.number().int().min(0).max(10000),pickup_enabled:z.boolean(),delivery_enabled:z.boolean(),delivery_fee:z.number().int().min(0).max(100000),delivery_area:z.string().max(1000),rejection_reason:z.string().max(2000).default('')}),req.body);
  if(b.delivery_enabled&&!b.delivery_area.trim())throw badRequest('Delivery coverage is required');
  if(b.status==='approved'&&!b.pickup_enabled&&!b.delivery_enabled)throw badRequest('Enable a fulfilment method');
- res.json(await svc.transaction(async c=>{const v=(await c.query(`update market_vendors set status=$2,commission_bps=$3,pickup_enabled=$4,delivery_enabled=$5,delivery_fee=$6,delivery_area=$7,rejection_reason=$8,seller_type=coalesce($9,seller_type) where id=$1 returning *`,[id(req.params.id),b.status,b.commission_bps,b.pickup_enabled,b.delivery_enabled,b.delivery_fee,b.delivery_area,b.rejection_reason,b.seller_type??null])).rows[0];if(!v)throw notFound();await svc.event(c,req.user!.id,v.id,'vendor_updated',b);return v;}));
+ const [before,after]=await svc.transaction(async c=>{const prev=(await c.query('select * from market_vendors where id=$1 for update',[id(req.params.id)])).rows[0];if(!prev)throw notFound();const v=(await c.query(`update market_vendors set status=$2,commission_bps=$3,pickup_enabled=$4,delivery_enabled=$5,delivery_fee=$6,delivery_area=$7,rejection_reason=$8,seller_type=coalesce($9,seller_type) where id=$1 returning *`,[id(req.params.id),b.status,b.commission_bps,b.pickup_enabled,b.delivery_enabled,b.delivery_fee,b.delivery_area,b.rejection_reason,b.seller_type??null])).rows[0];if(!v)throw notFound();await svc.event(c,req.user!.id,v.id,'vendor_updated',b);return [prev,v];});
+ void tell.sellerReviewed(before,after);
+ res.json(after);
 }));
 router.post('/admin/products/:id/moderate',asyncHandler(async(req,res)=>{
  const b=parse(z.object({status:z.enum(['published','rejected','paused']),note:z.string().max(2000),version:z.number().int(),images_checked:z.boolean().default(false)}),req.body);
@@ -296,7 +355,8 @@ router.post('/admin/products/:id/moderate',asyncHandler(async(req,res)=>{
   const p=(await c.query(`select p.*,v.status as vendor_status,v.commission_bps from market_products p join market_vendors v on v.id=p.vendor_id where p.id=$1 for update of p,v`,[id(req.params.id)])).rows[0];if(!p)throw notFound();
   if(p.version!==b.version)throw conflict('Listing changed. Review the latest version.');
   if(b.status==='published'&&(p.vendor_status!=='approved'||p.commission_bps===null))throw conflict('Approve the vendor and set commission first');
-  await c.query('update market_products set status=$2,moderation_note=$3,version=version+1,updated_at=now() where id=$1',[p.id,b.status,b.note]);await svc.event(c,req.user!.id,p.id,'moderated',b);return {ok:true};
+  await c.query('update market_products set status=$2,moderation_note=$3,version=version+1,updated_at=now() where id=$1',[p.id,b.status,b.note]);await svc.event(c,req.user!.id,p.id,'moderated',b);
+  void tell.listingReviewed(p,b.status,b.note);return {ok:true};
  }));
 }));
 router.post('/admin/returns/:id',asyncHandler(async(req,res)=>{

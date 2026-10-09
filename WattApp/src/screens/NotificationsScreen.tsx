@@ -17,7 +17,7 @@ import { FONTS } from '../constants/typography';
 import { useLang } from '../context/LanguageContext';
 import {
   ArrowLeftIcon, BellIcon, CalendarIcon, ZapIcon, WalletIcon,
-  ClockIcon, TimerIcon, AwardIcon,
+  ClockIcon, TimerIcon, AwardIcon, StorefrontIcon, CheckIcon, AlertTriangleIcon, PackageIcon,
 } from '../components/icons';
 import ErrorView from '../components/ErrorView';
 
@@ -33,6 +33,16 @@ const KIND_ICON: Record<string, { Icon: any; color: string; bg: string }> = {
   charge_finished:   { Icon: ZapIcon,      color: COLORS.available, bg: COLORS.successBg },
   wallet_topped_up:  { Icon: WalletIcon,   color: COLORS.primary,   bg: COLORS.primaryBg },
   application_update:{ Icon: AwardIcon,    color: COLORS.primary,   bg: COLORS.primaryBg },
+  // Marketplace review outcomes (see backend marketplace.notify.ts).
+  seller_approved:        { Icon: StorefrontIcon,    color: COLORS.primary,  bg: COLORS.primaryBg },
+  seller_action_needed:   { Icon: AlertTriangleIcon, color: COLORS.goldDark, bg: COLORS.goldTint },
+  seller_suspended:       { Icon: AlertTriangleIcon, color: COLORS.error,    bg: COLORS.errorBg },
+  seller_update:          { Icon: StorefrontIcon,    color: COLORS.goldDark, bg: COLORS.goldTint },
+  seller_application:     { Icon: StorefrontIcon,    color: COLORS.goldDark, bg: COLORS.goldTint },
+  listing_submitted:      { Icon: PackageIcon,       color: COLORS.goldDark, bg: COLORS.goldTint },
+  listing_published:      { Icon: CheckIcon,         color: COLORS.primary,  bg: COLORS.primaryBg },
+  listing_changes_needed: { Icon: AlertTriangleIcon, color: COLORS.goldDark, bg: COLORS.goldTint },
+  listing_paused:         { Icon: PackageIcon,       color: COLORS.textSecondary, bg: COLORS.backgroundAlt },
 };
 
 function relativeTime(iso: string, isRTL: boolean): string {
@@ -100,18 +110,25 @@ export default function NotificationsScreen() {
   const renderItem = ({ item }: { item: AppNotification }) => {
     const v = KIND_ICON[item.kind] ?? { Icon: BellIcon, color: COLORS.textSecondary, bg: COLORS.backgroundAlt };
     const unread = !item.read_at;
+    // Messages may carry an Arabic version in data (marketplace events do).
+    const d: any = item.data ?? {};
+    const title = isRTL && d.title_ar ? d.title_ar : item.title;
+    const body = isRTL && d.body_ar ? d.body_ar : item.body;
+    // data.screen = where a tap should go (e.g. the seller portal).
+    const open = d.screen ? () => { try { navigation.navigate(d.screen, d.params); } catch { /* screen not in this stack */ } } : undefined;
     return (
-      <View style={[styles.row, isRTL && styles.rowRev, unread && styles.rowUnread]}>
+      <TouchableOpacity activeOpacity={open ? 0.7 : 1} disabled={!open} onPress={open} accessibilityRole={open ? 'button' : undefined}
+        style={[styles.row, isRTL && styles.rowRev, unread && styles.rowUnread]}>
         <View style={[styles.iconWrap, { backgroundColor: v.bg }]}>
           <v.Icon size={18} color={v.color} strokeWidth={2} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, isRTL && styles.rtlText]} numberOfLines={2}>{item.title}</Text>
-          <Text style={[styles.body, isRTL && styles.rtlText]}>{item.body}</Text>
+          <Text style={[styles.title, isRTL && styles.rtlText]} numberOfLines={2}>{title}</Text>
+          <Text style={[styles.body, isRTL && styles.rtlText]}>{body}</Text>
           <Text style={[styles.time, isRTL && styles.rtlText]}>{relativeTime(item.created_at, isRTL)}</Text>
         </View>
         {unread && <View style={styles.dot} />}
-      </View>
+      </TouchableOpacity>
     );
   };
 

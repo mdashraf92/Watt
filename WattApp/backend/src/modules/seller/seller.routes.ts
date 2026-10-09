@@ -8,6 +8,7 @@ import { verifyPassword } from '../../lib/password';
 import { badRequest, forbidden, unauthorized } from '../../lib/errors';
 import { transaction } from '../marketplace/marketplace.service';
 import marketplaceRoutes from '../marketplace/marketplace.routes';
+import notificationsRoutes from '../notifications/notifications.routes';
 
 // Web seller portal API (/seller/ in the browser). Shop and service-provider
 // owners sign in with their normal Go Watt account; the portal then uses the
@@ -70,5 +71,7 @@ router.post('/logout', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 router.use('/marketplace', marketplaceRoutes);
+// Same inbox as the app (/api/notifications), for the signed-in dashboard user.
+router.use('/notifications', notificationsRoutes);
 
 export default router;

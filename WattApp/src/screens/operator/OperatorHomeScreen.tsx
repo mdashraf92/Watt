@@ -45,19 +45,19 @@ export default function OperatorHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy]       = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [loadError, setLoadError] = useState('');
 
   const align  = isRTL ? 'right' as const : 'left' as const;
   const rowDir = isRTL ? 'row-reverse' as const : 'row' as const;
 
   const load = useCallback(async () => {
-    const [me, jobs] = await Promise.all([
-      api.operator.me().catch(() => null),
-      api.operator.jobs().catch(() => null),
-    ]);
-    if (me) { setVan(me.van); setJob(me.active_job); }
-    setOffer(jobs?.offered ?? null);
-    setLoading(false);
-  }, []);
+    try {
+      const [me,jobs]=await Promise.all([api.operator.me(),api.operator.jobs()]);
+      setVan(me.van);setJob(me.active_job);setOffer(jobs?.offered??null);setLoadError('');
+    } catch {
+      setLoadError(isRTL?'تعذر تحديث بيانات العمل. اسحب للتحديث.':'Could not refresh job data. Pull to retry.');
+    } finally { setLoading(false); }
+  }, [isRTL]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -189,6 +189,7 @@ export default function OperatorHomeScreen() {
           />
         }
       >
+        {!!loadError&&<Text accessibilityRole="alert" style={{color:COLORS.error,textAlign:align,marginBottom:12}}>{loadError}</Text>}
         <Text style={[styles.greeting, { textAlign: align }]}>
           {profile?.full_name || t.op_home_title}
         </Text>

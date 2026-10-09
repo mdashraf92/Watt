@@ -1,4 +1,5 @@
 import { env } from '../config/env';
+import { AppError } from '../lib/errors';
 
 // SMS sender — iSmartSMS (Infocomm Group LLC, Oman) HTTP POST "SMS PUSH" API.
 // Uses the live provider when configured; otherwise logs the message to the
@@ -41,6 +42,7 @@ export function smsConfigured(): boolean {
 
 export async function sendSms(to: string, body: string): Promise<void> {
   if (!smsConfigured()) {
+    if (env.NODE_ENV === 'production') throw new AppError(503, 'sms_unavailable', 'SMS delivery is not configured');
     // Dev fallback — the code is printed so you can complete the flow locally.
     // eslint-disable-next-line no-console
     console.log(`[sms:log] to=${to} :: ${body}`);
@@ -71,6 +73,7 @@ export async function sendSms(to: string, body: string): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
+    signal: AbortSignal.timeout(15_000),
   });
 
   const text = (await res.text().catch(() => '')).trim();

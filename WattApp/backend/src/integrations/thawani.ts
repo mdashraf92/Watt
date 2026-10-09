@@ -157,3 +157,40 @@ export async function getIntent(intentId: string): Promise<IntentResult> {
   if (!ok || !intent) throw new Error(`Thawani intent error: ${json?.description ?? 'unknown'}`);
   return intent;
 }
+
+// ─── Refunds ────────────────────────────────────────────────────────────────
+// Thawani refunds a *payment*, not a checkout session or intent, so the payment
+// id is looked up first. UNVERIFIED against a live Thawani account: the lookup
+// fields below follow Thawani's published API, but have not been exercised in
+// production. Any failure returns ok=false and the order lands in admin review
+// (refund manually in the Thawani dashboard) — a refund is never silently lost.
+
+async function paymentIdFor(reference: string, kind: 'session' | 'intent'): Promise<string | null> {
+  if (kind === 'session') {
+    const session = await thawani('GET', `/api/v1/checkout/session/${encodeURIComponent(reference)}`);
+    const invoice = session.json?.data?.invoice;
+    if (!session.ok || !invoice) return null;
+    const list = await thawani('GET', `/api/v1/payments?checkout_invoice=${encodeURIComponent(invoice)}&limit=10&skip=0`);
+    const paid = (Array.isArray(list.json?.data) ? list.json.data : []).find((p: any) => p?.status === 'successful');
+    return paid?.payment_id ?? null;
+  }
+  const intent = await thawani('GET', `/api/v1/payment_intents/${encodeURIComponent(reference)}`);
+  const d = intent.json?.data;
+  return intent.ok ? (d?.payment_id ?? d?.latest_payment_id ?? d?.payment?.payment_id ?? null) : null;
+}
+
+export async function refundPayment(
+  reference: string, kind: 'session' | 'intent', reason: string,
+): Promise<{ ok: boolean; refundId: string | null; error?: string }> {
+  try {
+    const paymentId = await paymentIdFor(reference, kind);
+    if (!paymentId) return { ok: false, refundId: null, error: 'Payment id not found' };
+    const { ok, json } = await thawani('POST', '/api/v1/refunds', {
+      payment_id: paymentId, reason: reason.slice(0, 200), metadata: { reference },
+    });
+    const refundId = json?.data?.refund_id ?? json?.data?.id ?? null;
+    return ok ? { ok: true, refundId } : { ok: false, refundId: null, error: json?.description ?? 'Refund rejected' };
+  } catch (e: any) {
+    return { ok: false, refundId: null, error: e?.message ?? 'Refund failed' };
+  }
+}

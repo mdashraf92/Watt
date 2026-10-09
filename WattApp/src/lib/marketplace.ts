@@ -1,3 +1,5 @@
+import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './api';
 import * as WebBrowser from 'expo-web-browser';
@@ -46,3 +48,16 @@ export interface Product {
 }
 export interface Variant { id:string;name:string;name_ar:string;price:number;stock:number;version:number;sku:string }
 export interface Vehicle { id:string;make:string;model:string;year:number;connector:string }
+
+// The signed-in user's seller store (owner or staff), or null. Re-checked each
+// time the screen gains focus so a fresh approval shows up without a restart.
+export function useMyStore(signedIn: boolean) {
+  const [store, setStore] = React.useState<any | null>(null);
+  useFocusEffect(React.useCallback(() => {
+    if (!signedIn) { setStore(null); return; }
+    let live = true;
+    market.get<{ vendors: any[] }>('/portal').then(p => { if (live) setStore(p.vendors[0] ?? null); }).catch(() => {});
+    return () => { live = false; };
+  }, [signedIn]));
+  return store;
+}

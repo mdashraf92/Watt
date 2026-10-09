@@ -120,8 +120,6 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
         id_card_number: idCard.trim(),
       });
 
-      // TODO: send a confirmation email once SMTP is configured on the server.
-
       setSubmitted(true);
     } catch (e: any) {
       Alert.alert(t.error, e.message);

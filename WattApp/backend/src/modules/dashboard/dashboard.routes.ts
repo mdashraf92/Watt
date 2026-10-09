@@ -10,11 +10,14 @@ import { transaction } from '../marketplace/marketplace.service';
 import adminRoutes from '../admin/admin.routes';
 import superadminRoutes from '../superadmin/superadmin.routes';
 import marketplaceRoutes from '../marketplace/marketplace.routes';
+import notificationsRoutes from '../notifications/notifications.routes';
 import packageRoutes from '../packages/admin.routes';
 import mobileRoutes from '../mobile/admin.routes';
 import reportsRoutes from '../reports/reports.routes';
 import sessionsRoutes from '../sessions/admin.routes';
 import payoutsRoutes from '../payouts/payouts.routes';
+import cafeRoutes from '../cafe/cafe.routes';
+import { env } from '../../config/env';
 
 const router=Router();
 const cookieName='gowatt_dashboard';
@@ -54,6 +57,38 @@ router.use(asyncHandler(async(req,res,next)=>{
 }));
 router.get('/session',(req,res)=>res.json({id:req.user!.id,name:res.locals.dashboardUser.full_name,role:req.user!.role}));
 router.post('/logout',asyncHandler(async(req,res)=>{await query('delete from dashboard_sessions where token_hash=$1',[digest(token(req))]);res.clearCookie(cookieName,cookieOptions(req));res.json({ok:true});}));
+router.get('/platform-status',asyncHandler(async(req,res)=>{
+ if(req.user!.role!=='superadmin')throw forbidden('Only super admins can inspect platform configuration');
+ await query('select 1');
+ const exists=(await query("select to_regclass('public.operations_job_runs') as name"))[0].name;
+ const jobs=exists?await query('select * from operations_job_runs order by name'):[];
+ res.json({database:'connected',monitor_ready:!!exists,integrations:{payments:!!(env.THAWANI_SECRET_KEY&&env.THAWANI_PUBLISHABLE_KEY),devices:!!(env.TUYA_CLIENT_ID&&env.TUYA_CLIENT_SECRET),sms:!!(env.ISMARTSMS_USER_ID&&env.ISMARTSMS_PASSWORD&&env.ISMARTSMS_HEADER),email:!!env.SMTP_HOST,routing:!!env.OSRM_URL},features:{package_purchase:env.PACKAGES_PURCHASE_ENABLED,package_charging:env.PACKAGES_CHARGING_ENABLED,package_monitor:env.PACKAGES_MONITOR_ENABLED,cafe_orders:env.CAFE_ORDERS_ENABLED},jobs});
+}));
+
+// A bounded queue of decisions, linked to the existing record/action screens.
+router.get('/attention',asyncHandler(async(req,res)=>{
+ const filter=parse(z.object({resource:z.string().max(40).default('')}),req.query);
+ const sources=[
+  {resource:'chargers',table:'stations',title:'name',date:'null::timestamptz',where:"status::text in ('fault','offline')",priority:'urgent',action:'Check charger connectivity'},
+  {resource:'sessions',table:'charging_sessions',title:'id::text',date:'started_at',where:'flagged_review',priority:'urgent',action:'Review charging session'},
+  {resource:'cafe_orders',table:'cafe_orders',title:'order_no::text',date:'paid_at',where:"refund_status in ('pending','failed')",priority:'urgent',action:'Review café refund'},
+  {resource:'support',table:'support_reports',title:'id::text',date:'created_at',where:"status::text in ('open','in_review')",priority:'normal',action:'Respond to customer'},
+  {resource:'applications',table:'charger_applications',title:'full_name',date:'created_at',where:"status::text in ('pending','under_review')",priority:'normal',action:'Review application'},
+  {resource:'vendors',table:'market_vendors',title:'name',date:'created_at',where:"status='pending'",priority:'normal',action:'Review seller'},
+  {resource:'products',table:'market_products',title:'name',date:'updated_at',where:"status='pending'",priority:'normal',action:'Moderate listing'},
+  {resource:'returns',table:'market_returns',title:'reason',date:'created_at',where:"status in ('requested','approved')",priority:'urgent',action:'Review refund'},
+  {resource:'payouts',table:'payout_requests',title:'id::text',date:'requested_at',where:"status::text='pending'",priority:'normal',action:'Review payout'},
+ ];
+ if(filter.resource&&!sources.some(s=>s.resource===filter.resource))throw badRequest('Unknown queue section');
+ const unavailable:string[]=[];
+ const groups=await Promise.all(sources.filter(s=>!filter.resource||s.resource===filter.resource).map(async s=>{
+  if(!(await query('select to_regclass($1) as name',[`public.${s.table}`]))[0].name){unavailable.push(s.resource);return {resource:s.resource,total:0,items:[]};}
+  const rows=await query(`select id,${s.title} as title,status::text as status,${s.date} as created_at,count(*) over()::int as total from public.${s.table} where ${s.where} order by ${s.date==='null::timestamptz'?'id':s.date+' asc nulls last,id'} limit 50`);
+  return {resource:s.resource,total:rows[0]?.total??0,items:rows.map(({total,...row})=>({...row,resource:s.resource,priority:s.priority,next_action:s.action}))};
+ }));
+ const items=groups.flatMap(g=>g.items).sort((a,b)=>Number(b.priority==='urgent')-Number(a.priority==='urgent')||Date.parse(a.created_at??'9999-01-01')-Date.parse(b.created_at??'9999-01-01'));
+ res.json({items:items.slice(0,50),total:groups.reduce((n,g)=>n+g.total,0),counts:Object.fromEntries(groups.map(g=>[g.resource,g.total])),unavailable,has_more:items.length>50||groups.some(g=>g.total>50)});
+}));
 
 // Explicit summary projections avoid sending customer identities to the overview.
 router.get('/overview',asyncHandler(async(_req,res)=>{
@@ -72,28 +107,79 @@ router.get('/overview',asyncHandler(async(_req,res)=>{
    (select count(*)::int from market_products where status='pending') as products_pending,
    (select count(*)::int from market_vendors where status='approved' and seller_type<>'service') as shops,
    (select count(*)::int from market_vendors where status='approved' and seller_type<>'shop') as service_providers`))[0];
- res.json({counts,chargers,vendors:vendorSummary,commerce,review,unavailable});
+ // Optional blocks: each is guarded so a missing module never breaks the overview.
+ const safe=async<T>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch{return null;}};
+ const has=async(t:string)=>(await query('select to_regclass($1) as name',[`public.${t}`]))[0].name!==null;
+ const cafe=await has('cafe_orders')?await safe(async()=>(await query(`select
+   (select count(*)::int from stations where cafe_enabled) as cafes,
+   (select count(*)::int from cafe_orders where status in ('paid','accepted','ready')) as live,
+   (select count(*)::int from cafe_orders where paid_at>=date_trunc('day',now())) as today_orders,
+   (select coalesce(sum(total),0)::float from cafe_orders where paid_at>=date_trunc('day',now()) and status not in ('rejected','cancelled')) as today_gross,
+   (select coalesce(sum(cafe_net),0)::float from cafe_ledger where settlement_id is null and voided_at is null) as owed_to_cafes,
+   (select count(*)::int from cafe_orders where refund_status in ('failed','pending')) as refunds_open`))[0]):null;
+ // What needs a human today, across modules.
+ const attention={
+  support:await has('support_reports')?await safe(async()=>(await query(`select count(*)::int as n from support_reports where status in ('open','in_review')`))[0].n):null,
+  applications:await has('charger_applications')?await safe(async()=>(await query(`select count(*)::int as n from charger_applications where status::text in ('pending','under_review')`))[0].n):null,
+  payouts:await has('payout_requests')?await safe(async()=>(await query(`select count(*)::int as n from payout_requests where status::text='pending'`))[0].n):null,
+  flagged_sessions:await safe(async()=>(await query(`select count(*)::int as n from charging_sessions where flagged_review`))[0].n),
+  cafe_refunds:cafe?.refunds_open??null,
+ };
+ // Last 14 days of activity for the overview chart.
+ const activity=await safe(async()=>query(`select to_char(d,'YYYY-MM-DD') as day,
+   (select count(*)::int from charging_sessions s where s.started_at>=d and s.started_at<d+interval '1 day') as sessions,
+   ${counts.orders===null?'0':`(select count(*)::int from market_orders o where o.created_at>=d and o.created_at<d+interval '1 day')`} as orders,
+   ${cafe?`(select count(*)::int from cafe_orders c where c.paid_at>=d and c.paid_at<d+interval '1 day')`:'0'} as cafe_orders
+   from generate_series(date_trunc('day',now())-interval '13 days',date_trunc('day',now()),interval '1 day') d order by d`));
+ res.json({counts,chargers,vendors:vendorSummary,commerce,review,unavailable,cafe,attention,activity:activity??[]});
 }));
 
 // Bounded, searchable operational lists. Table names come exclusively from this allowlist.
 // `filters` = columns an admin may filter by exact value (used by the marketplace pages).
 const resources:Record<string,{table:string;columns:string;search:string;filters?:string[]}>={
- chargers:{table:'stations',columns:'id,name,name_ar,address,governorate,latitude,longitude,status,total_connectors,available_connectors',search:'name'},
- users:{table:'profiles',columns:'id,full_name,phone,role,is_active,wallet_balance,held_balance,total_sessions,total_kwh,created_at',search:'full_name'},
- sessions:{table:'charging_sessions',columns:'id,user_id,station_id,status,started_at,kwh_delivered,cost',search:'id::text'},
- bookings:{table:'bookings',columns:'id,user_id,station_id,status,booked_at,duration_minutes',search:'id::text'},
- orders:{table:'market_orders',columns:'id,user_id,total,refunded_total,status,phone,delivery_address,created_at',search:'id::text'},
- appointments:{table:'market_appointments',columns:'id,user_id,product_id,slot_id,status,quoted_price,customer_notes,technician_notes,created_at',search:'id::text'},
+ chargers:{table:'stations',columns:'id,name,name_ar,address,governorate,latitude,longitude,status,total_connectors,available_connectors',search:'name',filters:['status']},
+ users:{table:'profiles',columns:'id,full_name,phone,role,is_active,wallet_balance,held_balance,total_sessions,total_kwh,created_at',search:"concat(full_name,' ',phone)"},
+ sessions:{table:'charging_sessions',columns:'id,user_id,station_id,listing_id,status,started_at,kwh_delivered,cost',search:'id::text',filters:['status']},
+ bookings:{table:'bookings',columns:'id,user_id,station_id,listing_id,status,booked_at,duration_minutes',search:'id::text',filters:['status']},
+ orders:{table:'market_orders',columns:'id,user_id,total,refunded_total,status,phone,delivery_address,created_at',search:'id::text',filters:['status']},
+ appointments:{table:'market_appointments',columns:'id,user_id,product_id,slot_id,status,quoted_price,customer_notes,technician_notes,created_at',search:'id::text',filters:['status']},
  vendors:{table:'market_vendors',columns:'id,owner_id,name,name_ar,seller_type,cr_number,contact_phone,email,address,about,about_ar,logo_url,bank_details,status,commission_bps,pickup_enabled,delivery_enabled,delivery_fee,delivery_area,rejection_reason,created_at',search:'name',filters:['status','seller_type']},
  products:{table:'market_products',columns:'id,vendor_id,name,name_ar,kind,category_id,status,version,price_basis,duration_minutes,description,description_ar,image_url,warranty,warranty_ar,return_days,compatibility,specifications,moderation_note,updated_at',search:'name',filters:['status','kind']},
- returns:{table:'market_returns',columns:'id,item_id,user_id,reason,status,resolution,created_at',search:'id::text'},
+ returns:{table:'market_returns',columns:'id,item_id,user_id,reason,status,resolution,created_at',search:'id::text',filters:['status']},
  packages:{table:'venue_packages',columns:'*,updated_at::text as offer_version',search:'name'},
  fleet:{table:'service_vans',columns:'*',search:'label'},
- support:{table:'support_reports',columns:'*',search:'id::text'},
- applications:{table:'charger_applications',columns:'*',search:'full_name'},
+ support:{table:'support_reports',columns:'*',search:'id::text',filters:['status']},
+ applications:{table:'charger_applications',columns:'*',search:'full_name',filters:['status']},
  settlements:{table:'market_settlements',columns:'*',search:'reference'},
- payouts:{table:'payout_requests',columns:'*',search:'id::text'},
+ payouts:{table:'payout_requests',columns:'*',search:'id::text',filters:['status']},
+ cafe_orders:{table:'cafe_orders',columns:'id,order_no,user_id,station_id,package_id,status,total,refund_status,reject_reason,note,created_at,paid_at,accepted_at,ready_at,collected_at',search:'id::text',filters:['status']},
 };
+// Tables whose rows belong to a customer: search also matches the customer's name or email.
+const personTables=new Set(['cafe_orders','charging_sessions','bookings','market_orders','market_appointments','market_returns','payout_requests','charger_applications']);
+// Replace raw ids with what an admin actually reads: who (name + email), where
+// (station or home charger), which seller and which listing. One batched query
+// per kind; raw ids stay on the row for the details view.
+async function withNames(rows:any[]){
+ if(!rows.length)return rows;
+ const ids=(key:string)=>[...new Set(rows.map(r=>r[key]).filter(Boolean))];
+ const map=async(key:string,sql:string)=>{const list=ids(key);if(!list.length)return new Map<string,any>();return new Map((await query(sql,[list])).map((x:any)=>[x.id,x]));};
+ const [people,stations,listings,vendors,products]=await Promise.all([
+  map('user_id',`select p.id,p.full_name as name,u.email,p.phone from profiles p left join auth.users u on u.id=p.id where p.id=any($1::uuid[])`),
+  map('station_id','select id,name from stations where id=any($1::uuid[])'),
+  map('listing_id',`select cl.id,coalesce(nullif(cl.station_name,''),cl.address) as name,p.full_name as host from charger_listings cl left join profiles p on p.id=cl.host_id where cl.id=any($1::uuid[])`),
+  map('vendor_id','select id,name from market_vendors where id=any($1::uuid[])'),
+  map('product_id','select id,name from market_products where id=any($1::uuid[])'),
+ ]);
+ return rows.map(r=>{
+  const out:any={...r};
+  if('user_id' in r){const p=people.get(r.user_id);out.customer=p?{name:p.name||'',email:p.email||p.phone||''}:null;}
+  if('station_id' in r||'listing_id' in r){const st=stations.get(r.station_id);const li=listings.get(r.listing_id);
+   out.location=st?{name:st.name,email:''}:li?{name:li.name,email:li.host?`Home charger · ${li.host}`:'Home charger'}:null;}
+  if('vendor_id' in r)out.vendor=vendors.get(r.vendor_id)?.name??null;
+  if('product_id' in r)out.product=products.get(r.product_id)?.name??null;
+  return out;
+ });
+}
 router.get('/records/:resource',asyncHandler(async(req,res)=>{
  const r=resources[req.params.resource];if(!r)throw notFound();
  if(!(await query('select to_regclass($1) as name',[`public.${r.table}`]))[0].name)throw notFound('This module needs database setup');
@@ -101,12 +187,13 @@ router.get('/records/:resource',asyncHandler(async(req,res)=>{
  // Exact-match filters, only for columns allowlisted on the resource; values are bound, never interpolated.
  const where:string[]=[];const params:unknown[]=[q.q,q.offset];
  for(const col of r.filters??[]){const v=req.query[col];if(typeof v==='string'&&v){params.push(parse(z.string().regex(/^[a-z_]{1,30}$/),v));where.push(`${col}::text=$${params.length}`);}}
- const rows=await query(`select ${r.columns} from public.${r.table} where ($1='' or ${r.search} ilike '%'||$1||'%')${where.map(w=>' and '+w).join('')} order by id limit 50 offset $2`,params);
- res.json({rows,has_more:rows.length===50});
+ const people=personTables.has(r.table)?` or user_id in (select p.id from profiles p left join auth.users u on u.id=p.id where p.full_name ilike '%'||$1||'%' or u.email ilike '%'||$1||'%' or p.phone ilike '%'||$1||'%')`:r.table==='profiles'?` or id in(select id from auth.users where email ilike '%'||$1||'%')`:'';
+ const rows=await query(`select ${r.columns} from public.${r.table} where ($1='' or ${r.search} ilike '%'||$1||'%'${people})${where.map(w=>' and '+w).join('')} order by id limit 50 offset $2`,params);
+ res.json({rows:await withNames(rows),has_more:rows.length===50});
 }));
 router.get('/records/:resource/:id',asyncHandler(async(req,res)=>{
  const r=resources[req.params.resource];if(!r)throw notFound();const id=parse(z.string().uuid(),req.params.id);
- const row=(await query(`select ${r.columns} from public.${r.table} where id=$1`,[id]))[0];if(!row)throw notFound();
+ const raw=(await query(`select ${r.columns} from public.${r.table} where id=$1`,[id]))[0];if(!raw)throw notFound();const [row]=await withNames([raw]);
  const related:Record<string,unknown>={};
  if(req.params.resource==='chargers'){
   related.connectors=await query('select id,connector_type,power_kw,status from connectors where station_id=$1',[id]);
@@ -123,6 +210,7 @@ router.get('/records/:resource/:id',asyncHandler(async(req,res)=>{
   related.fulfilments=await query('select * from market_fulfilments where order_id=$1',[id]);
   related.events=await query('select action,created_at,detail from market_events where entity_id=$1 order by created_at',[id]);
  }
+ if(req.params.resource==='cafe_orders')related.items=await query('select name,quantity,unit_price,in_package,options from cafe_order_items where order_id=$1',[id]);
  if(req.params.resource==='products')related.variants=await query('select * from market_variants where product_id=$1',[id]);
  if(req.params.resource==='vendors')related.products=await query('select id,name,status,kind from market_products where vendor_id=$1',[id]);
  res.json({row,related});
@@ -152,6 +240,9 @@ router.use('/ops/admin',adminRoutes,mobileRoutes,sessionsRoutes,packageRoutes);
 router.use('/ops/superadmin/admins',(_req,_res,next)=>next(notFound('Use administrator access management')));
 router.use('/ops/superadmin',superadminRoutes);
 router.use('/ops/marketplace',marketplaceRoutes);
+// Same inbox as the app (/api/notifications), for the signed-in dashboard user.
+router.use('/notifications', notificationsRoutes);
 router.use('/ops/reports',reportsRoutes);
 router.use('/ops/payouts',payoutsRoutes);
+router.use('/ops/cafe',cafeRoutes);
 export default router;

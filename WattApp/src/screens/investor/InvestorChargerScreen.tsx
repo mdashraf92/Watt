@@ -20,7 +20,7 @@ import {
 
 export default function InvestorChargerScreen() {
   const { profile } = useAuth();
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
   const tabBarHeight = useTabBarHeight();
   const navigation = useNavigation<any>();
 
@@ -37,6 +37,7 @@ export default function InvestorChargerScreen() {
   const [earnToday, setEarnToday] = useState(0);
   const [earnMonth, setEarnMonth] = useState(0);
   const [sessMonth, setSessMonth] = useState(0);
+  const [hostSummary, setHostSummary] = useState<Awaited<ReturnType<typeof api.host.summary>> | null>(null);
 
   // Edit form — price is NOT editable here: pricing is set by Go Watt admin
   const [editAddress,  setEditAddress]  = useState('');
@@ -66,21 +67,13 @@ export default function InvestorChargerScreen() {
 
   const fetchEarnings = useCallback(async () => {
     if (!profile) return;
-    let data: { amount: number; created_at: string; type: string }[];
     try {
-      const all: any[] = await api.wallet.transactions();
-      data = all.filter(tx => tx.type === 'earning');
-    } catch { return; }
-    const now = new Date();
-    let today = 0, month = 0, count = 0;
-    for (const tx of data as { amount: number; created_at: string }[]) {
-      const d = new Date(tx.created_at);
-      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
-        month += tx.amount; count += 1;
-      }
-      if (d.toDateString() === now.toDateString()) today += tx.amount;
-    }
-    setEarnToday(today); setEarnMonth(month); setSessMonth(count);
+      const summary = await api.host.summary();
+      setHostSummary(summary);
+      setEarnToday(summary.earnings.today);
+      setEarnMonth(summary.earnings.month);
+      setSessMonth(summary.month_sessions);
+    } catch { /* preserve the last successful summary */ }
   }, [profile?.id]);
 
   useEffect(() => { fetchListing(); fetchEarnings(); }, [fetchListing, fetchEarnings]);
@@ -273,6 +266,14 @@ export default function InvestorChargerScreen() {
   return (
     <SafeAreaView style={s.root} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}>
+        {hostSummary && <View style={{margin:20,padding:16,gap:10,backgroundColor:COLORS.card,borderRadius:16}}>
+          <Text style={{fontWeight:'700',color:COLORS.text}}>{isRTL?'العمليات الحالية':'Current operations'}</Text>
+          <Text style={{color:COLORS.text}}>{isRTL?'دفعات قيد الانتظار':'Pending payouts'}: {hostSummary.pending_payout.toFixed(3)} OMR</Text>
+          <Text style={{color:COLORS.text}}>{isRTL?'جلسات نشطة':'Active sessions'}: {hostSummary.active_sessions.length}</Text>
+          {hostSummary.active_sessions.map(session=><View key={session.id} style={{gap:4}}>
+            <Text style={{color:COLORS.text}}>{new Date(session.started_at).toLocaleString()} · {Number(session.kwh_delivered||0).toFixed(2)} kWh · {Number(session.cost||0).toFixed(3)} OMR</Text>
+          </View>)}
+        </View>}
 
         {/* ── Hero status card ── */}
         <View style={[s.hero, isOnline ? s.heroOn : s.heroOff]}>

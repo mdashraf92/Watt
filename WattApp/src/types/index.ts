@@ -68,6 +68,8 @@ export interface ChargerListing {
 
 export interface Station {
   is_package_venue?: boolean;
+  /** Café ordering enabled (backend-cafe-orders.sql) — opens CafeMenu instead of plain packages. */
+  cafe_enabled?: boolean;
   id: string;
   name: string;
   name_ar?: string;
@@ -342,11 +344,15 @@ export type CustomerStackParamList = MarketplaceStackParamList & {
   MyTrips: undefined;
   TripDetail: { tripId: string };
   Favorites: undefined;
+  CafeMenu: { stationId: string };
+  CafeOrder: { orderId: string };
+  CafeStaffOrders: undefined;
 };
 
 export type CustomerTabParamList = {
   Shop: undefined;
   Map: undefined;
+  Coffee: undefined;
   Bookings: undefined;
   Wallet: undefined;
   Profile: undefined;
@@ -377,6 +383,7 @@ export interface AdminCustomer {
 
 export type AdminStackParamList = MarketplaceStackParamList & {
   AdminVenueOperations: undefined;
+  AdminCafes: undefined;
   AdminPackages: undefined;
   AdminTabs: undefined;
   AdminApplicationDetail: { application: ChargerApplication };
@@ -665,3 +672,66 @@ export type OperatorTabParamList = {
 // Backwards-compat aliases
 export type MainStackParamList = CustomerStackParamList;
 export type TabParamList = CustomerTabParamList;
+
+// ── Go Watt Café (backend/sql/backend-cafe-orders.sql) ──────────────────────
+export type CafeSummary = {
+  id: string; name: string; name_ar: string | null; address: string; address_ar: string | null;
+  latitude: number; longitude: number; image_url: string | null; cafe_logo_url: string | null;
+  operating_hours: string; orders_paused: boolean; prep_minutes: number; rating: number;
+  from_price: number | null; included_minutes: number | null; included_kwh: number | null; can_order: boolean;
+};
+export type CafeChoice = { id: string; name: string; name_ar: string; price_delta: number };
+export type CafeOptionGroup = { id: string; name: string; name_ar: string; required?: boolean; max?: number; choices: CafeChoice[] };
+export type CafeMenuItem = {
+  id: string; category: string; category_ar: string; name: string; name_ar: string;
+  description: string; description_ar: string; price: number; image_url: string | null;
+  options: CafeOptionGroup[];
+  /** null = cannot be the package drink; 0 = included; >0 = extra when chosen as the package drink. */
+  package_upcharge: number | null;
+};
+export type CafePackage = {
+  id: string; name: string; name_ar: string; description: string; description_ar: string;
+  partner_benefit: string; partner_benefit_ar: string; price: number;
+  included_minutes: number | null; included_kwh: number | null; included_items: number;
+  validity_hours: number; offer_version: string;
+};
+export type CafeDetail = Omit<CafeSummary, 'from_price' | 'included_minutes' | 'included_kwh' | 'rating'> & {
+  charger_ready: boolean; packages: CafePackage[]; menu: CafeMenuItem[];
+};
+export type CafeOrderStatus = 'pending_payment' | 'paid' | 'accepted' | 'ready' | 'collected' | 'rejected' | 'cancelled' | 'payment_failed';
+export type CafeOrderLine = { item_id: string; quantity: number; in_package: boolean; options: string[] };
+export type CafeOrder = {
+  id: string; number: number; status: CafeOrderStatus; station_id: string; package_id: string;
+  package_price: number; items_total: number; total: number; note: string;
+  refund_status: 'pending' | 'refunded' | 'failed' | 'review' | null; reject_reason: string | null;
+  ready_eta: string | null; created_at: string; paid_at: string | null; accepted_at: string | null;
+  ready_at: string | null; collected_at: string | null; entitlement_id: string | null;
+  station_name: string; station_name_ar: string | null; address: string;
+  redeem_code: string | null; minutes_total: number | null; minutes_used: number | null;
+  kwh_total: number | null; kwh_used: number | null; expires_at: string | null; pass_status: string | null;
+  package_name: string; package_name_ar: string;
+  items?: { name: string; name_ar: string; options: { group: string; group_ar: string; name: string; name_ar: string }[];
+            unit_price: number; quantity: number; in_package: boolean }[];
+};
+export type CafePaymentStep =
+  | { status: 'paid' | 'pending'; order: { id: string } }
+  | { status: 'action_required'; order: { id: string }; redirect_url: string }
+  | { status: 'failed'; order: { id: string }; message?: string };
+export type CafeStaffOrder = {
+  id: string; number: number; status: 'paid' | 'accepted' | 'ready'; total: number; note: string;
+  created_at: string; paid_at: string; ready_eta: string | null; customer_name: string | null;
+  items: { name: string; name_ar: string; options: { name: string; name_ar: string }[]; quantity: number; in_package: boolean }[];
+};
+export type CafeStaffVenue = { id: string; name: string; name_ar: string | null; orders_paused: boolean; prep_minutes: number };
+export type AdminCafe = {
+  id: string; name: string; name_ar: string | null; is_package_venue: boolean; cafe_enabled: boolean;
+  cafe_logo_url: string | null; image_url: string | null; orders_paused: boolean; prep_minutes: number;
+  menu_source: 'manual' | 'beanz'; beanz_store_id: string | null; beanz_synced_at: string | null; beanz_sync_error: string | null;
+  charge_share_omr: number; commission_pct: number; beanz_fee_pct: number; menu_count: number; refunds_failed: number;
+};
+export type AdminCafeMenuItem = CafeMenuItem & { is_available: boolean; source_available: boolean; source: 'manual' | 'csv' | 'beanz'; sort_order: number };
+export type AdminCafeSettlement = {
+  unsettled: { orders: number; gross: number; charge_share: number; commission: number; beanz_fee: number; cafe_net: number };
+  settlements: { id: string; period_end: string; order_count: number; gross: number; cafe_net: number; beanz_fee: number; status: 'open' | 'paid'; bank_reference: string | null; created_at: string }[];
+  refunds: { id: string; number: number; total: number; refund_status: string; reject_reason: string | null; closed_at: string }[];
+};

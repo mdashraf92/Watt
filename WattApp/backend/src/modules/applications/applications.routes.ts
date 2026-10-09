@@ -49,6 +49,16 @@ router.post('/',
        b.electricity_form_name, b.commercial_registration, b.id_card_number],
     );
     const application = rows[0];
+    void notify({
+      userIds: [req.user!.id],
+      category: 'booking',
+      kind: 'investor_application_received',
+      title: 'Charger application received',
+      body: 'We received your charger application. Go Watt will notify you when it has been reviewed.',
+      data: { application_id: application.id },
+      dedupeKey: `investor_application_received:${application.id}`,
+      email: true,
+    }).catch(() => console.error('[applications] confirmation notification failed'));
 
     const { rows: admins } = await query(`select id from public.profiles where role in ('admin','superadmin')`);
     if (admins.length) {

@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,FlatList,Image,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
 import {SafeAreaView,useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
-import {market,omr,Product,Vehicle} from '../../lib/marketplace';
+import {market,omr,Product,Vehicle,useMyStore} from '../../lib/marketplace';
 import {useLang} from '../../context/LanguageContext';
 import {useAuth} from '../../context/AuthContext';
 import {useRequireAuth,AuthReason} from '../../lib/useRequireAuth';
@@ -24,6 +24,7 @@ export default function ShopScreen({navigation}:any) {
  const {session}=useAuth();
  const {width}=useWindowDimensions();const insets=useSafeAreaInsets();const tabBarHeight=useTabBarHeight();
  const requireAuth=useRequireAuth();
+ const myStore=useMyStore(!!session);
  const openAccount=(screen:string,reason:AuthReason='account')=>{if(requireAuth(reason))navigation.navigate(screen);};
  const [kind,setKind]=useState<'physical'|'service'>('physical');const [search,setSearch]=useState('');
  const [sort,setSort]=useState('newest');const [vehicles,setVehicles]=useState<Vehicle[]>([]);const [vehicle,setVehicle]=useState('');
@@ -120,10 +121,14 @@ export default function ShopScreen({navigation}:any) {
     <Text numberOfLines={1} style={[s.title,f('extrabold')]}>{c('Marketplace','السوق')}</Text>
     <Text numberOfLines={1} style={[s.subtitle,f('regular')]}>{c('Products & services for your EV','منتجات وخدمات لسيارتك الكهربائية')}</Text>
    </View>
+   {/* Guests see Sign in; the cart only appears once there's an account to hold it. */}
    {!session&&<GuestSignInButton height={46}/>}
-   <Pressable accessibilityRole="button" accessibilityLabel={c('Cart','السلة')} onPress={()=>openAccount('MarketCart','order')} style={({pressed})=>[s.iconBtn,pressed&&s.pressed]}>
+   {!!myStore&&<Pressable accessibilityRole="button" accessibilityLabel={c('My store','متجري')} onPress={()=>navigation.navigate('MarketPortal')} style={({pressed})=>[s.storeBtn,{flexDirection:row},pressed&&s.pressed]}>
+    <StorefrontIcon size={17} color="#fff" strokeWidth={2.1}/><Text style={[s.storeBtnText,f('bold')]} numberOfLines={1}>{c('My store','متجري')}</Text>
+   </Pressable>}
+   {!!session&&<Pressable accessibilityRole="button" accessibilityLabel={c('Cart','السلة')} onPress={()=>openAccount('MarketCart','order')} style={({pressed})=>[s.iconBtn,pressed&&s.pressed]}>
     <ShoppingCartIcon size={22} color={COLORS.primaryDark} strokeWidth={1.9}/>
-   </Pressable>
+   </Pressable>}
   </View>
 
   <FlatList data={error?[]:items} keyExtractor={i=>i.id} numColumns={2} key="grid"
@@ -181,6 +186,8 @@ const s=StyleSheet.create({
  topBar:{alignItems:'center',gap:12,paddingHorizontal:PAD,paddingTop:10,paddingBottom:12,width:'100%',maxWidth:MAX_W,alignSelf:'center'},
  title:{fontSize:28,lineHeight:36,color:COLORS.text},
  subtitle:{fontSize:13,lineHeight:18,color:COLORS.textSecondary},
+ storeBtn:{height:46,borderRadius:23,paddingHorizontal:14,gap:7,alignItems:'center',backgroundColor:COLORS.primaryDark},
+ storeBtnText:{fontSize:14,color:'#fff'},
  iconBtn:{width:46,height:46,borderRadius:23,backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,alignItems:'center',justifyContent:'center'},
  content:{paddingHorizontal:PAD,gap:18,width:'100%',maxWidth:MAX_W,alignSelf:'center'},
  headerStack:{gap:16,paddingBottom:2},

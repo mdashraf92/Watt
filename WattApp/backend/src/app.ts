@@ -39,6 +39,7 @@ import sessionsAdminRoutes from './modules/sessions/admin.routes';
 import packageChargingRoutes from './modules/packages/charging.routes';
 import packagesRoutes from './modules/packages/packages.routes';
 import packagesAdminRoutes from './modules/packages/admin.routes';
+import cafeRoutes from './modules/cafe/cafe.routes';
 
 export function createApp() {
   const app = express();
@@ -67,6 +68,7 @@ export function createApp() {
 
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/marketplace', marketplaceRoutes);
+  app.use('/api/cafe', cafeRoutes);
   app.use('/api/profile', profileRoutes);
   app.use('/api/stations', stationsRoutes);
   app.use('/api/chargers', chargersRoutes);

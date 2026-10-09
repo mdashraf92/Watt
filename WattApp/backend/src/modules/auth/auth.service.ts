@@ -1,10 +1,10 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt } from 'crypto';
 import { pool, withUser } from '../../db/pool';
 import { hashPassword, verifyPassword, hashToken } from '../../lib/password';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
 import { AppError, badRequest, conflict, unauthorized } from '../../lib/errors';
 import { sendSms } from '../../integrations/sms';
-import { sendEmail } from '../../integrations/email';
+import { sendEmail, requireEmailDelivery } from '../../integrations/email';
 import { env, isProd } from '../../config/env';
 
 const REFRESH_DAYS = 30;
@@ -91,6 +91,7 @@ function signupEmailHtml(code: string): string {
 // before that still send password + name here; both are kept on the row so
 // those builds finish in one verify call as they always did.
 export async function startSignup(rawEmail: string, password?: string, fullName?: string) {
+  requireEmailDelivery();
   const email = rawEmail.trim().toLowerCase();
   if (await getUserByEmail(email)) throw conflict('Email already registered');
 
@@ -102,7 +103,7 @@ export async function startSignup(rawEmail: string, password?: string, fullName?
   if ((recent[0]?.n ?? 0) >= OTP_MAX_SENDS_15M)
     throw badRequest('Too many code requests. Please try again in a few minutes.');
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   const passwordHash = password ? await hashPassword(password) : null;
   await pool.query(`update public.pending_signups set consumed = true where email = $1 and consumed = false`, [email]);
   await pool.query(
@@ -111,9 +112,7 @@ export async function startSignup(rawEmail: string, password?: string, fullName?
     [email, passwordHash, fullName?.trim() || null, hashToken(code)],
   );
 
-  sendEmail(email, 'Verify your GO WATT account', signupEmailHtml(code))
-    // eslint-disable-next-line no-console
-    .catch((e) => console.error('[signup-otp] send failed:', e?.message ?? e));
+  await sendEmail(email, 'Verify your GO WATT account', signupEmailHtml(code));
   if (!isProd) {
     // eslint-disable-next-line no-console
     console.warn(`[otp] non-prod: signup code for ${email} is ${code}`);
@@ -277,6 +276,7 @@ function resetOtpEmailHtml(code: string): string {
 }
 
 export async function requestPasswordReset(rawEmail: string): Promise<void> {
+  requireEmailDelivery();
   const email = rawEmail.trim().toLowerCase();
 
   const { rows: recent } = await pool.query(
@@ -290,7 +290,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
   // Don't reveal whether the account exists — if not, silently skip sending.
   const u = await getUserByEmail(email);
   if (u) {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 1000000));
     await pool.query(`update public.password_reset_otps set consumed = true where email = $1 and consumed = false`, [email]);
     await pool.query(
       `insert into public.password_reset_otps (email, code_hash, expires_at)
@@ -367,7 +367,7 @@ export async function startPhoneAuth(rawPhone: string) {
   if ((recent[0]?.n ?? 0) >= OTP_MAX_SENDS_15M)
     throw badRequest('Too many code requests. Please try again in a few minutes.');
 
-  const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
+  const code = String(randomInt(100000, 1000000)); // 6 digits
   // Invalidate any earlier live codes for this number, then store the new one.
   await pool.query(`update public.phone_otps set consumed = true where phone = $1 and consumed = false`, [phone]);
   await pool.query(
@@ -486,6 +486,7 @@ function otpEmailHtml(code: string): string {
 }
 
 export async function startEmailOtp(rawEmail: string) {
+  requireEmailDelivery();
   const email = rawEmail.trim().toLowerCase();
 
   const { rows: recent } = await pool.query(
@@ -500,7 +501,7 @@ export async function startEmailOtp(rawEmail: string) {
   // If there's no account, silently skip sending; the caller always gets ok.
   const user = await getUserByEmail(email);
   if (user) {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 1000000));
     await pool.query(`update public.email_otps set consumed = true where email = $1 and consumed = false`, [email]);
     await pool.query(
       `insert into public.email_otps (email, code_hash, expires_at)

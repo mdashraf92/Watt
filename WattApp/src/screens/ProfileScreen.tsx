@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { api } from '../lib/api';
+import { useMyStore } from '../lib/marketplace';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { FONTS } from '../constants/typography';
 import Constants from 'expo-constants';
@@ -64,6 +65,7 @@ type NavProp = NativeStackNavigationProp<CustomerStackParamList>;
 
 export default function ProfileScreen() {
   const { profile, session, signOut, updateProfile, deleteAccount } = useAuth();
+  const myStore = useMyStore(!!session);   // seller card reads "My store" once they have one
   const { t, toggleLanguage, isRTL } = useLang();
   const tabBarHeight = useTabBarHeight();
   const navigation = useNavigation<NavProp>();
@@ -379,8 +381,8 @@ export default function ProfileScreen() {
               <StorefrontIcon size={22} color="#fff" strokeWidth={2.2} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.serviceTitle, isRTL && { textAlign: 'right' }]}>{t.seller_entry_title}</Text>
-              <Text style={[styles.serviceSub, isRTL && { textAlign: 'right' }]}>{t.seller_entry_sub}</Text>
+              <Text style={[styles.serviceTitle, isRTL && { textAlign: 'right' }]}>{myStore ? t.seller_store_title : t.seller_entry_title}</Text>
+              <Text style={[styles.serviceSub, isRTL && { textAlign: 'right' }]}>{myStore ? (isRTL ? myStore.name_ar : myStore.name) : t.seller_entry_sub}</Text>
             </View>
             <View style={isRTL ? { transform: [{ scaleX: -1 }] } : undefined}>
               <ChevronRightIcon size={18} color={COLORS.textTertiary} strokeWidth={2} />

@@ -6,25 +6,10 @@ import { validateBody } from '../../middleware/validate';
 import { pool, callFn } from '../../db/pool';
 import { AppError } from '../../lib/errors';
 import * as thawani from '../../integrations/thawani';
+import { ensureCustomer } from './customer';
 
 const router = Router();
 router.use(requireAuth);
-
-/** The user's Thawani customer id, creating it on first use. */
-async function ensureCustomer(userId: string): Promise<string> {
-  const { rows } = await pool.query(
-    `select thawani_customer_id from public.payment_customers where user_id = $1`, [userId],
-  );
-  if (rows[0]?.thawani_customer_id) return rows[0].thawani_customer_id as string;
-
-  const customerId = await thawani.createCustomer(userId);
-  await pool.query(
-    `insert into public.payment_customers (user_id, thawani_customer_id) values ($1,$2)
-     on conflict (user_id) do update set thawani_customer_id = excluded.thawani_customer_id`,
-    [userId, customerId],
-  );
-  return customerId;
-}
 
 /** Pull the card list from Thawani and mirror it locally (Thawani is the truth). */
 async function syncCards(userId: string, customerId: string) {
@@ -100,7 +85,8 @@ router.post('/verify',
   validateBody(z.object({ session_id: z.string().min(1) })),
   asyncHandler(async (req, res) => {
     const { rows } = await pool.query(
-      `select user_id, amount, status, purpose from public.payment_sessions where session_id = $1`,
+      // Café order payments settle through /api/cafe — never into the wallet.
+      `select user_id, amount, status, purpose from public.payment_sessions where session_id = $1 and cafe_order_id is null`,
       [req.body.session_id],
     );
     const ps = rows[0];

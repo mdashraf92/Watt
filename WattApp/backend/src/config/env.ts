@@ -6,6 +6,11 @@ const schema = z.object({
   PACKAGES_CHARGING_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   PACKAGES_MONITOR_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   PACKAGES_PURCHASE_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
+  // Café ordering (sql/backend-cafe-orders.sql). Off until a café is configured.
+  CAFE_ORDERS_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
+  // Beanz menu sync. Unset → Beanz cafés keep their last synced menu.
+  BEANZ_API_URL: z.string().optional(),
+  BEANZ_API_KEY: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(8080),
 

@@ -4,6 +4,8 @@ import type {
   AdminVenuePackage, PackageDraft, VenueOperations, VenueStaffMember, PackageDeviceConfig,
   MobileChargeConfig, MobileChargeRequest, OperatorJob, SavedTrip, ServiceVan, TripPlan, SupportReport,
   PackageChargingState, PackageChargingRun, PackageBenefit, ChargerListing, VenuePackage, Entitlement, PurchaseResult, RedeemResult,
+  CafeSummary, CafeDetail, CafeOrder, CafeOrderLine, CafePaymentStep, CafeStaffOrder, CafeStaffVenue,
+  AdminCafe, AdminCafeMenuItem, AdminCafeSettlement,
 } from '../types';
 
 // ── GO WATT API client (replaces supabase-js) ───────────────────────────────
@@ -272,6 +274,7 @@ export const api = {
   },
 
   host: {
+    summary: () => request<{earnings:{today:number;month:number};active_sessions:{id:string;status:string;started_at:string;kwh_delivered:number;cost:number}[];month_sessions:number;pending_payout:number}>('GET','/api/host/summary'),
     listing:        () => request('GET', '/api/host/listing'),
     createListing:  () => request('POST', '/api/host/listing'),
     bookings:       () => request('GET', '/api/host/bookings'),
@@ -348,6 +351,41 @@ export const api = {
   // ── Venue packages ───────────────────────────────────────────────────────
   // The bundle a branded venue sells. Charging is included in the price, never
   // metered against it, so nothing here takes or returns a price per kWh.
+  cafe: {
+    list: () => request<CafeSummary[]>('GET', '/api/cafe/cafes'),
+    detail: (id: string) => request<CafeDetail>('GET', `/api/cafe/cafes/${id}`),
+    /** Create (idempotent on request_key) and start card payment. */
+    order: (body: { station_id: string; package_id: string; request_key: string; expected_total: number;
+                    offer_version: string; note: string; items: CafeOrderLine[] }) =>
+      request<CafePaymentStep>('POST', '/api/cafe/orders', { body }),
+    pay: (id: string) => request<CafePaymentStep>('POST', `/api/cafe/orders/${id}/pay`),
+    verify: (id: string) => request<CafePaymentStep>('POST', `/api/cafe/orders/${id}/verify`),
+    cancel: (id: string) => request<CafeOrder>('POST', `/api/cafe/orders/${id}/cancel`),
+    orders: () => request<CafeOrder[]>('GET', '/api/cafe/orders'),
+    get: (id: string) => request<CafeOrder>('GET', `/api/cafe/orders/${id}`),
+    staffVenues: () => request<CafeStaffVenue[]>('GET', '/api/cafe/staff/venues'),
+    staffOrders: (stationId: string) =>
+      request<{ orders: CafeStaffOrder[]; today: { collected: number; cafe_net: number } }>('GET', `/api/cafe/staff/venues/${stationId}/orders`),
+    staffAction: (id: string, action: 'accept' | 'ready' | 'collect' | 'reject', reason?: string) =>
+      request('POST', `/api/cafe/staff/orders/${id}/${action}`, { body: { reason } }),
+    staffLookup: (code: string) => request<{ id: string; number: number; status: string; station_id: string }>('POST', '/api/cafe/staff/lookup', { body: { code } }),
+    staffPause: (stationId: string, paused: boolean) => request('POST', `/api/cafe/staff/venues/${stationId}/pause`, { body: { paused } }),
+    admin: {
+      cafes: () => request<AdminCafe[]>('GET', '/api/cafe/admin/cafes'),
+      save: (id: string, body: Pick<AdminCafe, 'cafe_enabled' | 'cafe_logo_url' | 'image_url' | 'prep_minutes' | 'menu_source' |
+        'beanz_store_id' | 'charge_share_omr' | 'commission_pct' | 'beanz_fee_pct'>) => request('PUT', `/api/cafe/admin/cafes/${id}`, { body }),
+      menu: (id: string) => request<AdminCafeMenuItem[]>('GET', `/api/cafe/admin/cafes/${id}/menu`),
+      addItem: (id: string, body: Partial<AdminCafeMenuItem>) => request<AdminCafeMenuItem>('POST', `/api/cafe/admin/cafes/${id}/menu`, { body }),
+      updateItem: (itemId: string, body: Partial<AdminCafeMenuItem>) => request<AdminCafeMenuItem>('PATCH', `/api/cafe/admin/menu/${itemId}`, { body }),
+      importCsv: (id: string, csv: string) =>
+        request<{ created: number; results: { row: number; status: string; message?: string }[] }>('POST', `/api/cafe/admin/cafes/${id}/menu/import`, { body: { csv } }),
+      syncBeanz: (id: string) => request<{ items: number }>('POST', `/api/cafe/admin/cafes/${id}/sync-beanz`),
+      settlement: (id: string) => request<AdminCafeSettlement>('GET', `/api/cafe/admin/cafes/${id}/settlement`),
+      settle: (id: string) => request('POST', `/api/cafe/admin/cafes/${id}/settlements`),
+      markPaid: (settlementId: string, bank_reference: string) => request('POST', `/api/cafe/admin/settlements/${settlementId}/paid`, { body: { bank_reference } }),
+      refund: (orderId: string, manual_reference?: string) => request('POST', `/api/cafe/admin/orders/${orderId}/refund`, { body: { manual_reference } }),
+    },
+  },
   packages: {
     charging: (id: string) => request<PackageChargingState>('GET', `/api/packages/entitlements/${id}/charging`),
     startCharging: (id: string, connectorId: string, startKey: string) => request<PackageChargingRun>('POST', `/api/packages/entitlements/${id}/start`, { body: { connector_id: connectorId, start_key: startKey } }),

@@ -11,6 +11,19 @@ import * as tuya from '../../integrations/tuya';
 const router = Router();
 const requireHost = requireRole('host', 'investor');
 
+router.get('/summary',requireAuth,requireHost,asyncHandler(async(req,res)=>{
+ const user=req.user!.id;
+ const [earnings,sessions,payouts]=await Promise.all([
+  query(`select coalesce(sum(amount) filter(where created_at >= (date_trunc('day',now() at time zone 'Asia/Muscat') at time zone 'Asia/Muscat')),0) as today,
+   coalesce(sum(amount) filter(where created_at >= (date_trunc('month',now() at time zone 'Asia/Muscat') at time zone 'Asia/Muscat')),0) as month
+   from wallet_transactions where user_id=$1 and type='earning'`,[user]),
+  query(`select s.id,s.status,s.started_at,s.kwh_delivered,s.cost from charging_sessions s join charger_listings l on l.id=s.listing_id where l.host_id=$1 and s.status='active' order by s.started_at limit 10`,[user]),
+  query(`select coalesce(sum(amount),0) as pending from payout_requests where user_id=$1 and status::text='pending'`,[user]),
+ ]);
+ const count=await query(`select count(*)::int as count from charging_sessions s join charger_listings l on l.id=s.listing_id where l.host_id=$1 and s.started_at >= (date_trunc('month',now() at time zone 'Asia/Muscat') at time zone 'Asia/Muscat')`,[user]);
+ res.json({earnings:earnings.rows[0],active_sessions:sessions.rows,month_sessions:count.rows[0].count,pending_payout:payouts.rows[0].pending});
+}));
+
 // The host's own charger listing.
 router.get('/listing', requireAuth, requireHost, asyncHandler(async (req, res) => {
   const { rows } = await query(`select * from public.charger_listings where host_id = $1`, [req.user!.id]);

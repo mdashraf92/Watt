@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>EVO Chargers</name>
+    <description>Live map for the EVO and Audi chargers in Oman</description>
+    <Style id="icon-1899-0288D1-normal">
+      <IconStyle>
+        <color>ffd18802</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1899-0288D1-highlight">
+      <IconStyle>
+        <color>ffd18802</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1899-0288D1">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1899-0288D1-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1899-0288D1-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Style id="icon-1899-7CB342-normal">
+      <IconStyle>
+        <color>ff42b37c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1899-7CB342-highlight">
+      <IconStyle>
+        <color>ff42b37c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1899-7CB342">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1899-7CB342-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1899-7CB342-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Folder>
+      <name>Audi EVO Chargers (Audi Branded)</name>
+      <Placemark>
+        <name>Mutrah Corniche</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.5636094,23.6206625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Muscat Municipality</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.5426094,23.6148875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Qurum Park</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4925156,23.6216375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name><![CDATA[Al Shati' Street]]></name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4747031,23.6224375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Ministry of Foreign Affairs</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4680469,23.6189375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name><![CDATA[Jawharat Al Shati']]></name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4621719,23.6162375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Grand Hayatt </name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4466094,23.6105375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Seeb Beach Dama Street</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.1567344,23.6949875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Oman Automobile Association</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.3199625,23.5873621,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Central Bank Of Oman</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.5459219,23.6027875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Waterfront Muscat</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4538906,23.6118625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Sifawi Boutique Hotel</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.7896586,23.4147434,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Anantara Jabal Akhdar</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            57.6705399,23.0677928,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Kempinski Muscat</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.2719375,23.6274375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Khatmat Al Shukla</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            55.95808,24.217473,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Nizwa, Golden Tulip</name>
+        <description>2x 22KW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            57.618703,22.923882,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Hatta, Oman Border</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            56.204378,24.803546,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Khatmat Milaha, Oman Border</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            56.3676406,24.9721875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>EVO Chargers (EVO Branded)</name>
+      <Placemark>
+        <name>Sohar Falaj Al Qabail SS</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            56.5999375,24.4145625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Expressway Halban SS</name>
+        <description>1x 180 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.0543125,23.6320625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Expressway Russayl SS</name>
+        <description>1x 50kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.2173125,23.5600625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Sur Al Barr SS</name>
+        <description>1x 180 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            59.4791875,22.5921875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Manah SS</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            57.5546875,22.6528125,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Haima SS</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            56.2500625,19.9496875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Salalah Ittin SS</name>
+        <description>1x 180 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            54.0626875,17.0436875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Duqum SS </name>
+        <description>1x 180 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            57.6036875,19.5178125,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>SQU SS</name>
+        <description>1x 50 kW DC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.1470625,23.5849375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Mall Of Muscat </name>
+        <description>2x 22 kW AC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            58.1483125,23.6454375,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Crowne Plaza Qurum</name>
+        <description>2x 22 kW AC</description>
+        <styleUrl>#icon-1899-7CB342</styleUrl>
+        <Point>
+          <coordinates>
+            58.4830625,23.6286875,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>OCEC Muscat</name>
+        <description>2x 22 kW AC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            58.3248125,23.5663125,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Salalah Anantara Al Baleed</name>
+        <description>2x 22 kW AC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            54.1438125,17.0080625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Muscat International Airport</name>
+        <description><![CDATA[x1 120 kW DC <br>x8 22 kW AC]]></description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            58.2899844,23.6016625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Maqshin SS Salalah Road</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            54.8955625,19.5633125,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Saih Al Khayrat SS Salalah Road</name>
+        <description>2x 22 kW AC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            54.0586875,18.2585625,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Ibri new SS</name>
+        <description>1x 120 kW DC</description>
+        <styleUrl>#icon-1899-0288D1</styleUrl>
+        <Point>
+          <coordinates>
+            56.4925625,23.2163125,0
+          </coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Untitled layer</name>
+    </Folder>
+  </Document>
+</kml>

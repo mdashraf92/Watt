@@ -11,7 +11,7 @@ import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import {
-  ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon,
+  ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon, CoffeeIcon,
   UserIcon, MailIcon, AwardIcon, UsersIcon, WalletIcon, TrendingUpIcon, PlugZapIcon,
   AlertTriangleIcon,
 } from '../../components/icons';
@@ -134,6 +134,14 @@ export default function AdminProfileScreen() {
                 <ZapIcon size={16} color={COLORS.primary} strokeWidth={2} />
               </View>
               <Text style={styles.settingLabel}>{t.ap_title}</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminCafes')} activeOpacity={0.7} accessibilityRole="button">
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.goldBg }]}>
+                <CoffeeIcon size={16} color={COLORS.goldDark} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.cafe_admin_title}</Text>
             </View>
           </TouchableOpacity>
 

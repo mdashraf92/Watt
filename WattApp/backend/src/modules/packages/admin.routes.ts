@@ -100,6 +100,8 @@ const packageBody = z.object({
   included_minutes:   z.number().int().positive().nullable().optional(),
   included_kwh:       z.number().finite().positive().nullable().optional(),
   validity_hours:     z.number().int().positive().default(24),
+  // Café packages: how many menu drinks the customer picks (sql/backend-cafe-orders.sql).
+  included_items:     z.number().int().min(0).max(10).default(1),
   sort_order:         z.number().int().default(0),
   is_active:          z.boolean().default(false),
 });
@@ -137,12 +139,12 @@ router.post('/packages',
       `insert into public.venue_packages
          (station_id, name, name_ar, description, description_ar,
           partner_benefit, partner_benefit_ar, price,
-          included_minutes, included_kwh, validity_hours, sort_order, is_active)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          included_minutes, included_kwh, validity_hours, sort_order, is_active, included_items)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        returning *`,
       [b.station_id, b.name, b.name_ar, b.description, b.description_ar,
        b.partner_benefit, b.partner_benefit_ar, b.price,
-       b.included_minutes ?? null, b.included_kwh ?? null, b.validity_hours, b.sort_order, b.is_active],
+       b.included_minutes ?? null, b.included_kwh ?? null, b.validity_hours, b.sort_order, b.is_active, b.included_items],
     );
     res.status(201).json(rows[0]);
   }),

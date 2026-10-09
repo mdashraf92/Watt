@@ -8,6 +8,11 @@ module.exports = async function adminTests(t, pool) {
   const migration = require('node:fs').readFileSync(require('node:path').join(__dirname, '../sql/backend-package-venues.sql'), 'utf8');
   await pool.query(migration);
   await pool.query(migration);
+  // The package editor writes included_items (café packages), so the café migration is a prerequisite.
+  await pool.query(`create table if not exists payment_sessions(id uuid primary key default gen_random_uuid(),
+    user_id uuid not null, session_id text not null unique, amount numeric not null, status text not null default 'pending',
+    purpose text not null default 'topup', created_at timestamptz default now(), paid_at timestamptz)`);
+  await pool.query(require('node:fs').readFileSync(require('node:path').join(__dirname, '../sql/backend-cafe-orders.sql'), 'utf8'));
   // Inject only the isolated database and test identity. The real router,
   // role guard, body validation and SQL run without loading application .env.
   const poolPath = require.resolve('../src/db/pool.ts');
